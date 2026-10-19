@@ -144,6 +144,25 @@ R, G, Y, B are the red, green, yellow and blue keys. The browser cannot play the
 5. In the console, `window.tizen` tells you whether the Tizen functions exist. The app also shows
    a small debug overlay while playing a video (method, codecs, resolution).
 
+## Run in the TV's web browser (no install)
+
+Use this route when the app cannot be installed on the TV. Newer Samsung certificates (2025) are
+rejected by this 2018 TV (install error 118012), so the app runs in the TV's built-in browser
+instead. Nothing is installed on the TV.
+
+1. On the PC, in the project folder, run `npm run build -w apps/tv` and then
+   `npm run preview -w apps/tv`. Leave this window open while you watch.
+2. Open the TV's **Internet** app. It may not be pinned on the Home bar: find it via **Home** →
+   **Apps**, or from the PC with `tizen run -p org.tizen.browser -t <device name>`.
+3. In the TV's browser go to `http://<PC IP>:4173`. Use the PC's Wi-Fi or LAN IP address (see
+   section 2), not the Tailscale one.
+4. When the app asks for the server address, enter `http://<PC IP>:8096`.
+5. Sign in with Quick Connect: on your phone or PC open Jellyfin, click your profile picture →
+   **Quick Connect**, enter the code shown on the TV and press **Authorize**.
+6. The first press of any remote button switches the browser to full screen, which hides the
+   address bar. If the Back button leaves full screen, the next button press switches it back.
+7. Bookmark the page in the TV's browser so you can open it quickly next time.
+
 ## 9. What to test
 
 Start the app. On first start it asks for the Jellyfin address and shows a **Quick Connect code**.
