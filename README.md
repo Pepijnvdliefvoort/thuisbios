@@ -24,9 +24,10 @@ sessions (remote control) API. The phone sends commands to the TV session throug
 .github/                  CI, release and dependency automation, PR template
 docs/plan.md              project plan
 docs/server/              Jellyfin setup guide for Windows (windows-setup.md)
+docs/tv/                  TV app: Tizen setup, install and test guide (dev-setup.md)
 scripts/                  repo tooling (version checks)
 packages/jellyfin-client/ planned: shared typed Jellyfin API client
-apps/tv/                  planned: Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite)
+apps/tv/                  Samsung Tizen 4.0 TV app, phase 2 spike (Preact + TypeScript + Vite)
 apps/remote/              planned: phone remote PWA (Preact + TypeScript + Vite)
 services/relay/           planned: optional ASP.NET Core relay for Samsung TV control
 server/                   Jellyfin helper scripts (PowerShell) and Pester tests; device profile planned
@@ -44,6 +45,27 @@ on Windows, enable NVENC, and set up the network. Helper scripts live in `server
 - `Test-JellyfinServer.ps1`: check that the server answers.
 
 Run the tests with `Invoke-Pester -Path server/tests` (Pester 5).
+
+## TV app (phase 2 spike)
+
+`apps/tv` is an npm workspace package: Preact + TypeScript + Vite, transpiled for Chromium 56
+(Tizen 4.0) with `@vitejs/plugin-legacy`. The spike has a Quick Connect sign-in, a row of the
+latest movies with D-pad navigation, an HTML5 player with a Jellyfin device profile and a debug
+overlay, and a volume test panel. Follow [docs/tv/dev-setup.md](docs/tv/dev-setup.md) to install
+it on the TV and run the test checklist.
+
+```bash
+npm install
+npm run dev -w apps/tv        # desktop browser at http://localhost:5173
+npm test                      # unit tests of all workspaces
+npm run typecheck             # tsc --noEmit in all workspaces
+npm run build -w apps/tv      # apps/tv/dist, ready to package for Tizen
+npm run check:dist -w apps/tv # build output must be ES2017 only
+```
+
+Signing and packaging (`npm run package -w apps/tv`) need the Tizen CLI and a Samsung
+certificate, so they run on the owner's PC, never in CI. Certificates and `.wgt` files are never
+committed.
 
 ## Branching and releases
 
@@ -64,20 +86,22 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the details.
 
 GitHub Actions in `.github/workflows`:
 
-- `ci.yml`: commitlint (commits and PR title), markdownlint, version consistency check, PowerShell
-  (PSScriptAnalyzer and Pester tests for `server/` on Windows).
+- `ci.yml`: commitlint (commits and PR title), markdownlint, version consistency check (root,
+  `apps/tv/package.json` and the Tizen `config.xml` must agree), TV app (typecheck, Vitest, build,
+  ES2017 syntax check, `dist` uploaded as artifact), PowerShell (PSScriptAnalyzer and Pester tests
+  for `server/` on Windows).
 - `release-please.yml`: on push to `main`, opens or updates the release PR and creates tags and releases.
 - `sync-develop.yml`: after a release, opens a PR from `main` back into `develop`.
 
 Dependabot updates GitHub Actions and npm weekly, targeting `develop`.
-Docker image builds (GHCR) and the other test jobs are added together with the first containerized service or code.
+Docker image builds (GHCR) and the other test jobs are added together with the first containerized service.
 
 ## Roadmap
 
 | Phase | Goal | Status |
 |---|---|---|
-| 1. Server | Jellyfin on the Windows PC with a test library | scripts and guide ready; owner follows [docs/server/windows-setup.md](docs/server/windows-setup.md) |
-| 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | planned |
+| 1. Server | Jellyfin on the Windows PC with a test library | done |
+| 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | in progress: app built, owner tests on the TV with [docs/tv/dev-setup.md](docs/tv/dev-setup.md) |
 | 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | planned |
 | 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume to the soundbar | planned |
 | 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | planned |
