@@ -8,6 +8,14 @@ import {
   selectPlayMethod,
   type DebugInfo,
 } from '../jellyfin/playback';
+import {
+  hasOnlyImageSubtitles,
+  listSubtitles,
+  nextSubtitle,
+  pickInitialSubtitle,
+  subtitleButtonLabel,
+  subtitleVttUrl,
+} from '../jellyfin/subtitles';
 import type { MediaSource, MovieItem, Session } from '../jellyfin/types';
 import { setLastSeek } from '../debug/keyLogState';
 import { useRemote } from '../nav/useRemote';
@@ -48,6 +56,7 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
   const pointerSeek = useRef<PointerSeek | null>(null);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const visibleRef = useRef(true);
+  const [subSel, setSubSel] = useState(-1);
   const [hint, setHint] = useState<{ text: string; n: number } | null>(null);
   visibleRef.current = controlsVisible;
 
@@ -104,6 +113,7 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
         const params = { itemId: item.Id, deviceId: clientInfo().deviceId, playSessionId: info.PlaySessionId };
         const selection = selectPlayMethod(source, params, forceTranscode);
         if (!selection) throw new Error(info.ErrorCode ? `Cannot play: ${info.ErrorCode}` : 'Server offers no playable stream');
+        setSubSel(pickInitialSubtitle(listSubtitles(source)));
         setLoaded({
           src: resolveStreamUrl(session.serverUrl, selection.url, session.token),
           debug: describePlayback(source, selection),
@@ -116,6 +126,54 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
       alive = false;
     };
   }, [client, session, item.Id, forceTranscode]);
+
+  // Subtitles: fetch the WebVTT text and attach it as a blob URL (avoids cross-origin <track> issues).
+  const subs = loaded ? listSubtitles(loaded.source) : [];
+  const imageOnly = loaded ? hasOnlyImageSubtitles(loaded.source) : false;
+  useEffect(() => {
+    const v = video.current;
+    if (!loaded || !v) return;
+    const old = v.querySelectorAll('track');
+    for (let i = 0; i < old.length; i++) {
+      const src = old[i].getAttribute('src');
+      if (src) URL.revokeObjectURL(src);
+      v.removeChild(old[i]);
+    }
+    const track = subs[subSel];
+    if (!track) return;
+    let alive = true;
+    let blobUrl = '';
+    fetch(subtitleVttUrl(session.serverUrl, item.Id, loaded.source.Id, track.index, session.token))
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
+      .then((text) => {
+        if (!alive) return;
+        blobUrl = URL.createObjectURL(new Blob([text], { type: 'text/vtt' }));
+        const el = document.createElement('track');
+        el.kind = 'subtitles';
+        el.label = track.label;
+        el.srclang = track.lang || 'und';
+        el.default = true;
+        el.src = blobUrl;
+        el.addEventListener('load', () => {
+          if (el.track) el.track.mode = 'showing';
+        });
+        v.appendChild(el);
+        if (el.track) el.track.mode = 'showing';
+      })
+      .catch((e: Error) => {
+        if (!alive) return;
+        setError(`Subtitles failed: ${e.message}`);
+        setSubSel(-1);
+      });
+    return () => {
+      alive = false;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, subSel]);
 
   // Progress reporting: start, every 10 s, stop.
   useEffect(() => {
@@ -257,6 +315,24 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
           <button data-focusable class="ctl" onClick={() => seek(SEEK_FORWARD)}>
             <span class="icon">&raquo;</span>Forward 30s
           </button>
+          {subs.length > 0 && (
+            <button
+              data-focusable
+              class="ctl"
+              onClick={() => {
+                setSubSel((i) => nextSubtitle(subs.length, i));
+                poke();
+              }}
+            >
+              <span class="icon">CC</span>
+              {subtitleButtonLabel(subs, subSel)}
+            </button>
+          )}
+          {subs.length === 0 && imageOnly && (
+            <button data-focusable class="ctl" disabled title="Image subtitles are not supported yet">
+              <span class="icon">CC</span>CC: n/a
+            </button>
+          )}
         </div>
         <div class="progress">
           <span>{formatTime(position)}</span>

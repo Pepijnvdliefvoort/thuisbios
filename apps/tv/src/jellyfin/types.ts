@@ -46,6 +46,17 @@ export interface MediaStream {
   BitDepth?: number;
   VideoRangeType?: string;
   Channels?: number;
+  // Subtitle streams
+  Index?: number;
+  Language?: string;
+  DisplayTitle?: string;
+  Title?: string;
+  IsDefault?: boolean;
+  IsForced?: boolean;
+  IsExternal?: boolean;
+  IsTextSubtitleStream?: boolean;
+  DeliveryMethod?: string;
+  DeliveryUrl?: string;
 }
 
 export interface MediaSource {

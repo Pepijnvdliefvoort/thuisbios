@@ -184,6 +184,11 @@ In this browser the remote works as a mouse, not as a keyboard:
   player, the last move (for example `nav: dx=12 dy=0 -> right`).
 - **RETURN** goes back to the movie list.
 
+Subtitles: when a movie has text subtitles (SRT, ASS, embedded text), a **CC** button appears next
+to the playback buttons. Each press cycles Off, track 1, track 2 and so on, back to Off. Image
+subtitles (PGS, dvdsub) are not supported yet; if a movie only has those, the button shows
+"CC: n/a" and is disabled.
+
 ## 9. What to test
 
 Start the app. On first start it asks for the Jellyfin address and shows a **Quick Connect code**.
