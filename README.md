@@ -60,7 +60,7 @@ text subtitles (CC button). In the TV browser, Return while in full screen only 
 so the app treats that as a back step (details to home, player to details) and asks for full screen
 again; full screen only ends for good on the home screen. While the page is not in full screen, the TV browser shows a modal over the whole page ("Press OK to
 continue in full screen"); OK then only enters full screen and the arrows do not move the focus behind it.
-If the browser refuses full screen, the modal is turned off for the rest of the session. The `?debug` overlay shows these
+If the browser refuses full screen twice in a row after OK, the modal is turned off for the rest of the session; the OK press is swallowed for a second so it never starts a movie. The `?debug` overlay shows these
 decisions. Follow [docs/tv/dev-setup.md](docs/tv/dev-setup.md) to install
 it on the TV and run the test checklist. If the TV refuses the install, the same guide explains
 how to run the app in the TV's web browser (`npm run preview -w apps/tv`, served on port 4173).

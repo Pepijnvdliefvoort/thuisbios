@@ -5,21 +5,25 @@ import type { BaseItem } from '../jellyfin/types';
 
 const LOGO_W = 520;
 const LOGO_H = 140;
+const COMPACT_LOGO_W = 400;
+const COMPACT_LOGO_H = 90;
 
 interface Props {
   client: JellyfinClient;
   item: BaseItem;
   /** Show the genres line (details page). */
   genres?: boolean;
+  /** Smaller hero variant for the home screen. */
+  compact?: boolean;
 }
 
 /** Title (logo image when there is one), episode line, meta line, optional genres and the overview. */
-export function ItemInfo({ client, item, genres }: Props) {
-  const logo = artUrl(client, artFor(item, 'logo'), LOGO_W, LOGO_H);
+export function ItemInfo({ client, item, genres, compact }: Props) {
+  const logo = artUrl(client, artFor(item, 'logo'), compact ? COMPACT_LOGO_W : LOGO_W, compact ? COMPACT_LOGO_H : LOGO_H);
   const subtitle = episodeSubtitle(item);
   const meta = metaParts(item);
   return (
-    <div class="info">
+    <div class={compact ? 'info info-compact' : 'info'}>
       {logo ? (
         <img key={logo} class="logo" alt={displayTitle(item)} src={logo} />
       ) : (

@@ -28,7 +28,7 @@ input:focus { border-color: var(--accent); outline: none; }
 .bar h1 { margin: 0 auto 0 0; }
 /* Home and details. Fixed 1920x1080 layout in px (the TV browser renders at 1920x1080); only transform and opacity are animated. */
 .home, .details { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; background: var(--bg); }
-.hero { position: absolute; top: 0; left: 0; width: 1920px; height: 560px; overflow: hidden; }
+.hero { position: absolute; top: 0; left: 0; width: 1920px; height: 360px; overflow: hidden; }
 .backdrop { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #14141c; }
 .backdrop-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 300ms; }
 .backdrop-img.on { opacity: 1; }
@@ -44,7 +44,7 @@ input:focus { border-color: var(--accent); outline: none; }
   background: rgba(38, 38, 58, 0.8); border: 3px solid transparent; cursor: pointer; outline: none;
 }
 .signout:focus { border-color: var(--accent); transform: scale(1.06); }
-.hero-text { position: absolute; left: 64px; bottom: 36px; width: 820px; }
+.hero-text { position: absolute; left: 64px; bottom: 20px; width: 800px; }
 
 .info { margin-bottom: 20px; }
 .info-title { margin: 0 0 8px; font-size: 64px; line-height: 1.1; }
@@ -56,21 +56,27 @@ input:focus { border-color: var(--accent); outline: none; }
   margin: 8px 0 0; font-size: 24px; line-height: 32px; max-height: 96px; color: rgba(255, 255, 255, 0.9);
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
 }
+.info-compact { margin-bottom: 12px; }
+.info-compact .info-title { margin: 0 0 4px; font-size: 56px; }
+.info-compact .logo { max-width: 400px; max-height: 90px; margin-bottom: 6px; }
+.info-compact .info-sub { font-size: 24px; margin-bottom: 4px; }
+.info-compact .info-meta { font-size: 22px; margin-bottom: 4px; }
+.info-compact .info-overview { margin: 4px 0 0; font-size: 22px; line-height: 30px; max-height: 60px; max-width: 800px; -webkit-line-clamp: 2; }
 .hero-buttons { display: flex; align-items: center; }
 .hbtn {
-  font-size: 28px; padding: 12px 36px; margin: 0 20px 0 0; color: var(--fg);
+  font-size: 22px; line-height: 28px; padding: 6px 28px; margin: 0 20px 0 0; color: var(--fg);
   background: rgba(255, 255, 255, 0.18); border: 3px solid transparent; cursor: pointer; outline: none;
 }
 .hbtn.primary { background: #fff; color: #111; }
 .hbtn:focus { border-color: var(--accent); transform: scale(1.06); }
 .hbtn:disabled { opacity: 0.5; cursor: default; }
 
-.rows-view { position: absolute; top: 560px; left: 0; width: 1920px; height: 520px; overflow: hidden; }
+.rows-view { position: absolute; top: 360px; left: 0; width: 1920px; height: 720px; overflow: hidden; }
 .rows { transition: transform 200ms; }
 .state { margin: 40px 64px; font-size: 28px; }
 .row { position: relative; }
-.row-title { margin: 0; padding: 0 0 0 64px; height: 52px; line-height: 52px; font-size: 28px; font-weight: normal; }
-.track { position: relative; margin-left: 64px; transition: transform 200ms; }
+.row-title { margin: 0; padding: 0 0 0 64px; height: 44px; line-height: 44px; font-size: 26px; font-weight: normal; }
+.track { position: relative; margin-left: 64px; margin-top: 16px; transition: transform 200ms; }
 
 .tile {
   position: absolute; top: 0; margin: 0; padding: 0; color: var(--fg); text-align: left; font-family: inherit;

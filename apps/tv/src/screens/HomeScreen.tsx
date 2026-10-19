@@ -28,9 +28,9 @@ interface Props {
 }
 
 const HERO_W = 1920;
-const HERO_H = 560;
-const ROW_TITLE_H = 52;
-const ROW_PAD_H = 18;
+const HERO_H = 360;
+const ROW_TITLE_H = 60;
+const ROW_PAD_H = 12;
 const FEATURE_DEBOUNCE_MS = 300;
 /** Grid rows 0 and 1 are the sign-out button and the hero buttons; content rows start at 2. */
 const FIRST_ROW = 2;
@@ -131,7 +131,7 @@ export function HomeScreen({ client, session, snapshot, onSnapshot, onOpen, onPl
         </button>
         {featured && (
           <div class="hero-text">
-            <ItemInfo client={client} item={featured} />
+            <ItemInfo client={client} item={featured} compact />
             <div class="hero-buttons">
               <button data-focusable data-row={1} data-col={0} class="hbtn primary" onClick={playFeatured}>
                 {hasResume(featured) ? 'Resume' : 'Play'}

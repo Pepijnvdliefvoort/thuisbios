@@ -7,7 +7,7 @@ import type { RowKind } from '../jellyfin/homeRows';
 /** Tile geometry in px for the 1920x1080 TV layout. Images are requested at exactly these sizes. */
 export const TILE = {
   landscape: { w: 320, h: 180, stride: 340, caption: 64 },
-  poster: { w: 200, h: 300, stride: 220, caption: 40 },
+  poster: { w: 180, h: 270, stride: 200, caption: 36 },
 };
 
 interface Props {
