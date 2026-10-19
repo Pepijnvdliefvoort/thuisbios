@@ -153,7 +153,7 @@ function Shell({
         </div>
         {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
         {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
-        {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} /> : null}
+        {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
         <div class="bottom">
           {top && (top.kind === 'nowPlaying' || top.kind === 'connect') ? null : <MiniPlayer />}
           {top && top.kind === 'connect' ? null : <TabBar tab={nav.tab} onChange={nav.setTab} />}

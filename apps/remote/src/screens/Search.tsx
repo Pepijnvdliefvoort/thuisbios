@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { PullSpinner } from '../components/PullSpinner';
 import { Grid } from '../components/Row';
 import { MediaCard } from '../components/MediaCard';
 import { useApp } from '../context';
 import { useAsync } from '../useAsync';
+import { usePullToRefresh } from '../usePullToRefresh';
 
 export const SEARCH_DEBOUNCE_MS = 300;
 
@@ -18,8 +20,11 @@ export function Search() {
     () => (term ? client.search(session.userId, term, 40) : Promise.resolve([])),
     [client, session.userId, term],
   );
+  const pageRef = useRef<HTMLDivElement>(null);
+  const pull = usePullToRefresh(pageRef, () => results.reload());
   return (
-    <div class="page">
+    <div class="page" ref={pageRef}>
+      <PullSpinner pull={pull} />
       <div class="searchbox">
         <input
           type="search"

@@ -1,17 +1,30 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { Img } from '../components/Img';
 import { useApp } from '../context';
 import { artUrl } from '../jellyfin/art';
 import { episodeLabel, formatClock, formatTicksClock, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
+import { shouldCloseNowPlaying } from '../nav';
 import { useTick } from '../useTv';
 
-export function NowPlaying({ onBack }: { onBack: () => void }) {
+export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: () => void }) {
   const { tv, client } = useApp();
   const np = tv.nowPlaying;
   // Seconds while the thumb is being dragged; null otherwise. Seek is sent on release only.
   const [drag, setDrag] = useState<number | null>(null);
   useTick(!!np && !np.isPaused && drag === null, 500);
+
+  // Leave when playback ends (Stop, or the TV finished/stopped); not while the screen is still settling.
+  const wasPlaying = useRef(!!np);
+  const stopRequested = useRef(false);
+  const closed = useRef(false);
+  useEffect(() => {
+    if (np) wasPlaying.current = true;
+    if (!closed.current && shouldCloseNowPlaying(wasPlaying.current, !!np, stopRequested.current)) {
+      closed.current = true;
+      onClose();
+    }
+  }, [np]);
 
   if (!np) {
     return (
@@ -19,7 +32,6 @@ export function NowPlaying({ onBack }: { onBack: () => void }) {
         <button type="button" class="back" onClick={onBack} aria-label="Back">
           <Icon name="back" />
         </button>
-        <p class="empty pad-top">Nothing is playing on the TV.</p>
       </div>
     );
   }
@@ -81,7 +93,11 @@ export function NowPlaying({ onBack }: { onBack: () => void }) {
           <Icon name="next" size={30} />
         </button>
       </div>
-      <button type="button" class="btn secondary stop" onClick={tv.stop}>
+      <button type="button" class="btn secondary stop" onClick={() => {
+          stopRequested.current = true;
+          tv.stop();
+        }}
+      >
         <Icon name="stop" size={20} /> Stop
       </button>
     </div>

@@ -1,11 +1,13 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
+import { PullSpinner } from '../components/PullSpinner';
 import { Img } from '../components/Img';
 import { useApp } from '../context';
 import { artUrl } from '../jellyfin/art';
 import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from '../jellyfin/format';
 import type { BaseItem } from '../jellyfin/types';
-import { useAsync } from '../useAsync';
+import { useAsync, useRegisterReload, type Reloaders } from '../useAsync';
+import { usePullToRefresh } from '../usePullToRefresh';
 
 /** Ticks to resume from: the saved position, ignored when it is basically the start. */
 export const resumeTicks = (item: BaseItem): number => {
@@ -16,19 +18,26 @@ export const resumeTicks = (item: BaseItem): number => {
 export function Details({ id, onBack }: { id: string; onBack: () => void }) {
   const { client, session } = useApp();
   const item = useAsync(() => client.item(session.userId, id), [client, session.userId, id]);
+  // Children (next episode, seasons, episodes) register their reloads here so a pull refreshes them too.
+  const reloaders = useRef(new Set<() => Promise<void>>());
+  const pageRef = useRef<HTMLDivElement>(null);
+  const pull = usePullToRefresh(pageRef, () =>
+    Promise.all([item.reload(), ...Array.from(reloaders.current, (reload) => reload())]),
+  );
   return (
-    <div class="details">
+    <div class="details" ref={pageRef}>
+      <PullSpinner pull={pull} />
       <button type="button" class="back" onClick={onBack} aria-label="Back">
         <Icon name="back" />
       </button>
-      {item.data ? <DetailsBody item={item.data} /> : null}
+      {item.data ? <DetailsBody item={item.data} reloaders={reloaders} /> : null}
       {item.loading && !item.data ? <p class="hint pad-top">Loading...</p> : null}
       {item.error ? <p class="empty pad-top">Couldn't load this item.</p> : null}
     </div>
   );
 }
 
-function DetailsBody({ item }: { item: BaseItem }) {
+function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders }) {
   const { client, session, tv, toast, openItem } = useApp();
   const isSeries = item.Type === 'Series';
   const isEpisode = item.Type === 'Episode';
@@ -43,6 +52,7 @@ function DetailsBody({ item }: { item: BaseItem }) {
     return eps[0] || null;
   }, [client, session.userId, item.Id]);
 
+  useRegisterReload(reloaders, target.reload);
   const playItem = target.data;
   const resume = playItem ? resumeTicks(playItem) : 0;
   const noTv = !tv.tv;
@@ -103,12 +113,12 @@ function DetailsBody({ item }: { item: BaseItem }) {
       {item.Overview ? <p class="overview">{item.Overview}</p> : null}
       {item.Genres && item.Genres.length > 0 ? <p class="genres">{item.Genres.join(' · ')}</p> : null}
 
-      {isSeries ? <Episodes series={item} onOpen={openItem} /> : null}
+      {isSeries ? <Episodes series={item} onOpen={openItem} reloaders={reloaders} /> : null}
     </>
   );
 }
 
-function Episodes({ series, onOpen }: { series: BaseItem; onOpen: (id: string) => void }) {
+function Episodes({ series, onOpen, reloaders }: { series: BaseItem; onOpen: (id: string) => void; reloaders: Reloaders }) {
   const { client, session, tv, toast } = useApp();
   const seasons = useAsync(() => client.seasons(session.userId, series.Id), [client, session.userId, series.Id]);
   const [picked, setPicked] = useState<string | null>(null);
@@ -117,6 +127,8 @@ function Episodes({ series, onOpen }: { series: BaseItem; onOpen: (id: string) =
     () => (seasonId ? client.episodes(session.userId, series.Id, seasonId) : Promise.resolve([])),
     [client, session.userId, series.Id, seasonId],
   );
+  useRegisterReload(reloaders, seasons.reload);
+  useRegisterReload(reloaders, episodes.reload);
   return (
     <section class="episodes">
       <h2>Episodes</h2>
