@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 
 /** A screen pushed on top of the current tab. */
-export type Screen = { kind: 'details'; id: string } | { kind: 'nowPlaying' };
+export type Screen = { kind: 'details'; id: string } | { kind: 'nowPlaying' }
+  | { kind: 'connect'; code?: string };
 
 export type Tab = 'home' | 'search' | 'library';
 

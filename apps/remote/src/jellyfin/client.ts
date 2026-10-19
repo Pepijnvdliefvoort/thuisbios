@@ -37,6 +37,8 @@ export interface JellyfinClient {
   episodes(userId: string, seriesId: string, seasonId: string): Promise<BaseItem[]>;
   sessions(userId: string): Promise<RemoteSession[]>;
   send(command: Command): Promise<void>;
+  /** Approves the Quick Connect code shown on a device (the TV) for the signed-in user. */
+  authorizeQuickConnect(code: string, userId?: string): Promise<void>;
   logout(): Promise<void>;
 }
 
@@ -104,6 +106,9 @@ export function createClient(options: ClientOptions): JellyfinClient {
     sessions: (userId) => req<RemoteSession[]>('GET', `/Sessions?ControllableByUserId=${enc(userId)}&ActiveWithinSeconds=960`),
     send: async (command) => {
       await req<void>(command.method, command.path);
+    },
+    authorizeQuickConnect: async (code, userId) => {
+      await req<void>('POST', `/QuickConnect/Authorize?code=${enc(code)}${userId ? `&userId=${enc(userId)}` : ''}`);
     },
     logout: async () => {
       await req<void>('POST', '/Sessions/Logout');

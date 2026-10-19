@@ -4,8 +4,12 @@ import { Icon } from './Icon';
 
 /** Header chip showing the connected TV; tap to pick another one. */
 export function TvChip({ onSignOut }: { onSignOut: () => void }) {
-  const { tv, session } = useApp();
+  const { tv, session, openConnectTv } = useApp();
   const [open, setOpen] = useState(false);
+  const connect = () => {
+    setOpen(false);
+    openConnectTv();
+  };
   const connected = !!tv.tv;
   const name = tv.tv ? tv.tv.DeviceName || 'TV' : tv.loaded ? 'No TV' : 'Looking for TV';
   return (
@@ -21,11 +25,14 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
           <div class="sheet" role="dialog" aria-label="Choose a TV" onClick={(e) => e.stopPropagation()}>
             <h2>Your TV</h2>
             {tv.tvs.length === 0 ? (
-              <p class="empty">
-                {tv.loaded
-                  ? 'Open Thuisbios on your TV and sign in; it will show up here.'
-                  : 'Looking for your TV...'}
-              </p>
+              <div class="empty-tv">
+                <p class="empty">{tv.loaded ? 'No TV yet' : 'Looking for your TV...'}</p>
+                {tv.loaded ? (
+                  <button type="button" class="btn primary" onClick={connect}>
+                    <Icon name="tv" size={20} /> Connect a TV
+                  </button>
+                ) : null}
+              </div>
             ) : (
               <ul class="tv-list">
                 {tv.tvs.map((s) => (
@@ -46,6 +53,11 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
                 ))}
               </ul>
             )}
+            {tv.tvs.length > 0 ? (
+              <button type="button" class="btn secondary" onClick={connect}>
+                <Icon name="tv" size={20} /> Connect a TV
+              </button>
+            ) : null}
             <p class="signed-in">Signed in as {session.userName}</p>
             <button
               type="button"

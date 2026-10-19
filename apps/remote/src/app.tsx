@@ -8,20 +8,43 @@ import { Ctx, type AppContext } from './context';
 import { createClient } from './jellyfin/client';
 import type { Session } from './jellyfin/types';
 import { useNav } from './nav';
+import { ConnectTv } from './screens/ConnectTv';
 import { Details } from './screens/Details';
 import { Home } from './screens/Home';
 import { Library } from './screens/Library';
 import { NowPlaying } from './screens/NowPlaying';
 import { Search } from './screens/Search';
 import { SignIn } from './screens/SignIn';
-import { clearSession, getDeviceId, loadSession, saveSession } from './storage';
+import { parseConnectParam } from './jellyfin/quickConnect';
+import { clearSession, getDeviceId, loadPendingConnect, loadSession, saveSession, savePendingConnect } from './storage';
 import { useTv } from './useTv';
+
+/**
+ * Reads `?connect=CODE` (from the TV's QR code) once at load and removes it from the URL. The code is kept
+ * in sessionStorage so a reload while signing in does not lose it.
+ */
+function takeConnectCode(): string | null {
+  try {
+    const parsed = parseConnectParam(window.location.search);
+    if (parsed.present) {
+      history.replaceState(history.state, '', `${window.location.pathname}${parsed.search}${window.location.hash}`);
+      if (parsed.code) savePendingConnect(parsed.code);
+    }
+  } catch (e) {
+    // Unreadable URL or no history: nothing to connect.
+  }
+  return loadPendingConnect();
+}
 
 export function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
+  // A ref, not state: clearing it must not re-render the app while the Connect TV screen opens.
+  const pending = useRef<string | null | undefined>(undefined);
+  if (pending.current === undefined) pending.current = takeConnectCode();
   if (!session) {
     return (
       <SignIn
+        connecting={!!pending.current}
         onSignedIn={(s) => {
           saveSession(s);
           setSession(s);
@@ -32,6 +55,11 @@ export function App() {
   return (
     <Shell
       session={session}
+      connectCode={pending.current ?? null}
+      onConnectTaken={() => {
+        savePendingConnect(null);
+        pending.current = null;
+      }}
       onSignOut={() => {
         clearSession();
         setSession(null);
@@ -40,7 +68,17 @@ export function App() {
   );
 }
 
-function Shell({ session, onSignOut }: { session: Session; onSignOut: () => void }) {
+function Shell({
+  session,
+  connectCode,
+  onConnectTaken,
+  onSignOut,
+}: {
+  session: Session;
+  connectCode: string | null;
+  onConnectTaken: () => void;
+  onSignOut: () => void;
+}) {
   const client = useMemo(
     () => createClient({ serverUrl: session.serverUrl, info: clientInfo(), token: session.token }),
     [session],
@@ -66,6 +104,13 @@ function Shell({ session, onSignOut }: { session: Session; onSignOut: () => void
     if (nav.stack.length === 0) savedScroll.current = window.scrollY;
   };
 
+  // A QR-code link: open the Connect TV screen, which authorizes the code straight away.
+  useEffect(() => {
+    if (!connectCode) return;
+    onConnectTaken();
+    nav.push({ kind: 'connect', code: connectCode });
+  }, []);
+
   const ctx: AppContext = {
     client,
     session,
@@ -74,6 +119,10 @@ function Shell({ session, onSignOut }: { session: Session; onSignOut: () => void
     openItem: (id) => {
       remember();
       nav.push({ kind: 'details', id });
+    },
+    openConnectTv: () => {
+      remember();
+      nav.push({ kind: 'connect' });
     },
     openNowPlaying: () => {
       remember();
@@ -103,10 +152,11 @@ function Shell({ session, onSignOut }: { session: Session; onSignOut: () => void
           </main>
         </div>
         {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
+        {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
         {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} /> : null}
         <div class="bottom">
-          {top && top.kind === 'nowPlaying' ? null : <MiniPlayer />}
-          <TabBar tab={nav.tab} onChange={nav.setTab} />
+          {top && (top.kind === 'nowPlaying' || top.kind === 'connect') ? null : <MiniPlayer />}
+          {top && top.kind === 'connect' ? null : <TabBar tab={nav.tab} onChange={nav.setTab} />}
         </div>
         <Toast message={toastText} />
       </div>

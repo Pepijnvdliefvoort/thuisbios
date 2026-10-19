@@ -49,3 +49,23 @@ export const loadServerUrl = (): string => read(SERVER_KEY) ?? '';
 export const saveServerUrl = (url: string): void => write(SERVER_KEY, url);
 export const loadTvDeviceId = (): string | null => read(TV_KEY);
 export const saveTvDeviceId = (id: string): void => write(TV_KEY, id);
+
+const PENDING_KEY = 'thuisbios.remote.pendingConnect';
+
+/** A Quick Connect code from a QR link, kept for the tab while the phone signs in (survives a reload). */
+export function loadPendingConnect(): string | null {
+  try {
+    return sessionStorage.getItem(PENDING_KEY);
+  } catch (e) {
+    return null;
+  }
+}
+
+export function savePendingConnect(code: string | null): void {
+  try {
+    if (code === null) sessionStorage.removeItem(PENDING_KEY);
+    else sessionStorage.setItem(PENDING_KEY, code);
+  } catch (e) {
+    // Storage unavailable: the code only lives in memory.
+  }
+}

@@ -215,3 +215,33 @@ input:focus { outline: none; border-color: var(--accent); }
 .signin label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); }
 .error { color: #ff6b6b; font-size: 15px; }
 .signin .btn { margin-top: 4px; }
+.signin-banner { background: var(--surface); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; margin: 12px 0 0; font-weight: 600; }
+
+/* Connect TV */
+.connect { min-height: 100vh; min-height: 100dvh; display: flex; justify-content: center; padding: calc(var(--safe-top) + 72px) var(--gutter) calc(var(--safe-bottom) + 24px); }
+.connect-body { width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
+.connect-body form { width: 100%; display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
+.connect h1 { font-size: 26px; line-height: 1.2; }
+.connect-lead, .connect-busy { color: var(--muted); }
+.connect-busy { padding: 24px 0; font-size: 18px; }
+.connect-icon, .connect-check { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface); color: var(--fg); margin-bottom: 4px; }
+.connect-check { background: var(--ok); color: #08130c; }
+.connect-done { padding-top: 48px; }
+.code-input {
+  width: 100%; min-height: 72px; padding: 0 0 0 0.35em; text-align: center; font-size: 40px; font-weight: 700; letter-spacing: 0.35em;
+  font-variant-numeric: tabular-nums; color: var(--fg); background: var(--surface); border: 2px solid transparent; border-radius: var(--radius);
+  appearance: none; -webkit-appearance: none;
+}
+.code-input::placeholder { color: #44444f; }
+.code-input:focus { outline: none; border-color: var(--accent); }
+.code-input:disabled { opacity: 0.6; }
+.connect-error { text-align: left; }
+.connect .btn { min-height: 52px; }
+.empty-tv { display: flex; flex-direction: column; gap: 4px; }
+.empty-tv .empty { padding: 8px 0 4px; }
+.connect-card { display: flex; align-items: center; gap: 12px; margin: 8px var(--gutter) 4px; padding: 14px; background: var(--surface); border-radius: 12px; border-left: 4px solid var(--accent); }
+.connect-card-icon { flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-2); display: flex; align-items: center; justify-content: center; }
+.connect-card-text { flex: 1; min-width: 0; }
+.connect-card-text h2 { font-size: 17px; }
+.connect-card-text p { color: var(--muted); font-size: 14px; }
+.connect-card-btn { width: auto; flex: none; min-height: 44px; }

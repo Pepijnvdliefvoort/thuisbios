@@ -6,7 +6,7 @@ import { describeSignInError } from '../jellyfin/errors';
 import type { Session } from '../jellyfin/types';
 import { loadServerUrl, saveServerUrl } from '../storage';
 
-export function SignIn({ onSignedIn }: { onSignedIn: (session: Session) => void }) {
+export function SignIn({ onSignedIn, connecting }: { onSignedIn: (session: Session) => void; connecting?: boolean }) {
   const [server, setServer] = useState(
     () => loadServerUrl() || defaultServerUrl(import.meta.env.VITE_JELLYFIN_URL, window.location),
   );
@@ -37,6 +37,11 @@ export function SignIn({ onSignedIn }: { onSignedIn: (session: Session) => void 
   return (
     <main class="signin">
       <div class="signin-logo">Thuisbios</div>
+      {connecting ? (
+        <p class="signin-banner" role="status">
+          Sign in to connect your TV
+        </p>
+      ) : null}
       <p class="signin-lead">Sign in to control your TV.</p>
       <form onSubmit={submit}>
         <label>

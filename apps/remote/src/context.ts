@@ -10,6 +10,8 @@ export interface AppContext {
   tv: TvApi;
   openItem(id: string): void;
   openNowPlaying(): void;
+  /** Opens the Connect TV screen (enter the Quick Connect code shown on the TV). */
+  openConnectTv(): void;
   toast(message: string): void;
 }
 

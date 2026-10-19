@@ -29,6 +29,8 @@ export interface TvApi {
   loaded: boolean;
   nowPlaying: NowPlaying | null;
   chooseTv(deviceId: string): void;
+  /** Polls the sessions now, and again a few times shortly after (a freshly connected TV needs a moment to sign in). */
+  refresh(): void;
   /** Current position in ticks, extrapolated from the last report. */
   position(): number;
   play(item: BaseItem, startTicks: number): Promise<boolean>;
@@ -67,6 +69,14 @@ export function useTv(
     try {
       const list = await client.sessions(userId);
       setSessions(list);
+      // Follow a TV that appeared when none was chosen or the chosen one is gone.
+      const found = listTvs(list, ownDeviceId);
+      const wanted = preferredRef.current;
+      if (found.length > 0 && !(wanted && found.some((s) => s.DeviceId === wanted))) {
+        saveTvDeviceId(found[0].DeviceId);
+        preferredRef.current = found[0].DeviceId;
+        setPreferred(found[0].DeviceId);
+      }
       // Re-resolve the TV on every poll: session ids change when the TV reconnects.
       const current = pickTv(list, ownDeviceId, preferredRef.current);
       const fresh = toNowPlaying(current, Date.now());
@@ -135,6 +145,10 @@ export function useTv(
       saveTvDeviceId(deviceId);
       setPreferred(deviceId);
       setNowPlaying(null);
+    },
+    refresh: () => {
+      void poll();
+      for (const ms of [1000, 2500, 5000]) setTimeout(() => void poll(), ms);
     },
     position,
     play: (item, startTicks) => run((s) => playCommand(s, item.Id, startTicks)),
