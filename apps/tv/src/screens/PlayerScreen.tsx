@@ -10,6 +10,7 @@ import {
 } from '../jellyfin/playback';
 import type { MediaSource, MovieItem, Session } from '../jellyfin/types';
 import { useRemote } from '../nav/useRemote';
+import { createAutoHide, formatTime, type AutoHide } from './autoHide';
 
 interface Props {
   client: JellyfinClient;
@@ -26,7 +27,8 @@ interface Loaded {
 }
 
 const PROGRESS_MS = 10000;
-const SEEK_SECONDS = 10;
+const SEEK_BACK = 10;
+const SEEK_FORWARD = 30;
 
 export function PlayerScreen({ client, session, item, onExit }: Props) {
   const video = useRef<HTMLVideoElement>(null);
@@ -36,6 +38,25 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
   const [showDebug, setShowDebug] = useState(true);
   const [status, setStatus] = useState('loading');
   const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hide = useRef<AutoHide | null>(null);
+
+  useEffect(() => {
+    const h = createAutoHide(setControlsVisible);
+    hide.current = h;
+    return () => {
+      h.dispose();
+      hide.current = null;
+    };
+  }, []);
+  const poke = () => {
+    if (hide.current) hide.current.poke();
+  };
+  useEffect(() => {
+    if (hide.current) hide.current.setPaused(paused);
+  }, [paused]);
 
   // Ask Jellyfin how to play this item for this TV.
   useEffect(() => {
@@ -89,10 +110,12 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
     if (!v) return;
     if (v.paused) v.play();
     else v.pause();
+    poke();
   };
   const seek = (seconds: number) => {
     const v = video.current;
     if (v) v.currentTime = Math.max(0, v.currentTime + seconds);
+    poke();
   };
 
   useRemote((key) => {
@@ -114,11 +137,11 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
         return true;
       case 'right':
       case 'fastForward':
-        seek(SEEK_SECONDS);
+        seek(SEEK_FORWARD);
         return true;
       case 'left':
       case 'rewind':
-        seek(-SEEK_SECONDS);
+        seek(-SEEK_BACK);
         return true;
       case 'green':
         setShowDebug((s) => !s);
@@ -133,15 +156,24 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
 
   const d = loaded && loaded.debug;
   return (
-    <main class="player">
+    <main class="player" onMouseMove={poke} onClick={poke}>
       {loaded && (
         <video
           key={loaded.src}
           ref={video}
           src={loaded.src}
           autoPlay
-          onPlaying={() => setStatus('playing')}
-          onPause={() => setStatus('paused')}
+          onClick={toggle}
+          onPlaying={() => {
+            setStatus('playing');
+            setPaused(false);
+          }}
+          onPause={() => {
+            setStatus('paused');
+            setPaused(true);
+          }}
+          onLoadedMetadata={(e) => setDuration((e.target as HTMLVideoElement).duration || 0)}
+          onDurationChange={(e) => setDuration((e.target as HTMLVideoElement).duration || 0)}
           onWaiting={() => setStatus('buffering')}
           onTimeUpdate={(e) => setPosition(Math.floor((e.target as HTMLVideoElement).currentTime))}
           onEnded={onExit}
@@ -164,6 +196,33 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
           <div class="muted">Yellow: force transcode on/off. Green: hide this. Back: exit.</div>
         </div>
       )}
+      <div class={controlsVisible ? 'controls' : 'controls hidden'}>
+        <div class="ctl-row">
+          <button data-focusable class="ctl" onClick={onExit}>
+            <span class="icon">&larr;</span>Back to list
+          </button>
+          <button data-focusable class="ctl" onClick={() => seek(-SEEK_BACK)}>
+            <span class="icon">&laquo;</span>Back 10s
+          </button>
+          <button data-focusable class="ctl main" onClick={toggle}>
+            <span class="icon">{paused ? '\u25B6' : '\u275A\u275A'}</span>
+            {paused ? 'Play' : 'Pause'}
+          </button>
+          <button data-focusable class="ctl" onClick={() => seek(SEEK_FORWARD)}>
+            <span class="icon">&raquo;</span>Forward 30s
+          </button>
+        </div>
+        <div class="progress">
+          <span>{formatTime(position)}</span>
+          <div class="track">
+            <div
+              class="fill"
+              style={{ transform: `scaleX(${duration > 0 ? Math.min(1, position / duration) : 0})` }}
+            />
+          </div>
+          <span>{formatTime(duration)}</span>
+        </div>
+      </div>
       {!showDebug && error && <div class="debug error">{error}</div>}
     </main>
   );
