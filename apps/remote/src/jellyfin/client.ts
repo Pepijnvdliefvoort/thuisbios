@@ -1,6 +1,15 @@
 import { buildAuthHeader } from './auth';
 import type { Command } from './commands';
-import type { AuthenticationResult, BaseItem, ClientInfo, ItemsResult, RemoteSession } from './types';
+import type { DeviceProfile } from './phoneProfile';
+import type {
+  AuthenticationResult,
+  BaseItem,
+  ClientInfo,
+  ItemsResult,
+  PlaybackInfoResponse,
+  PlaybackReport,
+  RemoteSession,
+} from './types';
 
 export class JellyfinError extends Error {
   status: number;
@@ -41,13 +50,30 @@ export interface JellyfinClient {
   /** Approves the Quick Connect code shown on a device (the TV) for the signed-in user. */
   authorizeQuickConnect(code: string, userId?: string): Promise<void>;
   logout(): Promise<void>;
+  /** Asks the server how this phone can play an item; `startTicks` makes a transcode start there. */
+  playbackInfo(userId: string, itemId: string, profile: DeviceProfile, startTicks?: number): Promise<PlaybackInfoResponse>;
+  reportStart(report: PlaybackReport): Promise<void>;
+  reportProgress(report: PlaybackReport): Promise<void>;
+  /** `keepalive` lets the request outlive a page that is being hidden or closed. */
+  reportStopped(report: PlaybackReport, keepalive?: boolean): Promise<void>;
 }
+
+const playbackBody = (r: PlaybackReport) => ({
+  ItemId: r.itemId,
+  MediaSourceId: r.mediaSourceId,
+  PlaySessionId: r.playSessionId,
+  PositionTicks: r.positionTicks,
+  PlayMethod: r.playMethod,
+  IsPaused: !!r.isPaused,
+  CanSeek: true,
+});
 
 async function doRequest<T>(
   { serverUrl, info, token, fetchFn }: ClientOptions,
   method: string,
   path: string,
   body?: unknown,
+  keepalive?: boolean,
 ): Promise<T> {
   const headers: Record<string, string> = { Authorization: buildAuthHeader(info, token) };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -55,6 +81,7 @@ async function doRequest<T>(
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
+    ...(keepalive ? { keepalive: true } : {}),
   });
   if (!response.ok) throw new JellyfinError(response.status, `${method} ${path} -> HTTP ${response.status}`);
   const text = await response.text();
@@ -71,7 +98,8 @@ export function authenticateByName(
 }
 
 export function createClient(options: ClientOptions): JellyfinClient {
-  const req = <T>(method: string, path: string, body?: unknown) => doRequest<T>(options, method, path, body);
+  const req = <T>(method: string, path: string, body?: unknown, keepalive?: boolean) =>
+    doRequest<T>(options, method, path, body, keepalive);
   const items = async (path: string): Promise<BaseItem[]> => (await req<ItemsResult>('GET', path)).Items;
   const user = (id: string) => `/Users/${enc(id)}`;
 
@@ -114,6 +142,35 @@ export function createClient(options: ClientOptions): JellyfinClient {
     },
     logout: async () => {
       await req<void>('POST', '/Sessions/Logout');
+    },
+    playbackInfo: (userId, itemId, profile, startTicks) => {
+      const query = [
+        `UserId=${enc(userId)}`,
+        `MaxStreamingBitrate=${profile.MaxStreamingBitrate}`,
+        'EnableDirectPlay=true',
+        'EnableDirectStream=true',
+        'EnableTranscoding=true',
+        ...(startTicks ? [`StartTimeTicks=${startTicks}`] : []),
+      ].join('&');
+      return req<PlaybackInfoResponse>('POST', `/Items/${enc(itemId)}/PlaybackInfo?${query}`, {
+        UserId: userId,
+        MaxStreamingBitrate: profile.MaxStreamingBitrate,
+        EnableDirectPlay: true,
+        EnableDirectStream: true,
+        EnableTranscoding: true,
+        AutoOpenLiveStream: false,
+        ...(startTicks ? { StartTimeTicks: startTicks } : {}),
+        DeviceProfile: profile,
+      });
+    },
+    reportStart: async (r) => {
+      await req<void>('POST', '/Sessions/Playing', playbackBody(r));
+    },
+    reportProgress: async (r) => {
+      await req<void>('POST', '/Sessions/Playing/Progress', playbackBody(r));
+    },
+    reportStopped: async (r, keepalive) => {
+      await req<void>('POST', '/Sessions/Playing/Stopped', playbackBody(r), keepalive);
     },
   };
 }

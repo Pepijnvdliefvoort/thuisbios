@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { authenticateByName, createClient, JellyfinError } from './client';
+import { buildPhoneProfile } from './phoneProfile';
 import { describeCommandError, describeSignInError } from './errors';
 
 const info = { client: 'Thuisbios Remote', device: 'Phone', deviceId: 'dev', version: '1' };
@@ -43,6 +44,52 @@ describe('client', () => {
     expect(urls[1]).toContain('/Users/u1/Items?IncludeItemTypes=Movie&Recursive=true&SortBy=DateCreated&SortOrder=Descending&Limit=16');
     expect(urls[2]).toContain('SortBy=SortName&SortOrder=Ascending');
     expect(urls[2]).toContain('&Limit=30');
+  });
+
+  it('asks for playback info with the device profile and an optional start position', async () => {
+    const fetchFn = vi.fn(async () => ok({ MediaSources: [], PlaySessionId: 'ps' }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    const profile = buildPhoneProfile(() => false);
+    await client.playbackInfo('u1', 'i 1', profile, 600000000);
+    await client.playbackInfo('u1', 'i1', profile);
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(
+      'http://pc/Items/i%201/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=true&EnableDirectStream=true&EnableTranscoding=true&StartTimeTicks=600000000',
+    );
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string);
+    expect(body).toMatchObject({ UserId: 'u1', StartTimeTicks: 600000000, EnableTranscoding: true });
+    expect(body.DeviceProfile.Name).toBe(profile.Name);
+    expect((fetchFn.mock.calls[1] as unknown as [string])[0]).not.toContain('StartTimeTicks');
+    expect(JSON.parse((fetchFn.mock.calls[1] as unknown as [string, RequestInit])[1].body as string)).not.toHaveProperty('StartTimeTicks');
+  });
+
+  it('reports playback start, progress and stopped, keepalive only when asked', async () => {
+    const fetchFn = vi.fn(async () => ok(undefined));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    const report = { itemId: 'i1', mediaSourceId: 'm1', playSessionId: 'ps', positionTicks: 5, playMethod: 'DirectPlay' as const, isPaused: true };
+    await client.reportStart(report);
+    await client.reportProgress(report);
+    await client.reportStopped(report);
+    await client.reportStopped(report, true);
+    const calls = fetchFn.mock.calls as unknown as Array<[string, RequestInit]>;
+    expect(calls.map((c) => c[0])).toEqual([
+      'http://pc/Sessions/Playing',
+      'http://pc/Sessions/Playing/Progress',
+      'http://pc/Sessions/Playing/Stopped',
+      'http://pc/Sessions/Playing/Stopped',
+    ]);
+    expect(JSON.parse(calls[1][1].body as string)).toEqual({
+      ItemId: 'i1',
+      MediaSourceId: 'm1',
+      PlaySessionId: 'ps',
+      PositionTicks: 5,
+      PlayMethod: 'DirectPlay',
+      IsPaused: true,
+      CanSeek: true,
+    });
+    expect(calls[2][1]).not.toHaveProperty('keepalive');
+    expect(calls[3][1].keepalive).toBe(true);
   });
 
   it('signs in by name and throws JellyfinError on 401', async () => {
