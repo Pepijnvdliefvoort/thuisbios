@@ -5,6 +5,7 @@ import {
   describePlayback,
   resolveStreamUrl,
   secondsToTicks,
+  ticksToSeconds,
   selectPlayMethod,
   type DebugInfo,
 } from '../jellyfin/playback';
@@ -34,6 +35,10 @@ import {
   Replay10Icon,
   SpinnerIcon,
 } from '../player/icons';
+import { subscribeRemote } from '../remote/bus';
+import { pickAdjacent } from '../remote/adjacent';
+import type { RemoteCommand } from '../remote/messages';
+import { createThrottle } from '../remote/throttle';
 import { SEEK_STEP, type Bubble, type MediaKey } from '../player/playerInput';
 import { usePlayerInput } from '../player/usePlayerInput';
 
@@ -44,6 +49,8 @@ interface Props {
   /** Where to start, in seconds (resume). 0 or missing starts from the beginning. */
   startSeconds?: number;
   onExit(): void;
+  /** Play another item in place of this one (next / previous episode from the phone). */
+  onReplace(item: BaseItem): void;
 }
 
 interface Loaded {
@@ -54,6 +61,9 @@ interface Loaded {
 }
 
 const PROGRESS_MS = 10000;
+/** Pause, play and seek reports go out at once, but never more often than this. */
+const EVENT_REPORT_MS = 500;
+const REMOTE_NOTE_MS = 1500;
 
 const MEDIA_KEYS: { [k: string]: MediaKey } = {
   play: 'play',
@@ -64,7 +74,7 @@ const MEDIA_KEYS: { [k: string]: MediaKey } = {
   rewind: 'rew',
 };
 
-export function PlayerScreen({ client, session, item, startSeconds, onExit }: Props) {
+export function PlayerScreen({ client, session, item, startSeconds, onExit, onReplace }: Props) {
   const video = useRef<HTMLVideoElement>(null);
   const [forceTranscode, setForceTranscode] = useState(false);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -77,6 +87,7 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit }: Pr
   const [paused, setPaused] = useState(false);
   const [buffering, setBuffering] = useState(false);
   const [notice, setNotice] = useState('');
+  const [remoteNote, setRemoteNote] = useState({ text: '', on: false });
   const [subSel, setSubSel] = useState(-1);
   const [bubbleView, setBubbleView] = useState<Bubble | null>(null);
   const errorRef = useRef('');
@@ -84,6 +95,8 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit }: Pr
   // Where to seek once metadata is loaded: the resume point, or the current spot after a transcode switch.
   const startRef = useRef(startSeconds || 0);
   const startedRef = useRef(false);
+  /** Sends a progress report soon (throttled); set while the progress effect runs. */
+  const pushProgress = useRef<() => void>(() => undefined);
 
   const { state, dispatch, preview } = usePlayerInput({ video, onExit });
   const controlsVisible = state.mode === 'controls' && !error;
@@ -201,9 +214,15 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit }: Pr
       isPaused: video.current ? video.current.paused : false,
     });
     client.reportStart(report()).catch(() => undefined);
-    const timer = window.setInterval(() => client.reportProgress(report()).catch(() => undefined), PROGRESS_MS);
+    const send = () => client.reportProgress(report()).catch(() => undefined);
+    const timer = window.setInterval(send, PROGRESS_MS);
+    // The phone shows a live bar, so pause, play and seek report right away.
+    const throttle = createThrottle(send, EVENT_REPORT_MS);
+    pushProgress.current = throttle.call;
     return () => {
       window.clearInterval(timer);
+      throttle.cancel();
+      pushProgress.current = () => undefined;
       client.reportStopped(report()).catch(() => undefined);
     };
   }, [client, loaded, item.Id]);
@@ -222,6 +241,67 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit }: Pr
     if (video.current && video.current.currentTime > 0) startRef.current = video.current.currentTime;
     setForceTranscode(on);
   };
+
+  const showRemoteNote = (text: string) => {
+    setRemoteNote({ text, on: true });
+    window.clearTimeout(noteTimer.current);
+    noteTimer.current = window.setTimeout(() => setRemoteNote((n) => ({ text: n.text, on: false })), REMOTE_NOTE_MS);
+  };
+  const noteTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(noteTimer.current), []);
+
+  /** Playstate commands from the phone (Play and DisplayContent are handled by the App). */
+  const onRemote = (command: RemoteCommand) => {
+    if (command.type !== 'playstate') return;
+    const v = video.current;
+    const play = () => {
+      const p = v && (v.play() as Promise<void> | undefined);
+      if (p && typeof p.catch === 'function') p.catch(() => undefined);
+    };
+    switch (command.command) {
+      case 'Stop':
+        onExit();
+        return;
+      case 'Pause':
+        if (v) v.pause();
+        showRemoteNote('Paused from phone');
+        return;
+      case 'Unpause':
+        play();
+        return;
+      case 'PlayPause':
+        if (v && v.paused) play();
+        else if (v) v.pause();
+        return;
+      case 'Seek':
+        if (v) v.currentTime = ticksToSeconds(command.seekPositionTicks);
+        showRemoteNote(`Jump to ${formatTime(ticksToSeconds(command.seekPositionTicks))}`);
+        return;
+      case 'Rewind':
+        seekTo(-SEEK_STEP);
+        return;
+      case 'FastForward':
+        seekTo(SEEK_STEP);
+        return;
+      case 'NextTrack':
+      case 'PreviousTrack': {
+        // Only episodes have a neighbour; movies ignore it.
+        if (item.Type !== 'Episode' || !item.SeriesId) return;
+        const direction = command.command === 'NextTrack' ? 'next' : 'previous';
+        client
+          .adjacentEpisodes(session.userId, item.SeriesId, item.Id)
+          .then((items) => {
+            const target = pickAdjacent(items, item.Id, direction);
+            if (target) onReplace(target);
+          })
+          .catch(() => undefined);
+        return;
+      }
+    }
+  };
+  const onRemoteRef = useRef(onRemote);
+  onRemoteRef.current = onRemote;
+  useEffect(() => subscribeRemote((c) => onRemoteRef.current(c)), []);
 
   useRemote((key: RemoteKey) => {
     if (key === 'green') {
@@ -297,6 +377,7 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit }: Pr
           onPlay={() => {
             setPaused(false);
             dispatch({ type: 'playState', playing: true });
+            pushProgress.current();
           }}
           onPlaying={() => {
             setStatus('playing');
@@ -306,6 +387,7 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit }: Pr
             setStatus('paused');
             setPaused(true);
             dispatch({ type: 'playState', playing: false });
+            pushProgress.current();
           }}
           onLoadedMetadata={(e) => {
             const v = e.target as HTMLVideoElement;
@@ -322,7 +404,10 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit }: Pr
           }}
           onStalled={() => setBuffering(true)}
           onCanPlay={() => setBuffering(false)}
-          onSeeked={() => setBuffering(false)}
+          onSeeked={() => {
+            setBuffering(false);
+            pushProgress.current();
+          }}
           onProgress={(e) => updateBuffered(e.target as HTMLVideoElement)}
           onTimeUpdate={(e) => {
             const v = e.target as HTMLVideoElement;
@@ -437,6 +522,7 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit }: Pr
       )}
 
       {notice && <div class="notice">{notice}</div>}
+      <div class={remoteNote.on ? 'remotenote on' : 'remotenote'}>{remoteNote.text}</div>
 
       {error && (
         <div class="errorwrap">

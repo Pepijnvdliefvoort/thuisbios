@@ -210,6 +210,8 @@ video::cue {
 .pausedcard .pausedlabel { font-size: 2.2vh; letter-spacing: 0.3vh; text-transform: uppercase; color: rgba(255, 255, 255, 0.7); }
 .pausedcard .pausedtitle { font-size: 5vh; font-weight: bold; margin-top: 0.8vh; }
 
+.remotenote { position: absolute; left: 50%; bottom: 6vh; transform: translateX(-50%); padding: 1vh 2vh; font-size: 2.2vh; background: rgba(0, 0, 0, 0.8); border-radius: 0.8vh; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+.remotenote.on { opacity: 1; }
 .notice { position: absolute; left: 50%; top: 4vh; transform: translateX(-50%); padding: 1vh 2vh; font-size: 2.2vh; background: rgba(0, 0, 0, 0.8); border-radius: 0.8vh; }
 
 .errorwrap { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.85); }

@@ -1,6 +1,7 @@
 import { buildAuthHeader } from './auth';
 import { buildDeviceProfile } from './deviceProfile';
 import type { ImageKind } from './art';
+import { REMOTE_CAPABILITIES } from '../remote/messages';
 import type {
   AuthenticationResult,
   BaseItem,
@@ -56,6 +57,12 @@ export interface JellyfinClient {
   episodes(userId: string, seriesId: string, seasonId: string): Promise<BaseItem[]>;
   /** The first episode of a series (fallback when there is no "next up"). */
   firstEpisode(userId: string, seriesId: string): Promise<BaseItem | null>;
+  /** One item with the same fields and images as the list calls. */
+  item(userId: string, itemId: string): Promise<BaseItem>;
+  /** The previous, current and next episode around `itemId` (the first or last one has only two). */
+  adjacentEpisodes(userId: string, seriesId: string, itemId: string): Promise<BaseItem[]>;
+  /** Tells the server this TV can be controlled from a phone (posted again after each socket connect). */
+  reportCapabilities(): Promise<void>;
   imageUrl(itemId: string, tag: string | undefined, maxHeight: number): string;
   /** Image resized by the server to exactly `width` x `height` (logos are only limited to that box). */
   imageUrlSized(itemId: string, type: ImageKind, tag: string, width: number, height: number): string;
@@ -147,6 +154,17 @@ export function createClient(options: ClientOptions): JellyfinClient {
       const result = await request<ItemsResult>('GET', `/Shows/${encodeURIComponent(seriesId)}/Episodes?${query}`);
       return result.Items[0] || null;
     },
+    item: (userId, itemId) =>
+      request<BaseItem>(
+        'GET',
+        `/Users/${encodeURIComponent(userId)}/Items/${encodeURIComponent(itemId)}?Fields=${ITEM_FIELDS}&${IMAGE_QUERY}`,
+      ),
+    adjacentEpisodes: async (userId, seriesId, itemId) => {
+      const query = `UserId=${encodeURIComponent(userId)}&AdjacentTo=${encodeURIComponent(itemId)}&Fields=${ITEM_FIELDS}&${IMAGE_QUERY}`;
+      const result = await request<ItemsResult>('GET', `/Shows/${encodeURIComponent(seriesId)}/Episodes?${query}`);
+      return result.Items;
+    },
+    reportCapabilities: () => request<void>('POST', '/Sessions/Capabilities/Full', REMOTE_CAPABILITIES),
     imageUrlSized: (itemId, type, tag, width, height) => {
       // Logos have transparent edges and odd shapes: only limit their box, never crop.
       const size = type === 'Logo' ? `maxWidth=${width}&maxHeight=${height}` : `fillWidth=${width}&fillHeight=${height}`;

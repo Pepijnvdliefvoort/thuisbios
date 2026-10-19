@@ -233,6 +233,11 @@ Tick off every line and write down what happened (also if it fails: the exact me
   player.
 - [ ] **Progress**: after leaving the player, open the Jellyfin web UI on the PC. The movie shows a
   partial progress bar ("resume").
+- [ ] **Phone remote**: with the TV signed in, open the Jellyfin app on the phone and pick the TV as
+  the playback target. Playing a title starts it on the TV, pause, seek and stop from the phone
+  work, and the phone's progress bar follows. Next and previous episode work for a series.
+  Sending a title to the TV opens its details page. With `?debug` the overlay shows the socket
+  state and the last command.
 - [ ] **4K or HDR file** (if you have one): note whether it plays, stutters, or turns into a
   transcode.
 

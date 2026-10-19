@@ -20,6 +20,10 @@ export interface KeyLogState {
   back: string;
   /** Last full-screen gate decision, prefixed with a running counter. */
   gate: string;
+  /** Last command received from a phone, e.g. "Playstate Seek 600s". */
+  remote: string;
+  /** Phone-remote socket state: connecting, open or closed. */
+  socket: string;
 }
 
 export const MAX_ENTRIES = 6;
@@ -49,12 +53,16 @@ export const initialState = (enabled: boolean): KeyLogState => ({
   seek: '',
   back: '',
   gate: '',
+  remote: '',
+  socket: '',
 });
 
 type SeekListener = (text: string) => void;
 let seekListeners: SeekListener[] = [];
 let backListeners: SeekListener[] = [];
 let gateListeners: SeekListener[] = [];
+let remoteListeners: SeekListener[] = [];
+let socketListeners: SeekListener[] = [];
 let gateCount = 0;
 
 /** The player reports each direction it handled here, e.g. "player: right [watching] -> seekBy(10)". */
@@ -78,6 +86,30 @@ export function setLastGate(text: string): void {
   gateCount += 1;
   const line = `#${gateCount} ${text}`;
   gateListeners.forEach((l) => l(line));
+}
+
+/** The phone-remote socket reports each command it received here. */
+export function setLastRemote(text: string): void {
+  remoteListeners.forEach((l) => l(text));
+}
+
+/** The phone-remote socket reports connecting / open / closed here. */
+export function setSocketState(text: string): void {
+  socketListeners.forEach((l) => l(text));
+}
+
+export function onLastRemote(listener: SeekListener): () => void {
+  remoteListeners = remoteListeners.concat([listener]);
+  return () => {
+    remoteListeners = remoteListeners.filter((l) => l !== listener);
+  };
+}
+
+export function onSocketState(listener: SeekListener): () => void {
+  socketListeners = socketListeners.concat([listener]);
+  return () => {
+    socketListeners = socketListeners.filter((l) => l !== listener);
+  };
 }
 
 export function onLastGate(listener: SeekListener): () => void {

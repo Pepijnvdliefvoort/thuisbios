@@ -111,3 +111,4 @@ export function describePlayback(source: MediaSource, selection: PlaySelection):
 
 /** Ticks are 100 ns units used throughout the Jellyfin API. */
 export const secondsToTicks = (seconds: number): number => Math.round(seconds * 10000000);
+export const ticksToSeconds = (ticks: number): number => ticks / 10000000;
