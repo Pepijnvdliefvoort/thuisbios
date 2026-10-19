@@ -12,7 +12,8 @@ const toRect = (el: Element): Rect => {
   return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
 };
 
-function moveFocus(direction: 'up' | 'down' | 'left' | 'right'): boolean {
+/** Moves focus to the next `[data-focusable]` element in a direction. Returns true if focus changed. */
+export function moveFocus(direction: 'up' | 'down' | 'left' | 'right'): boolean {
   const all = Array.prototype.slice.call(document.querySelectorAll(FOCUSABLE)) as HTMLElement[];
   const active = document.activeElement as HTMLElement | null;
   if (all.length === 0) return false;

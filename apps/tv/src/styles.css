@@ -88,3 +88,6 @@ input:focus { border-color: var(--accent); outline: none; }
 }
 .seekhint.go { animation: seekhint 0.8s ease-out; }
 @keyframes seekhint { 0% { opacity: 1; } 60% { opacity: 1; } 100% { opacity: 0; } }
+
+/* D-pad mode (TV browser): the arrows move the focus highlight, the real pointer is hidden. */
+body.dpad, body.dpad * { cursor: none; }

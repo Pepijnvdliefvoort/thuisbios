@@ -60,6 +60,12 @@ export function setLastSeek(dx: number, dy: number, result: string): void {
   seekListeners.forEach((l) => l(text));
 }
 
+/** D-pad mode reports each pointer-as-D-pad move on the same line, e.g. "nav: dx=12 dy=0 -> right". */
+export function setLastNav(dx: number, dy: number, dir: string): void {
+  const text = `nav: dx=${dx} dy=${dy} -> ${dir}`;
+  seekListeners.forEach((l) => l(text));
+}
+
 export function onLastSeek(listener: SeekListener): () => void {
   seekListeners = seekListeners.concat([listener]);
   return () => {

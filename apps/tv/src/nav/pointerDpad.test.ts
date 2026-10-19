@@ -1,0 +1,88 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { dpadRequested, installPointerDpad, isDpadActive, setDpadSuspended } from './pointerDpad';
+
+describe('dpadRequested', () => {
+  it('is on for the TV browser', () => {
+    expect(dpadRequested('Mozilla/5.0 (SMART-TV; Linux; Tizen 4.0) AppleWebKit', '')).toBe(true);
+    expect(dpadRequested('Mozilla/5.0 (Linux; Tizen 4.0)', '')).toBe(true);
+  });
+  it('is on with ?dpad', () => {
+    expect(dpadRequested('Mozilla/5.0 (X11; Linux) Chrome', '?dpad')).toBe(true);
+    expect(dpadRequested('Mozilla/5.0 (X11; Linux) Chrome', '?debug&dpad')).toBe(true);
+  });
+  it('is off on a desktop', () => {
+    expect(dpadRequested('Mozilla/5.0 (Windows NT 10.0) Chrome', '')).toBe(false);
+    expect(dpadRequested('Mozilla/5.0 (Windows NT 10.0) Chrome', '?debug')).toBe(false);
+  });
+});
+
+describe('pointer D-pad mode', () => {
+  let remove: () => void;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML =
+      '<button id="a" data-focusable>A</button><button id="b" data-focusable>B</button><input id="i" data-focusable>';
+    remove = installPointerDpad(document);
+  });
+  afterEach(() => {
+    remove();
+    setDpadSuspended(false);
+    vi.useRealTimers();
+    document.body.innerHTML = '';
+  });
+  const el = (id: string) => document.getElementById(id) as HTMLElement;
+
+  it('hides the cursor via a body class and follows suspension', () => {
+    expect(document.body.classList.contains('dpad')).toBe(true);
+    setDpadSuspended(true);
+    expect(isDpadActive()).toBe(false);
+    expect(document.body.classList.contains('dpad')).toBe(false);
+  });
+
+  it('focuses the first focusable on the first press', () => {
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 10, clientY: 0, bubbles: true }));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 20, clientY: 0, bubbles: true }));
+    vi.advanceTimersByTime(200);
+    expect(document.activeElement).toBe(el('a'));
+  });
+
+  it('redirects a click to the focused element without recursing', () => {
+    el('a').focus();
+    const onA = vi.fn();
+    const onB = vi.fn();
+    el('a').addEventListener('click', onA);
+    el('b').addEventListener('click', onB);
+    el('b').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(onA).toHaveBeenCalledTimes(1);
+    expect(onB).not.toHaveBeenCalled();
+  });
+
+  it('lets clicks through for inputs', () => {
+    el('a').focus();
+    const onA = vi.fn();
+    const onI = vi.fn();
+    el('a').addEventListener('click', onA);
+    el('i').addEventListener('click', onI);
+    el('i').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(onI).toHaveBeenCalledTimes(1);
+    expect(onA).not.toHaveBeenCalled();
+    el('i').focus();
+    const onB = vi.fn();
+    el('b').addEventListener('click', onB);
+    el('b').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(onB).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not redirect while suspended', () => {
+    el('a').focus();
+    setDpadSuspended(true);
+    const onA = vi.fn();
+    const onB = vi.fn();
+    el('a').addEventListener('click', onA);
+    el('b').addEventListener('click', onB);
+    el('b').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(onB).toHaveBeenCalledTimes(1);
+    expect(onA).not.toHaveBeenCalled();
+  });
+});

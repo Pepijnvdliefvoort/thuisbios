@@ -1,3 +1,5 @@
+import { isDpadActive } from './pointerDpad';
+
 const FOCUSABLE = '[data-focusable]';
 
 /**
@@ -8,6 +10,8 @@ const FOCUSABLE = '[data-focusable]';
  */
 export function installPointerFocus(doc: Document = document): () => void {
   const listener = (event: Event) => {
+    // The hidden pointer drifts in D-pad mode and must not steal focus.
+    if (isDpadActive()) return;
     let node = event.target as Element | null;
     while (node && node.nodeType === 1) {
       if (node.matches(FOCUSABLE)) {

@@ -12,6 +12,7 @@ import type { MediaSource, MovieItem, Session } from '../jellyfin/types';
 import { setLastSeek } from '../debug/keyLogState';
 import { useRemote } from '../nav/useRemote';
 import { createAutoHide, formatTime, type AutoHide } from './autoHide';
+import { setDpadSuspended } from '../nav/pointerDpad';
 import { createPointerSeek, moveDelta, type PointerSeek } from './pointerSeek';
 
 interface Props {
@@ -57,6 +58,11 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
       h.dispose();
       hide.current = null;
     };
+  }, []);
+  useEffect(() => {
+    // The player has its own pointer handling; D-pad mode stays off while it is mounted.
+    setDpadSuspended(true);
+    return () => setDpadSuspended(false);
   }, []);
   useEffect(() => {
     const ps = createPointerSeek({
