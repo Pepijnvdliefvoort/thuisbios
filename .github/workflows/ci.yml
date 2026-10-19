@@ -67,7 +67,7 @@ jobs:
         run: npm run build -w apps/tv
       - name: Check build output is ES2017 only (Chromium 56)
         run: npm run check:dist -w apps/tv
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: tv-dist
           path: apps/tv/dist
@@ -88,7 +88,7 @@ jobs:
         run: npm test -w apps/remote
       - name: Build
         run: npm run build -w apps/remote
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: remote-dist
           path: apps/remote/dist
