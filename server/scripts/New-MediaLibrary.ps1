@@ -8,16 +8,16 @@
     service account must be able to read the folder (see docs/server/windows-setup.md).
 
 .PARAMETER Root
-    Root folder of the media library, for example D:\Thuisbios\Media.
+    Root folder of the media library, for example C:\Thuisbios\Media.
 
 .PARAMETER Folders
     Sub folders to create. Defaults to Movies and Shows.
 
 .EXAMPLE
-    .\New-MediaLibrary.ps1 -Root D:\Thuisbios\Media
+    .\New-MediaLibrary.ps1 -Root C:\Thuisbios\Media
 
 .EXAMPLE
-    .\New-MediaLibrary.ps1 -Root D:\Thuisbios\Media -WhatIf
+    .\New-MediaLibrary.ps1 -Root C:\Thuisbios\Media -WhatIf
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(

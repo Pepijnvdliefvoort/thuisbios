@@ -49,7 +49,7 @@ hit permission trouble, the tray app is a valid fallback.
 In the installer, tick the option to install Jellyfin as a service and keep the default
 account (Local System) for a private home PC. Folder access:
 
-- The service account reads local drives (for example `D:\Thuisbios\Media`) without extra work
+- The service account reads local drives (for example `C:\Thuisbios\Media`) without extra work
   when you use the default Local System account. If you pick a limited account such as
   Network Service, grant it read access: right-click the folder, Properties, Security, Edit,
   Add, then add the account with Read and Execute.
@@ -64,10 +64,10 @@ After installation Jellyfin listens on port 8096. Open <http://localhost:8096> o
 
 ## 2. Media folder layout
 
-Pick a root; it is configurable everywhere. This guide uses `D:\Thuisbios\Media`.
+Pick a root; it is configurable everywhere. This guide uses `C:\Thuisbios\Media`.
 
 ```text
-D:\Thuisbios\Media\
+C:\Thuisbios\Media\
   Movies\
   Shows\
 ```
@@ -75,7 +75,7 @@ D:\Thuisbios\Media\
 Create it with the script (no administrator rights needed):
 
 ```powershell
-.\server\scripts\New-MediaLibrary.ps1 -Root D:\Thuisbios\Media
+.\server\scripts\New-MediaLibrary.ps1 -Root C:\Thuisbios\Media
 ```
 
 ### Naming conventions
@@ -120,8 +120,8 @@ Dashboard > Libraries > Add Media Library:
 
 | Content type | Display name | Folder |
 |---|---|---|
-| Movies | Movies | `D:\Thuisbios\Media\Movies` |
-| Shows | Shows | `D:\Thuisbios\Media\Shows` |
+| Movies | Movies | `C:\Thuisbios\Media\Movies` |
+| Shows | Shows | `C:\Thuisbios\Media\Shows` |
 
 In each library, set **Preferred download language** to `Dutch` and **Country/Region** to
 `Netherlands` (Dutch titles and plots, falling back to English where Dutch is missing). Keep
@@ -135,7 +135,7 @@ Test media is never committed to git. Install ffmpeg once and generate the set:
 ```powershell
 winget install Gyan.FFmpeg
 # open a NEW PowerShell window so PATH updates, then:
-.\server\scripts\Get-TestMedia.ps1 -MediaRoot D:\Thuisbios\Media
+.\server\scripts\Get-TestMedia.ps1 -MediaRoot C:\Thuisbios\Media
 ```
 
 Downloads (about 650 MB) come from `download.blender.org`: Big Buck Bunny (2008) and Tears of
