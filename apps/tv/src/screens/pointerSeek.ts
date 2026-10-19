@@ -1,15 +1,19 @@
 /** Pointer movement while the controls are hidden counts as a "press" on the remote. */
 export const WINDOW_MS = 250;
 export const IDLE_MS = 150;
-export const MIN_DX = 8;
+export const MIN_DX = 3;
 export const DOMINANCE = 1.5;
 export const SEEK_STEP = 10;
+
+export type BurstResult = 'back' | 'forward' | 'vertical' | 'ignored';
 
 export interface PointerSeekOptions {
   /** Called with -10 or +10 seconds. */
   onSeek(seconds: number): void;
   /** Called when a burst is mostly vertical (show the controls). */
   onVertical?(): void;
+  /** Called at the end of every burst with the summed movement and what was decided. */
+  onBurst?(dx: number, dy: number, result: BurstResult): void;
 }
 
 export interface PointerSeek {
@@ -49,8 +53,13 @@ export function createPointerSeek(opts: PointerSeekOptions): PointerSeek {
     reset();
     const ax = Math.abs(dx);
     const ay = Math.abs(dy);
-    if (ax >= MIN_DX && ax > DOMINANCE * ay) opts.onSeek(dx < 0 ? -SEEK_STEP : SEEK_STEP);
-    else if (ay >= MIN_DX && ay > DOMINANCE * ax && opts.onVertical) opts.onVertical();
+    let result: BurstResult = 'ignored';
+    if (ax >= MIN_DX && ax > DOMINANCE * ay) result = dx < 0 ? 'back' : 'forward';
+    else if (ay >= MIN_DX && ay > DOMINANCE * ax) result = 'vertical';
+    if (opts.onBurst) opts.onBurst(dx, dy, result);
+    if (result === 'back') opts.onSeek(-SEEK_STEP);
+    else if (result === 'forward') opts.onSeek(SEEK_STEP);
+    else if (result === 'vertical' && opts.onVertical) opts.onVertical();
   };
 
   return {
@@ -77,10 +86,13 @@ interface MoveLike {
   movementY?: number;
 }
 
-/** Movement of a mouse event: movementX/Y when present, else the change in clientX/Y since `last`. */
+/**
+ * Movement of a mouse event: movementX/Y when at least one is non-zero, else the change in
+ * clientX/Y since `last` (the TV's emulated mouse events report movementX/Y as 0).
+ */
 export function moveDelta(e: MoveLike, last: { x: number; y: number } | null): { dx: number; dy: number } {
-  if (typeof e.movementX === 'number' && typeof e.movementY === 'number') {
-    return { dx: e.movementX, dy: e.movementY };
-  }
+  const mx = typeof e.movementX === 'number' ? e.movementX : 0;
+  const my = typeof e.movementY === 'number' ? e.movementY : 0;
+  if (mx !== 0 || my !== 0) return { dx: mx, dy: my };
   return last ? { dx: e.clientX - last.x, dy: e.clientY - last.y } : { dx: 0, dy: 0 };
 }

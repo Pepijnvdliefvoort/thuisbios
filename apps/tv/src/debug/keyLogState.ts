@@ -14,6 +14,8 @@ export interface KeyLogState {
   entries: KeyEntry[];
   moves: number;
   clicks: number;
+  /** Last pointer-seek decision, e.g. "seek: dx=-12 dy=0 -> -10s". */
+  seek: string;
 }
 
 export const MAX_ENTRIES = 6;
@@ -40,7 +42,30 @@ export const initialState = (enabled: boolean): KeyLogState => ({
   entries: [],
   moves: 0,
   clicks: 0,
+  seek: '',
 });
+
+const RESULT_TEXT: { [k: string]: string } = { back: '-10s', forward: '+10s', vertical: 'vertical', ignored: 'ignored' };
+
+/** Text for the last pointer-seek decision. */
+export const describeSeek = (dx: number, dy: number, result: string): string =>
+  `seek: dx=${dx} dy=${dy} -> ${RESULT_TEXT[result] || result}`;
+
+type SeekListener = (text: string) => void;
+let seekListeners: SeekListener[] = [];
+
+/** The player reports each pointer-seek decision here; the overlay shows it. */
+export function setLastSeek(dx: number, dy: number, result: string): void {
+  const text = describeSeek(dx, dy, result);
+  seekListeners.forEach((l) => l(text));
+}
+
+export function onLastSeek(listener: SeekListener): () => void {
+  seekListeners = seekListeners.concat([listener]);
+  return () => {
+    seekListeners = seekListeners.filter((l) => l !== listener);
+  };
+}
 
 /** Applies one DOM event. Pure: returns a new state. Call after other handlers ran so `defaultPrevented` is final. */
 export function reduce(state: KeyLogState, event: Event): KeyLogState {

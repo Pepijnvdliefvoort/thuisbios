@@ -36,7 +36,7 @@ describe('createPointerSeek', () => {
 
   it('ignores movement below the threshold', () => {
     const p = make();
-    p.move(7, 0);
+    p.move(2, 0);
     vi.advanceTimersByTime(500);
     expect(seeks).toEqual([]);
     expect(vertical).toBe(0);
@@ -78,6 +78,22 @@ describe('createPointerSeek', () => {
     expect(vertical).toBe(0);
   });
 
+  it('reports every burst with its decision', () => {
+    const bursts: Array<[number, number, string]> = [];
+    const p = createPointerSeek({ onSeek: () => undefined, onBurst: (dx, dy, r) => bursts.push([dx, dy, r]) });
+    p.move(-12, 0);
+    vi.advanceTimersByTime(300);
+    p.move(1, 0);
+    vi.advanceTimersByTime(300);
+    p.move(0, 9);
+    vi.advanceTimersByTime(300);
+    expect(bursts).toEqual([
+      [-12, 0, 'back'],
+      [1, 0, 'ignored'],
+      [0, 9, 'vertical'],
+    ]);
+  });
+
   it('reset and dispose drop the pending burst', () => {
     const p = make();
     p.move(20, 0);
@@ -94,6 +110,12 @@ describe('createPointerSeek', () => {
 describe('moveDelta', () => {
   it('prefers movementX/Y', () => {
     expect(moveDelta({ clientX: 5, clientY: 5, movementX: 3, movementY: -2 }, { x: 0, y: 0 })).toEqual({ dx: 3, dy: -2 });
+  });
+  it('falls back to client deltas when movementX/Y are both zero', () => {
+    expect(moveDelta({ clientX: 15, clientY: 4, movementX: 0, movementY: 0 }, { x: 10, y: 6 })).toEqual({ dx: 5, dy: -2 });
+  });
+  it('uses movement when only one axis is non-zero', () => {
+    expect(moveDelta({ clientX: 15, clientY: 4, movementX: 0, movementY: 3 }, { x: 10, y: 6 })).toEqual({ dx: 0, dy: 3 });
   });
   it('falls back to client deltas', () => {
     expect(moveDelta({ clientX: 15, clientY: 4 }, { x: 10, y: 6 })).toEqual({ dx: 5, dy: -2 });

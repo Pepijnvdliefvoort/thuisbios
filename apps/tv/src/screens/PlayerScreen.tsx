@@ -9,6 +9,7 @@ import {
   type DebugInfo,
 } from '../jellyfin/playback';
 import type { MediaSource, MovieItem, Session } from '../jellyfin/types';
+import { setLastSeek } from '../debug/keyLogState';
 import { useRemote } from '../nav/useRemote';
 import { createAutoHide, formatTime, type AutoHide } from './autoHide';
 import { createPointerSeek, moveDelta, type PointerSeek } from './pointerSeek';
@@ -43,7 +44,6 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
   const [paused, setPaused] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const hide = useRef<AutoHide | null>(null);
-  const container = useRef<HTMLElement>(null);
   const pointerSeek = useRef<PointerSeek | null>(null);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const visibleRef = useRef(true);
@@ -68,12 +68,12 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
       onVertical: () => {
         if (hide.current) hide.current.poke();
       },
+      onBurst: setLastSeek,
     });
     pointerSeek.current = ps;
     return () => {
       ps.dispose();
       pointerSeek.current = null;
-      exitLock();
     };
   }, []);
   const poke = () => {
@@ -81,7 +81,6 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
   };
   useEffect(() => {
     if (hide.current) hide.current.setPaused(paused);
-    if (paused) exitLock();
   }, [paused]);
 
   // Ask Jellyfin how to play this item for this TV.
@@ -142,7 +141,7 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
     const d = moveDelta(e, lastPos.current);
     lastPos.current = { x: e.clientX, y: e.clientY };
     const t = e.target as Element | null;
-    if (t && t.closest && t.closest('.ctl')) {
+    if (visibleRef.current && t && t.closest && t.closest('.ctl')) {
       // Aiming at a button: never seek.
       if (pointerSeek.current) pointerSeek.current.reset();
       poke();
@@ -152,8 +151,6 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
   };
   const onClick = () => {
     poke();
-    const v = video.current;
-    if (v && !v.paused) requestLock(container.current);
   };
   const seek = (seconds: number) => {
     const v = video.current;
@@ -199,7 +196,7 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
 
   const d = loaded && loaded.debug;
   return (
-    <main class="player" ref={container} onMouseMove={onMouseMove} onClick={onClick}>
+    <main class={controlsVisible ? 'player' : 'player nocursor'} onMouseMove={onMouseMove} onClick={onClick}>
       {loaded && (
         <video
           key={loaded.src}
@@ -274,28 +271,4 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
       {!showDebug && error && <div class="debug error">{error}</div>}
     </main>
   );
-}
-
-function requestLock(el: HTMLElement | null): void {
-  try {
-    const e = el as (HTMLElement & { webkitRequestPointerLock?: () => void }) | null;
-    if (!e || document.pointerLockElement === e) return;
-    const req = e.requestPointerLock || e.webkitRequestPointerLock;
-    if (req) {
-      const p = req.call(e) as unknown as Promise<void> | undefined;
-      if (p && typeof p.catch === 'function') p.catch(() => undefined);
-    }
-  } catch (_) {
-    /* pointer lock is optional */
-  }
-}
-
-function exitLock(): void {
-  try {
-    const d = document as Document & { webkitExitPointerLock?: () => void };
-    const exit = d.exitPointerLock || d.webkitExitPointerLock;
-    if (exit) exit.call(document);
-  } catch (_) {
-    /* ignore */
-  }
 }

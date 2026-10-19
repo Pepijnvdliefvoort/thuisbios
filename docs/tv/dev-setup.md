@@ -177,8 +177,8 @@ In this browser the remote works as a mouse, not as a keyboard:
   seconds. A short "-10 s" or "+10 s" appears. Press **OK** to pause and show the buttons (Back to
   list, back 10 seconds, Play/Pause, forward 30 seconds). Moving the pointer up or down also shows
   them. They hide by themselves after 4 seconds while playing, and stay visible while paused. The
-  first click while playing may hide the pointer so it never runs into the screen edge; pause to
-  get it back.
+  pointer is hidden while the buttons are hidden and comes back with them. With `?debug` the box
+  also shows the last seek decision (for example `seek: dx=-12 dy=0 -> -10s`).
 - **RETURN** goes back to the movie list.
 
 ## 9. What to test

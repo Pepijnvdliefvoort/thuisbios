@@ -50,6 +50,7 @@ input:focus { border-color: var(--accent); outline: none; }
 .buttons { margin: 24px 0; }
 .log { font-size: 22px; background: #14141c; padding: 16px; min-height: 280px; white-space: pre-wrap; }
 .player { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: #000; }
+.player.nocursor, .player.nocursor * { cursor: none; }
 .player video { width: 100%; height: 100%; }
 .debug {
   position: absolute; left: 32px; top: 32px; max-width: 1500px; padding: 12px 20px;
