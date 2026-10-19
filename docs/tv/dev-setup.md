@@ -5,151 +5,144 @@ installed, that the remote's arrow keys work, that Jellyfin video plays (direct 
 transcoded), and find out whether the volume buttons reach the soundbar.
 
 You need: the Windows PC with Jellyfin running ([phase 1](../server/windows-setup.md)), the TV on
-the same home network, a Samsung account (free), and Node.js 22 on the PC.
+the same home network, a Samsung account (free), Node.js 22 and Visual Studio Code on the PC.
+
+Samsung replaced the old Tizen Studio program by a **Tizen extension for Visual Studio Code**.
+This guide uses that extension. Samsung may rename buttons between versions; where this guide
+says "may look slightly different" it describes the most likely flow that we could not check
+against the extension itself.
 
 Words used here:
 
 - **Tizen**: the operating system of Samsung TVs. Apps for it are web pages in a package.
-- **Tizen Studio**: Samsung's free program (like Visual Studio) to install apps on the TV.
+- **Tizen extension**: the Visual Studio Code add-on from Samsung that installs apps on the TV.
+  Its side panel has *Baseline Tools*, *Actions* and *Active Targets*.
 - **Developer Mode**: a switch on the TV that lets your PC install your own apps.
 - **Certificate**: a digital signature. The TV only accepts apps signed with a certificate that
   knows this TV.
 - **DUID**: the TV's unique ID. The certificate is tied to it.
 - **`.wgt`**: the packaged app, like a `.msi` installer.
 
-## 1. Find the PC's and the TV's IP address
+## 1. Install the Tizen extension in VS Code
 
-You need two addresses.
+1. Open <https://developer.tizen.org/development/tizen-studio/download> (Samsung's Tizen tools
+   page). The **Tizen** extension for Visual Studio Code is marked *Recommended*.
+2. Or do it inside VS Code: open the **Extensions** view (`Ctrl+Shift+X`), search for **Tizen**
+   and click **Install** on the one published by Samsung.
+3. A **Tizen** icon appears in the left activity bar. Click it. The panel shows:
+   - **Baseline Tools**: Package Manager, Emulator Manager, Device Manager, Certificate Manager.
+   - **Actions**: Create Project, Build Project, Run Project, Debug Project.
+   - **Active Targets**: Project, Device, Certificate (they say "missing" or "No Active ..."
+     until you finish this guide).
 
-PC (the one Jellyfin runs on): open PowerShell and run `ipconfig`. Look for **IPv4 Address**
-(for example `192.168.1.50`). Phase 1 already asked you to give it a fixed address in the router.
+The only other download on that page is "Tizen SDK 10 with CLI installer". You only need it for the
+optional command line route at the end of this guide.
 
-TV: press **Settings** on the remote, then **General**, **Network**, **Network Status**,
-**IP Settings**. Write down the **IP Address** (for example `192.168.1.60`). If the menu names
-differ on your TV, look for "Network status" in the settings. Giving the TV a fixed address in the
-router (like for the PC) saves you from changing it later.
+## 2. Find the PC's IP address
 
-## 2. Install Tizen Studio on the PC
+Open PowerShell on the PC (the one Jellyfin runs on) and run `ipconfig`. Look for
+**IPv4 Address** (for example `192.168.1.50`) and write it down. Phase 1 already asked you to
+give the PC a fixed address in the router.
 
-1. Download the Windows installer from <https://developer.tizen.org/development/tizen-studio/download>
-   and run it. Keep the default folder (`C:\tizen-studio`).
-2. Start **Package Manager** (the installer offers this at the end, or find it in the Start menu).
-3. On the **Main SDK** tab make sure **Tizen SDK tools** is installed (it is by default).
-4. Open the **Extension SDK** tab and click **Install** next to:
-   - **TV Extensions-4.0** (or the closest version in the list; newer ones also work for our TV).
-   - **Samsung Certificate Extension**.
-5. Wait until the installation finishes, then close Package Manager.
+You will also need the TV's address (step 5). On the TV press **Settings**, then **General**,
+**Network**, **Network Status**, **IP Settings** and write down the **IP Address** (for example
+`192.168.1.60`). If the menu names differ, look for "Network status" in the settings. Giving the
+TV a fixed address in the router saves you from changing it later.
 
-Tizen Studio also needs Java; the installer tells you if something is missing and where to get it.
+## 3. Install the TV packages (Package Manager)
 
-## 3. Turn on Developer Mode on the TV
+1. In the Tizen panel, under **Baseline Tools**, click **Package Manager**.
+2. Wait until the list of packages loads (this needs internet).
+3. Install the package for Samsung TVs, named something like **TV Extensions** (any version of
+   4.0 or newer works for our 2018 TV; take the newest).
+4. Install the **Samsung Certificate Extension** (it may be called "Samsung certificate").
+5. Wait until the installation finishes. Names and layout may look slightly different; pick the
+   entries with "TV" and "Samsung certificate" in the name.
 
-1. Press **Home** on the remote, go to **Apps** (the apps panel).
+## 4. Turn on Developer Mode on the TV
+
+1. Press **Home** on the remote and go to **Apps** (the apps panel).
 2. Using the remote, type **1 2 3 4 5**. If your remote has no number keys, press the button that
    shows an on-screen number pad and type the digits there.
 3. A **Developer mode** window opens. Switch **Developer mode** to **On**.
-4. In **Host PC IP** type the PC's IP address from step 1 (not the TV's).
-5. Press **OK**, then switch the TV fully off and on again (restart). Developer Mode stays on
-   after this; the TV shows "Develop mode" in the apps panel.
+4. In **Host PC IP** type the PC's IP address from step 2 (not the TV's).
+5. Press **OK**.
+6. Restart the TV fully: hold the power button on the remote until the TV restarts, or unplug
+   it for 30 seconds. Developer Mode stays on afterwards.
 
-## 4. Connect the TV in Tizen Studio
+## 5. Add and connect the TV (Device Manager)
 
-1. Start **Tizen Studio**. Choose any workspace folder when it asks.
-2. Open **Tools**, **Device Manager**.
-3. Click the **Remote Device Manager** button, then the **+** button.
-4. Fill in a name (for example `Living room TV`), the **TV's** IP address (step 1) and leave
-   the port at `26101`. Click **Add**.
-5. Switch the **Connection** toggle of your TV on. The TV may show a popup asking to allow the
-   connection; accept it. The device is now listed as connected.
+1. In the Tizen panel click **Device Manager** (under **Baseline Tools**).
+2. Add a new device (a **+** or "Add device" button; the Remote Device Manager may be a separate
+   window).
+3. Fill in a name (for example `Living room TV`), the **TV's** IP address from step 2 and leave
+   the port at `26101`. Confirm.
+4. Switch the **Connection** toggle of the TV on. The TV may show a popup asking to allow the
+   connection; accept it.
+5. Check the panel: under **Active Targets**, **Device** should now show your TV instead of
+   "No Active Device". If it does not, select the TV in the Device Manager list and choose
+   "set active" (may look slightly different).
 
-If the toggle does not stay on: check that the TV and PC are on the same network, the TV was
-restarted after step 3, and Windows Firewall is not blocking Tizen Studio (allow it when Windows
-asks).
+## 6. Create a Samsung certificate (Certificate Manager)
 
-## 5. Create a Samsung certificate
+Do this once. The TV must be connected (step 5) so its DUID is known.
 
-Do this once. The TV must be connected (step 4) so its DUID is known.
-
-1. Open **Tools**, **Certificate Manager**, then click the **+** button.
-2. Choose **Samsung** (not "Tizen"), then **TV**, then **Next**.
-3. Choose **Create a new author certificate**. Fill in a name (for example `thuisbios`), a
-   password and your details. Remember the password. **Next**.
-4. Choose the **Public** privilege level. **Next**.
-5. Sign in with your Samsung account when asked (create one for free if you do not have one).
-6. On the page listing devices, tick your TV (its DUID is shown, it was added when you connected
-   it). **Next**, then **Finish**.
+1. Click **Certificate Manager** under **Baseline Tools**, then add a new certificate (**+**).
+2. Choose **Samsung** (not "Tizen") and the device type **TV**.
+3. Choose to create a new author certificate. Fill in a name (for example `thuisbios`), a
+   password and your details. Remember the password.
+4. Choose the **Public** privilege level.
+5. Sign in with your Samsung account when asked (create a free one if you do not have one).
+6. On the page listing devices tick your TV (its DUID is shown, it was added when you connected
+   it). Finish.
+7. Select the new certificate and set it as active. Under **Active Targets**, **Certificate**
+   should now show its name instead of "No Active Certificate".
 
 The certificate is stored on this PC. Never commit it to Git (the repo ignores `*.p12` files, but
 be careful anyway). Certificates expire after some time (often a year). When the app stops
 installing, create a new certificate the same way and install again.
 
-## 6. Build the app
+## 7. Build our app and select it as the project
 
-Open PowerShell in the repository folder:
+1. Open the repository folder in VS Code (**File**, **Open Folder**).
+2. Open a terminal in VS Code (**Terminal**, **New Terminal**) and run:
 
-```powershell
-npm install
-copy apps\tv\.env.example apps\tv\.env   # optional: put your Jellyfin address in it
-npm run build -w apps/tv
-```
+   ```powershell
+   npm install
+   copy apps\tv\.env.example apps\tv\.env   # optional: put your Jellyfin address in it
+   npm run build -w apps/tv
+   ```
 
-In `apps/tv/.env` set `VITE_JELLYFIN_URL=http://<PC IP>:8096` so the app already shows your
-server. You can also type the address on the TV when the app starts.
-
-The result is the folder `apps/tv/dist`. It holds the web app plus `config.xml` (the Tizen app
-description) and `icon.png`.
+3. In `apps/tv/.env` set `VITE_JELLYFIN_URL=http://<PC IP>:8096` before building if you want the
+   app to show your server at once. You can also type the address on the TV when the app starts.
+4. The result is the folder `apps/tv/dist`. It holds the web app plus `config.xml` (the Tizen app
+   description) and `icon.png`. This folder is the Tizen project.
+5. Make the extension use it. The extension works on a project folder that contains
+   `config.xml`, so the Project target must point at `apps/tv/dist`. The most likely flow:
+   open `apps/tv/dist` as its own folder (**File**, **Open Folder**; or **File**, **Add Folder to
+   Workspace**) and look at **Active Targets**, **Project**: it should change from
+   "null (missing)" to the project name (`Thuisbios`). If it stays "missing", click the
+   **Project** item and choose the `apps/tv/dist` folder (may look slightly different). We could
+   not verify this step; what to look for is simply that **Project** is no longer "missing".
+6. After every code change run `npm run build -w apps/tv` again. The folder `apps/tv/dist` is
+   replaced, so reselect or reopen the project if the extension lost it.
 
 You can also run the app in a desktop browser first: `npm run dev -w apps/tv`, then open
 <http://localhost:5173>. The arrow keys move focus, Enter selects, Esc or Backspace is Back, and
 R, G, Y, B are the red, green, yellow and blue keys. The browser cannot play the transcoded
 (HLS) video, and the Tizen volume functions do not exist there; for those, use the TV.
 
-## 7. Package, sign and install on the TV
+## 8. Run on the TV and debug
 
-Choose one way. Way A uses clicks, way B uses commands.
-
-### Way A: Tizen Studio
-
-1. **File**, **Import**, **Tizen**, **Tizen Project**, **Next**.
-2. Choose **Select root directory** and browse to `apps\tv\dist` in the repository. Tick the
-   project, leave **Copy projects into workspace** on, **Finish**.
-3. Right-click the project, **Build Signed Package**. Check that the signing profile is your
-   certificate (**Tools**, **Certificate Manager**, select it and click **Set as active**).
-4. Right-click the project, **Run As**, **Tizen Web Application**. Studio installs the app on the
-   connected TV and starts it.
-
-Importing a copy means you must import again after each rebuild. Alternatively delete the project
-in Studio and import it again.
-
-### Way B: command line
-
-The `tizen` and `sdb` commands live in `C:\tizen-studio\tools\ide\bin` and `C:\tizen-studio\tools`.
-Add both folders to your PATH, or run them with the full path.
-
-```powershell
-sdb connect 192.168.1.60            # the TV's IP
-sdb devices                         # shows the device name, e.g. UE49NU7100 or 192.168.1.60:26101
-tizen security-profiles list        # shows the name of your certificate profile
-
-$env:TIZEN_PROFILE = "thuisbios"    # the profile name from the line above
-npm run package -w apps/tv          # signs and packages apps/tv/dist into apps/tv/build/Thuisbios.wgt
-
-tizen install -n Thuisbios.wgt -t <device from sdb devices> -- apps/tv/build
-tizen run -p ThuisBio01.Thuisbios -t <device from sdb devices>
-```
-
-`npm run package` just calls `tizen package -t wgt -s <profile> -o apps/tv/build -- apps/tv/dist`.
-The `.wgt` file is never committed (it is in `.gitignore`).
-
-After installing, find **Thuisbios** in the TV's apps panel. Start it from there next time.
-
-## 8. Debugging on the TV
-
-- In Tizen Studio right-click the project, **Debug As**, **Tizen Web Application**. A Chrome-like
-  developer window (console, network tab, elements) opens, connected to the app on the TV.
-- Errors then show in the console. Typing `window.tizen` in the console tells you if the Tizen
-  functions exist.
-- The app also shows a small debug overlay while playing a video (method, codecs, resolution).
+1. Check **Active Targets**: Project, Device and Certificate must all be filled in.
+2. Under **Actions** click **Run Project**. The extension packages and signs the app with the
+   active certificate, installs it on the TV and starts it. If you are asked, accept a firewall
+   prompt (Windows asks once) and choose **Build Project** first if Run does not build.
+3. Next time you can also start **Thuisbios** from the TV's apps panel.
+4. To debug click **Debug Project**. A Chrome-like inspector window (console, network, elements)
+   opens, connected to the app on the TV.
+5. In the console, `window.tizen` tells you whether the Tizen functions exist. The app also shows
+   a small debug overlay while playing a video (method, codecs, resolution).
 
 ## 9. What to test
 
@@ -189,11 +182,41 @@ phase 4 then uses Samsung's network remote API instead.
 
 ## Troubleshooting
 
-- **The app shows a white or black screen**: connect the debugger (step 8) and read the console.
+- **The app shows a white or black screen**: use Debug Project (step 8) and read the console.
 - **"Could not start Quick Connect"**: the TV cannot reach the PC. Check the address (including
   `:8096`), that Jellyfin runs, and that the Windows Firewall rule from phase 1 is active. Check
   that Quick Connect is switched on in the Jellyfin dashboard.
+- **Device not found or will not connect**: the TV and PC must be on the same Wi-Fi or LAN. The
+  IP in the TV's Developer Mode window must equal the PC's current IP (`ipconfig`, it may have
+  changed), and the TV must have been fully restarted afterwards. Check the TV's own IP too
+  (it may have changed) and that Windows Firewall is not blocking VS Code or `sdb`.
+- **Active Targets still shows "missing" or "No Active ..."**: fix the one that is empty:
+  Project (step 7), Device (step 5) or Certificate (step 6).
 - **Install fails with a certificate error**: the certificate does not contain this TV's DUID
   (create a new certificate with the TV connected) or has expired.
 - **Install fails with "already installed" or a signature error**: uninstall Thuisbios on the TV
   first (apps panel, select the app, **Delete**) and install again.
+
+## Appendix: command line (optional)
+
+The extension uses the Tizen command line tools internally. You can also use them yourself. Get
+"Tizen SDK 10 with CLI installer" from the same Tizen tools page. Afterwards the `tizen` and `sdb`
+commands live in the `tools\ide\bin` and `tools` folders of the install folder. Add both
+to your PATH, or run them with the full path.
+
+```powershell
+sdb connect 192.168.1.60            # the TV's IP
+sdb devices                         # shows the device name, e.g. UE49NU7100 or 192.168.1.60:26101
+tizen security-profiles list        # shows the name of your certificate profile
+
+$env:TIZEN_PROFILE = "thuisbios"    # the profile name from the line above
+npm run package -w apps/tv          # signs and packages apps/tv/dist into apps/tv/build/Thuisbios.wgt
+
+tizen install -n Thuisbios.wgt -t <device from sdb devices> -- apps/tv/build
+tizen run -p ThuisBio01.Thuisbios -t <device from sdb devices>
+```
+
+`npm run package` just calls `tizen package -t wgt -s <profile> -o apps/tv/build -- apps/tv/dist`.
+The certificate profile must exist for the CLI (the extension's Certificate Manager normally
+creates it; if `security-profiles list` is empty, create one with the CLI). The `.wgt` file is
+never committed (it is in `.gitignore`).
