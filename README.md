@@ -50,7 +50,7 @@ Run the tests with `Invoke-Pester -Path server/tests` (Pester 5).
 
 `apps/tv` is an npm workspace package: Preact + TypeScript + Vite, transpiled for Chromium 56
 (Tizen 4.0) with `@vitejs/plugin-legacy`. The spike has a Quick Connect sign-in, a row of the
-latest movies with D-pad navigation, an HTML5 player with a Jellyfin device profile and a debug
+latest movies (D-pad or pointer), an HTML5 player with a Jellyfin device profile and a debug
 overlay, and a volume test panel. Follow [docs/tv/dev-setup.md](docs/tv/dev-setup.md) to install
 it on the TV and run the test checklist. If the TV refuses the install, the same guide explains
 how to run the app in the TV's web browser (`npm run preview -w apps/tv`, served on port 4173).

@@ -165,8 +165,18 @@ instead. Nothing is installed on the TV.
 
 To see which remote buttons reach the app, open `http://<PC IP>:4173/?debug`, or press the yellow
 **C** button on the remote. A box in the corner lists the last buttons received and counts pointer
-moves and clicks; press yellow again to hide it. In this browser the arrow keys may move a mouse
-pointer instead: the app highlights whatever the pointer hovers, and OK clicks it.
+moves and clicks; press yellow again to hide it. Typing a "c" in the server address field does not
+toggle it.
+
+In this browser the remote works as a mouse, not as a keyboard:
+
+- The arrow keys move the pointer. Point at a movie and press **OK** to click it. Use the big
+  arrow buttons on both sides to see more movies. The small buttons at the bottom are for Volume
+  test and Sign out.
+- While a movie plays, move the pointer or press **OK** to show the big buttons (Back to list, back
+  10 seconds, Play/Pause, forward 30 seconds). They hide by themselves after 4 seconds, and stay
+  visible while paused. Clicking the picture also pauses or plays.
+- **RETURN** goes back to the movie list.
 
 ## 9. What to test
 
