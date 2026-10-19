@@ -3,7 +3,6 @@ import type { Session } from './jellyfin/types';
 
 const SESSION_KEY = 'thuisbios.session';
 const DEVICE_KEY = 'thuisbios.deviceId';
-const SERVER_KEY = 'thuisbios.serverUrl';
 
 function read(key: string): string | null {
   try {
@@ -44,5 +43,3 @@ export function loadSession(): Session | null {
 
 export const saveSession = (session: Session): void => write(SESSION_KEY, JSON.stringify(session));
 export const clearSession = (): void => write(SESSION_KEY, null);
-export const loadServerUrl = (): string => read(SERVER_KEY) ?? '';
-export const saveServerUrl = (url: string): void => write(SERVER_KEY, url);

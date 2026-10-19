@@ -1,0 +1,42 @@
+import { describe, expect, it } from 'vitest';
+import { playCommand, relativeSeekTicks, seekCommand, transportCommand, viewCommand } from './commands';
+
+describe('command URLs', () => {
+  it('builds Play on TV', () => {
+    expect(playCommand('S1', 'item 1', 123450000)).toEqual({
+      method: 'POST',
+      path: '/Sessions/S1/Playing?playCommand=PlayNow&itemIds=item%201&startPositionTicks=123450000',
+    });
+  });
+  it('plays from the start with 0 ticks and never sends negative or fractional ticks', () => {
+    expect(playCommand('S1', 'i', 0).path).toContain('startPositionTicks=0');
+    expect(playCommand('S1', 'i', -5).path).toContain('startPositionTicks=0');
+    expect(playCommand('S1', 'i', 10.6).path).toContain('startPositionTicks=11');
+  });
+  it('builds Show on TV with encoded name', () => {
+    expect(viewCommand('S1', 'Movie', 'abc', 'Tom & Jerry').path).toBe(
+      '/Sessions/S1/Viewing?itemType=Movie&itemId=abc&itemName=Tom%20%26%20Jerry',
+    );
+  });
+  it('builds transport commands', () => {
+    expect(transportCommand('S1', 'PlayPause').path).toBe('/Sessions/S1/Playing/PlayPause');
+    expect(transportCommand('S1', 'NextTrack').path).toBe('/Sessions/S1/Playing/NextTrack');
+    expect(transportCommand('S1', 'Stop').method).toBe('POST');
+  });
+  it('builds seek', () => {
+    expect(seekCommand('S1', 600000000).path).toBe('/Sessions/S1/Playing/Seek?seekPositionTicks=600000000');
+  });
+});
+
+describe('relativeSeekTicks', () => {
+  const sec = 10_000_000;
+  it('jumps by seconds', () => {
+    expect(relativeSeekTicks(100 * sec, 10, 1000 * sec)).toBe(110 * sec);
+    expect(relativeSeekTicks(100 * sec, -10, 1000 * sec)).toBe(90 * sec);
+  });
+  it('clamps to the start and the runtime', () => {
+    expect(relativeSeekTicks(3 * sec, -10, 1000 * sec)).toBe(0);
+    expect(relativeSeekTicks(995 * sec, 10, 1000 * sec)).toBe(1000 * sec);
+    expect(relativeSeekTicks(995 * sec, 10)).toBe(1005 * sec);
+  });
+});

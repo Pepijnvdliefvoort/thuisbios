@@ -4,7 +4,7 @@ import { ItemInfo } from '../components/ItemInfo';
 import { Tile, TILE } from '../components/Tile';
 import type { JellyfinClient } from '../jellyfin/client';
 import { artFor, artUrl } from '../jellyfin/art';
-import { resolveSeriesPlay } from '../jellyfin/homeRows';
+import { resolveSeriesPlay } from '../jellyfin/seriesPlay';
 import { episodeLabel, formatHms, formatRuntime, hasResume, resumeSeconds } from '../jellyfin/itemInfo';
 import type { BaseItem, Session } from '../jellyfin/types';
 import { tileWindow, trackOffset, type GridState } from '../nav/focusGrid';

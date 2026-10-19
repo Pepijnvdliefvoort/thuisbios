@@ -109,12 +109,13 @@ installing, create a new certificate the same way and install again.
 
    ```powershell
    npm install
-   copy apps\tv\.env.example apps\tv\.env   # optional: put your Jellyfin address in it
    npm run build -w apps/tv
    ```
 
-3. In `apps/tv/.env` set `VITE_JELLYFIN_URL=http://<PC IP>:8096` before building if you want the
-   app to show your server at once. You can also type the address on the TV when the app starts.
+3. Nothing needs configuring: the TV page finds Jellyfin at `http://<PC IP>:8096` and the phone app
+   at `http://<PC IP>:4174` from the address it was opened on. Only if they live elsewhere, copy
+   `apps\tv\.env.example` to `apps\tv\.env` and set `VITE_JELLYFIN_URL` and `VITE_REMOTE_URL`
+   before building (for development you can also add `?server=` and `?remote=` to the page address).
 4. The result is the folder `apps/tv/dist`. It holds the web app plus `config.xml` (the Tizen app
    description) and `icon.png`. This folder is the Tizen project.
 5. Make the extension use it. The extension works on a project folder that contains
@@ -156,24 +157,23 @@ instead. Nothing is installed on the TV.
    **Apps**, or from the PC with `tizen run -p org.tizen.browser -t <device name>`.
 3. In the TV's browser go to `http://<PC IP>:4173`. Use the PC's Wi-Fi or LAN IP address (see
    section 2), not the Tailscale one.
-4. When the app asks for the server address, enter `http://<PC IP>:8096`.
-5. Sign in with Quick Connect: on your phone or PC open Jellyfin, click your profile picture →
-   **Quick Connect**, enter the code shown on the TV and press **Authorize**.
-6. The first press of any remote button switches the browser to full screen, which hides the
+4. The TV shows a Quick Connect code and a QR code at once. On your phone, scan the QR code (it
+   opens the Thuisbios phone app and signs the TV in), or open the Thuisbios phone app and enter the
+   code. A new code appears by itself when the old one expires.
+5. The first press of any remote button switches the browser to full screen, which hides the
    address bar. If the Back button leaves full screen, the next button press switches it back.
-7. Bookmark the page in the TV's browser so you can open it quickly next time.
+6. Bookmark the page in the TV's browser so you can open it quickly next time.
 
 To see which remote buttons reach the app, open `http://<PC IP>:4173/?debug`, or press the yellow
 **C** button on the remote. A box in the corner lists the last buttons received and counts pointer
-moves and clicks; press yellow again to hide it. Typing a "c" in the server address field does not
-toggle it.
+moves and clicks; press yellow again to hide it.
 
 In this browser the remote works as a mouse, not as a keyboard:
 
 - Outside the player, each press of an arrow key jumps the highlight to the next item in that
   direction, like a real D-pad. Press **OK** to open the highlighted item. If the highlight is ever lost (for example
   right after full screen turns on), the next **OK** or arrow press only brings it back. The pointer itself is
-  hidden, only the highlight is visible. Typing in the server address field still works. On a
+  hidden, only the highlight is visible. On a
   desktop, add `?dpad` to the URL to try this mode with a mouse (the plain mouse keeps hover and
   click otherwise).
 - The player uses the same arrows, **OK** and **RETURN**, through one state machine (the keyboard
@@ -205,22 +205,21 @@ button shows "n/a".
 
 ## 9. What to test
 
-Start the app. On first start it asks for the Jellyfin address and shows a **Quick Connect code**.
-On your phone open the Jellyfin app, go to **Settings**, **Quick Connect**, and type the code. The
-TV then signs in by itself.
+Start the app. On first start it shows a **Quick Connect code** and a QR code. Scan the QR code
+with your phone (or enter the code in the Thuisbios phone app). The TV then signs in by itself and
+shows the screensaver, a slideshow of your library. You pick what to watch on the phone.
 
 Tick off every line and write down what happened (also if it fails: the exact message helps).
 
 - [ ] **Install**: the app starts from the apps panel on the TV.
-- [ ] **Sign in**: the code appears, entering it on the phone logs the TV in, the home screen
-  appears with a hero at the top and rows of tiles below it.
-- [ ] **D-pad**: left and right move the highlight along a row, up and down move between rows (each
-  row remembers its position), up from the first row reaches the hero buttons and then "Sign out".
-  The highlighted tile grows slightly and the hero follows it after a moment.
-- [ ] **Details and resume**: OK on a tile opens the details page. A partly watched movie offers
-  "Resume from ..." and "Play from start"; a series shows seasons and episodes.
-- [ ] **Return key**: Return in the player goes to the details page (or home) and may leave full
-  screen; press OK to get full screen back. On the home screen full screen may end. With `?debug`
+- [ ] **Sign in**: the code and QR code appear, scanning the QR code with the phone logs the TV in,
+  the screensaver appears (slow backdrops with title, year and a clock).
+- [ ] **Screensaver**: OK shows "Sign out" and "Close"; left and right move between them and the
+  menu hides itself after 10 seconds.
+- [ ] **Show on TV**: "Show on TV" on the phone opens the details page. A partly watched movie
+  offers "Resume from ..." and "Play from start"; a series shows seasons and episodes.
+- [ ] **Return key**: Return in the player goes to the details page (or the screensaver) and may
+  leave full screen; press OK to get full screen back. On the screensaver full screen may end. With `?debug`
   the overlay shows the back decisions.
 - [ ] **Direct play**: play a movie that should direct play (for example Big Buck Bunny as
   H.264 + AAC). The overlay says **DirectPlay**. Picture and sound work.
@@ -233,6 +232,11 @@ Tick off every line and write down what happened (also if it fails: the exact me
   player.
 - [ ] **Progress**: after leaving the player, open the Jellyfin web UI on the PC. The movie shows a
   partial progress bar ("resume").
+- [ ] **Phone remote**: with the TV signed in, open the Jellyfin app on the phone and pick the TV as
+  the playback target. Playing a title starts it on the TV, pause, seek and stop from the phone
+  work, and the phone's progress bar follows. Next and previous episode work for a series.
+  Sending a title to the TV opens its details page. With `?debug` the overlay shows the socket
+  state and the last command.
 - [ ] **4K or HDR file** (if you have one): note whether it plays, stutters, or turns into a
   transcode.
 
@@ -241,9 +245,10 @@ The TV's own volume buttons control the soundbar, so the app needs no volume scr
 ## Troubleshooting
 
 - **The app shows a white or black screen**: use Debug Project (step 8) and read the console.
-- **"Could not start Quick Connect"**: the TV cannot reach the PC. Check the address (including
-  `:8096`), that Jellyfin runs, and that the Windows Firewall rule from phase 1 is active. Check
-  that Quick Connect is switched on in the Jellyfin dashboard.
+- **"Can't reach the Jellyfin server"**: the TV cannot reach the PC. The TV retries every 10
+  seconds. Check that the PC is on, that Jellyfin runs, that the TV page was opened with the PC's
+  address (Jellyfin is expected on port 8096 of that same address) and that the Windows Firewall
+  rule from phase 1 is active. Check that Quick Connect is switched on in the Jellyfin dashboard.
 - **Device not found or will not connect**: the TV and PC must be on the same Wi-Fi or LAN. The
   IP in the TV's Developer Mode window must equal the PC's current IP (`ipconfig`, it may have
   changed), and the TV must have been fully restarted afterwards. Check the TV's own IP too

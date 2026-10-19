@@ -18,13 +18,6 @@ export function buildAuthHeader(info: ClientInfo, token?: string): string {
   return `MediaBrowser ${parts.join(', ')}`;
 }
 
-/** Trims whitespace and trailing slashes; adds http:// when no scheme was typed. */
-export function normalizeServerUrl(input: string): string {
-  let url = input.trim().replace(/\/+$/, '');
-  if (url && !/^https?:\/\//i.test(url)) url = `http://${url}`;
-  return url;
-}
-
 /** Random-enough id for a device that has no stable hardware id exposed to web apps. */
 export function createDeviceId(random: () => number = Math.random): string {
   let id = '';

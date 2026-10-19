@@ -44,7 +44,7 @@ export function subtitleVttUrl(
 ): string {
   return (
     `${serverUrl}/Videos/${encodeURIComponent(itemId)}/${encodeURIComponent(mediaSourceId)}` +
-    `/Subtitles/${index}/0/Stream.vtt?api_key=${encodeURIComponent(token)}`
+    `/Subtitles/${index}/0/Stream.vtt?api_key=${encodeURIComponent(token)}&ApiKey=${encodeURIComponent(token)}`
   );
 }
 
