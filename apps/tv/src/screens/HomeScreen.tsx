@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Backdrop } from '../components/Backdrop';
 import { ItemInfo } from '../components/ItemInfo';
+import { Sidebar } from '../components/Sidebar';
 import { Tile, TILE } from '../components/Tile';
 import type { JellyfinClient } from '../jellyfin/client';
 import { artFor, artUrl } from '../jellyfin/art';
@@ -8,7 +9,9 @@ import { loadHomeRows, resolveSeriesPlay, type HomeRow } from '../jellyfin/homeR
 import { hasResume, resumeSeconds } from '../jellyfin/itemInfo';
 import type { BaseItem, Session } from '../jellyfin/types';
 import { rowTops, rowVisible, tileWindow, trackOffset, type GridState } from '../nav/focusGrid';
+import type { SidebarItemId } from '../nav/sidebar';
 import { useGridNav } from '../nav/useGridNav';
+import { useSidebar } from '../nav/useSidebar';
 import { exitApp } from '../tizen/api';
 
 /** What the app keeps while a sub screen is open, so Back returns to the same place. */
@@ -24,7 +27,7 @@ interface Props {
   onSnapshot(snapshot: HomeSnapshot): void;
   onOpen(item: BaseItem): void;
   onPlay(item: BaseItem, startSeconds: number): void;
-  onLogout(): void;
+  onNavigate(target: SidebarItemId): void;
 }
 
 const HERO_W = 1920;
@@ -32,8 +35,8 @@ const HERO_H = 360;
 const ROW_TITLE_H = 60;
 const ROW_PAD_H = 12;
 const FEATURE_DEBOUNCE_MS = 300;
-/** Grid rows 0 and 1 are the sign-out button and the hero buttons; content rows start at 2. */
-const FIRST_ROW = 2;
+/** Grid row 0 holds the hero buttons; content rows start at 1. */
+const FIRST_ROW = 1;
 const RENDER_RADIUS = 2;
 const TILES_BEFORE = 3;
 const TILES_AFTER = 10;
@@ -42,7 +45,7 @@ const KEEP_BEFORE = 1;
 const rowHeight = (row: HomeRow): number => ROW_TITLE_H + TILE[row.kind].h + 6 + TILE[row.kind].caption + ROW_PAD_H;
 
 /** Home: hero billboard for the featured item and rows of tiles, navigated as a (row, column) grid. */
-export function HomeScreen({ client, session, snapshot, onSnapshot, onOpen, onPlay, onLogout }: Props) {
+export function HomeScreen({ client, session, snapshot, onSnapshot, onOpen, onPlay, onNavigate }: Props) {
   const [rows, setRows] = useState<HomeRow[]>(snapshot ? snapshot.rows : []);
   const [loading, setLoading] = useState(!snapshot);
   const [error, setError] = useState('');
@@ -68,17 +71,21 @@ export function HomeScreen({ client, session, snapshot, onSnapshot, onOpen, onPl
     };
   }, [client, session.userId]);
 
-  // While loading the hero row counts as present so the start position is not pushed to "Sign out".
+  // While loading the hero row counts as present so the start position is stable.
   const heroButtons = rows.length > 0 || loading ? 2 : 0;
-  const lengths = [1, heroButtons].concat(rows.map((r) => r.items.length));
-  const lastGrid = useRef<GridState>(snapshot ? snapshot.grid : { row: 1, col: 0, memory: [] });
+  const lengths = [heroButtons].concat(rows.map((r) => r.items.length));
+  const lastGrid = useRef<GridState>(snapshot ? snapshot.grid : { row: 0, col: 0, memory: [] });
+  const sidebar = useSidebar('home', onNavigate, () => grid.refocus());
   const grid = useGridNav(lengths, {
     initial: lastGrid.current,
+    intercept: sidebar.intercept,
+    paused: sidebar.isOpen,
     onChange: (state) => {
       lastGrid.current = state;
       onSnapshot({ rows: rowsRef.current, grid: state });
     },
     onKey: (key) => {
+      if (sidebar.onKey(key)) return true;
       if (key === 'back') {
         exitApp();
         return true;
@@ -125,18 +132,14 @@ export function HomeScreen({ client, session, snapshot, onSnapshot, onOpen, onPl
       <div class="hero">
         <Backdrop src={heroBackdrop} width={HERO_W} height={HERO_H} />
         <div class="hero-shade" />
-        <div class="brand">Thuisbios</div>
-        <button data-focusable data-row={0} data-col={0} class="signout" onClick={onLogout}>
-          Sign out
-        </button>
         {featured && (
           <div class="hero-text">
             <ItemInfo client={client} item={featured} compact />
             <div class="hero-buttons">
-              <button data-focusable data-row={1} data-col={0} class="hbtn primary" onClick={playFeatured}>
+              <button data-focusable data-row={0} data-col={0} class="hbtn primary" onClick={playFeatured}>
                 {hasResume(featured) ? 'Resume' : 'Play'}
               </button>
-              <button data-focusable data-row={1} data-col={1} class="hbtn" onClick={() => onOpen(featured)}>
+              <button data-focusable data-row={0} data-col={1} class="hbtn" onClick={() => onOpen(featured)}>
                 More info
               </button>
             </div>
@@ -178,6 +181,7 @@ export function HomeScreen({ client, session, snapshot, onSnapshot, onOpen, onPl
           })}
         </div>
       </div>
+      <Sidebar section="home" state={sidebar.state} onSelect={sidebar.select} onClose={sidebar.close} />
     </main>
   );
 }

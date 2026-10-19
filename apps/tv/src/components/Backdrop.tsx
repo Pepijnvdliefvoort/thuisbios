@@ -1,47 +1,39 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useReducer } from 'preact/hooks';
+import { backdropLayers, backdropReducer, initialBackdrop } from './backdropState';
 
 interface Props {
+  /** Image URL, or '' when the item has no backdrop art (shows the generic background). */
   src: string;
   width: number;
   height: number;
 }
 
 /**
- * Full-bleed backdrop image that cross-fades when `src` changes: the previous image stays under
- * the new one until the new one has loaded, so fast browsing never flashes an empty background.
- * Only opacity is animated.
+ * Full-bleed backdrop. A generic dark gradient sits underneath; the image cross-fades over it once
+ * loaded. With no art (or when the image fails) it fades back to the generic background instead of
+ * keeping the previous image. Only opacity is animated.
  */
 export function Backdrop({ src, width, height }: Props) {
-  const [prev, setPrev] = useState('');
-  const [cur, setCur] = useState(src);
-  const [ready, setReady] = useState(false);
-  const readyRef = useRef(false);
-  readyRef.current = ready;
+  const [state, dispatch] = useReducer(backdropReducer, src, initialBackdrop);
 
   useEffect(() => {
-    if (src === cur) return;
-    // Keep the old image under the new one only if it finished loading.
-    setPrev(readyRef.current ? cur : prev);
-    setCur(src);
-    setReady(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    dispatch({ type: 'target', src });
   }, [src]);
 
   return (
     <div class="backdrop">
-      {prev && <img class="backdrop-img on" alt="" width={width} height={height} src={prev} />}
-      {cur && (
+      {backdropLayers(state).map((layer) => (
         <img
-          key={cur}
-          class={ready ? 'backdrop-img on' : 'backdrop-img'}
+          key={layer.src}
+          class={layer.on ? 'backdrop-img on' : 'backdrop-img'}
           alt=""
           width={width}
           height={height}
-          src={cur}
-          onLoad={() => setReady(true)}
-          onError={() => setReady(false)}
+          src={layer.src}
+          onLoad={() => dispatch({ type: 'loaded', src: layer.src })}
+          onError={() => dispatch({ type: 'failed', src: layer.src })}
         />
-      )}
+      ))}
     </div>
   );
 }

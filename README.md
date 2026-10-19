@@ -53,7 +53,10 @@ Run the tests with `Invoke-Pester -Path server/tests` (Pester 5).
 featured item (it follows the focused tile) above rows of Continue watching, Next up, recently
 added movies and series, and all movies and series. OK on a tile opens a details page (movie,
 episode, or series with a season selector and episode list) with Play, Resume and Play from start,
-so playback resumes where it stopped. Navigation is a (row, column) grid driven by the D-pad or by
+so playback resumes where it stopped. Pressing Left from the first column opens a sidebar (Home,
+Movies, Shows, Sign out) over a narrow icon rail; Movies and Shows are poster grids of the whole
+library, and Return goes back to Home. Items without a backdrop show a generic dark background
+instead of the previous image. Navigation is a (row, column) grid driven by the D-pad or by
 the TV browser's arrow-driven pointer. The player is a Netflix-style HTML5 player (one input state
 machine for the remote's pointer and the keyboard, Jellyfin device profile, `?debug` overlay) with
 text subtitles (CC button). In the TV browser, Return while in full screen only leaves full screen,

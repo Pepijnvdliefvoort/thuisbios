@@ -10,6 +10,16 @@ export const TILE = {
   poster: { w: 180, h: 270, stride: 200, caption: 36 },
 };
 
+/** Poster size of the Movies / Shows grid (7 columns next to the rail). */
+export const LIBRARY_TILE = { w: 210, h: 315, stride: 230, caption: 36 };
+
+export interface TileSize {
+  w: number;
+  h: number;
+  stride: number;
+  caption: number;
+}
+
 interface Props {
   client: JellyfinClient;
   item: BaseItem;
@@ -20,11 +30,15 @@ interface Props {
   /** Override the caption lines (the episode list shows "3. Name" and the runtime). */
   title?: string;
   subtitle?: string;
+  /** Geometry override (library grid). */
+  size?: TileSize;
+  /** Absolute top of the tile inside its container (library grid, where rows are stacked by the caller). */
+  top?: number;
 }
 
 /** One focusable tile in a row: landscape (thumb, progress bar, episode subtitle) or poster (2:3). */
-export function Tile({ client, item, kind, row, col, onOpen, title, subtitle: subtitleOverride }: Props) {
-  const size = TILE[kind];
+export function Tile({ client, item, kind, row, col, onOpen, title, subtitle: subtitleOverride, size: sizeOverride, top }: Props) {
+  const size = sizeOverride || TILE[kind];
   const url = artUrl(client, artFor(item, kind === 'landscape' ? 'thumb' : 'poster'), size.w, size.h);
   const progress = kind === 'landscape' ? progressFraction(item) : 0;
   const fallbackSubtitle =
@@ -37,7 +51,7 @@ export function Tile({ client, item, kind, row, col, onOpen, title, subtitle: su
       data-row={row}
       data-col={col}
       class={`tile ${kind}`}
-      style={{ left: `${col * size.stride}px`, width: `${size.w + 6}px` }}
+      style={{ left: `${col * size.stride}px`, width: `${size.w + 6}px`, top: top === undefined ? undefined : `${top}px` }}
       onClick={() => onOpen(item)}
     >
       <span class="art" style={{ height: `${size.h}px` }}>

@@ -27,9 +27,14 @@ input:focus { border-color: var(--accent); outline: none; }
 .bar { display: flex; align-items: center; margin-bottom: 24px; }
 .bar h1 { margin: 0 auto 0 0; }
 /* Home and details. Fixed 1920x1080 layout in px (the TV browser renders at 1920x1080); only transform and opacity are animated. */
-.home, .details { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; background: var(--bg); }
+.home, .details, .library { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; background: var(--bg); }
 .hero { position: absolute; top: 0; left: 0; width: 1920px; height: 360px; overflow: hidden; }
-.backdrop { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #14141c; }
+/* Generic background, also what shows when an item has no backdrop art. */
+.backdrop {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; background:
+    radial-gradient(ellipse at 75% 20%, rgba(229, 9, 20, 0.12) 0%, rgba(229, 9, 20, 0) 55%),
+    linear-gradient(135deg, #1b1b26 0%, #0b0b10 100%);
+}
 .backdrop-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 300ms; }
 .backdrop-img.on { opacity: 1; }
 .hero-shade {
@@ -38,13 +43,7 @@ input:focus { border-color: var(--accent); outline: none; }
     linear-gradient(to right, rgba(11, 11, 16, 0.95) 0%, rgba(11, 11, 16, 0.7) 35%, rgba(11, 11, 16, 0) 70%),
     linear-gradient(to top, #0b0b10 0%, rgba(11, 11, 16, 0) 45%);
 }
-.brand { position: absolute; top: 36px; left: 64px; font-size: 36px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; color: var(--accent); }
-.signout {
-  position: absolute; top: 28px; right: 64px; font-size: 24px; padding: 8px 22px; color: var(--fg);
-  background: rgba(38, 38, 58, 0.8); border: 3px solid transparent; cursor: pointer; outline: none;
-}
-.signout:focus { border-color: var(--accent); transform: scale(1.06); }
-.hero-text { position: absolute; left: 64px; bottom: 20px; width: 800px; }
+.hero-text { position: absolute; left: 152px; bottom: 20px; width: 800px; }
 
 .info { margin-bottom: 20px; }
 .info-title { margin: 0 0 8px; font-size: 64px; line-height: 1.1; }
@@ -73,10 +72,10 @@ input:focus { border-color: var(--accent); outline: none; }
 
 .rows-view { position: absolute; top: 360px; left: 0; width: 1920px; height: 720px; overflow: hidden; }
 .rows { transition: transform 200ms; }
-.state { margin: 40px 64px; font-size: 28px; }
+.state { margin: 40px 152px; font-size: 28px; }
 .row { position: relative; }
-.row-title { margin: 0; padding: 0 0 0 64px; height: 44px; line-height: 44px; font-size: 26px; font-weight: normal; }
-.track { position: relative; margin-left: 64px; margin-top: 16px; transition: transform 200ms; }
+.row-title { margin: 0; padding: 0 0 0 152px; height: 44px; line-height: 44px; font-size: 26px; font-weight: normal; }
+.track { position: relative; margin-left: 152px; margin-top: 16px; transition: transform 200ms; }
 
 .tile {
   position: absolute; top: 0; margin: 0; padding: 0; color: var(--fg); text-align: left; font-family: inherit;
@@ -240,3 +239,38 @@ body.dpad, body.dpad * { cursor: none; }
   display: inline-block; margin: 0 6px; padding: 2px 14px; border: 2px solid #fff; border-radius: 8px;
   font-weight: 700; font-size: 24px;
 }
+
+/* Library (Movies / Shows). */
+.lib-head { position: absolute; top: 40px; left: 152px; right: 64px; display: flex; align-items: baseline; }
+.lib-head h1 { margin: 0 24px 0 0; font-size: 52px; }
+.lib-count { font-size: 26px; color: var(--muted); }
+.lib-view { position: absolute; top: 130px; left: 0; width: 1920px; height: 950px; overflow: hidden; }
+.lib-grid { position: relative; margin-left: 152px; margin-top: 16px; transition: transform 200ms; }
+
+/* Sidebar: a narrow rail of icons; focus opens a labelled panel that slides over it and dims the content. */
+.rail {
+  position: absolute; top: 0; left: 0; bottom: 0; width: 88px; z-index: 10; display: flex; flex-direction: column;
+  background: rgba(11, 11, 16, 0.78);
+}
+.sb-logo { height: 120px; line-height: 120px; text-align: center; font-size: 44px; font-weight: bold; color: var(--accent); }
+.sb-item {
+  display: flex; align-items: center; width: 100%; height: 76px; margin: 0; padding: 0; border: 0; text-align: left;
+  font-family: inherit; color: var(--muted); background: transparent; cursor: pointer; outline: none;
+}
+.sb-item.last { margin-top: auto; margin-bottom: 32px; }
+.sb-item.cur { color: var(--accent); }
+.sb-ico { flex: 0 0 88px; display: flex; align-items: center; justify-content: center; }
+.sb-label { font-size: 30px; white-space: nowrap; }
+button.sb-item:focus { background: rgba(255, 255, 255, 0.16); color: #fff; }
+button.sb-item.cur:focus { color: var(--accent); }
+.sb-dim {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 20; background: rgba(0, 0, 0, 0.65);
+  opacity: 0; pointer-events: none; transition: opacity 200ms;
+}
+.sb-dim.on { opacity: 1; pointer-events: auto; }
+.sb-panel {
+  position: absolute; top: 0; left: 0; bottom: 0; width: 340px; z-index: 30; display: flex; flex-direction: column;
+  background: #0f0f17; transform: translateX(-340px); transition: transform 200ms;
+}
+.sb-panel.on { transform: translateX(0); }
+.sb-brand { height: 120px; line-height: 120px; padding-left: 32px; font-size: 34px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; color: var(--accent); }

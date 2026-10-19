@@ -6,20 +6,25 @@ import { createClient } from './jellyfin/client';
 import type { BaseItem, Session } from './jellyfin/types';
 import { createReturnKey, installReturnKey } from './nav/returnKey';
 import { createScreenHistory } from './nav/screenHistory';
+import { planSectionChange, type LibraryKind, type SectionId, type SidebarItemId } from './nav/sidebar';
 import { registerRemoteKeys } from './tizen/api';
 import { clearSession, loadSession, saveSession } from './storage';
 import { ConnectScreen } from './screens/ConnectScreen';
 import { DetailsScreen, type DetailsMemo } from './screens/DetailsScreen';
+import { LibraryScreen, type LibraryMemo } from './screens/LibraryScreen';
 import { HomeScreen, type HomeSnapshot } from './screens/HomeScreen';
 import { PlayerScreen } from './screens/PlayerScreen';
 
-/** The screen stack: home at the bottom, then details, then the player. */
+/** The screen stack: home at the bottom, then a library (Movies / Shows), details, the player. */
 type Screen =
   | { name: 'home' }
+  | { name: 'library'; kind: LibraryKind; memo: LibraryMemo }
   | { name: 'details'; item: BaseItem; memo: DetailsMemo }
   | { name: 'player'; item: BaseItem; startSeconds: number };
 
 const HOME: Screen = { name: 'home' };
+
+const sectionOf = (s: Screen): SectionId => (s.name === 'library' ? s.kind : 'home');
 
 export function App() {
   const [session, setSession] = useState<Session | null>(loadSession);
@@ -85,7 +90,28 @@ export function App() {
   const logout = () => {
     clearSession();
     homeSnapshot.current = null;
+    setStack([HOME]);
     setSession(null);
+  };
+  /** Sidebar choice: Home -> library pushes one history entry, library <-> library replaces it, library -> Home goes back. */
+  const navigate = (target: SidebarItemId) => {
+    const plan = planSectionChange(sectionOf(stackRef.current[stackRef.current.length - 1]), target);
+    switch (plan.type) {
+      case 'logout':
+        logout();
+        break;
+      case 'push':
+        open({ name: 'library', kind: plan.kind, memo: {} });
+        break;
+      case 'replace': {
+        const next: Screen = { name: 'library', kind: plan.kind, memo: {} };
+        setStack((s) => s.slice(0, -1).concat([next]));
+        break;
+      }
+      case 'back':
+        exit();
+        break;
+    }
   };
   const openDetails = (item: BaseItem) => open({ name: 'details', item, memo: {} });
   const play = (item: BaseItem, startSeconds: number) => open({ name: 'player', item, startSeconds });
@@ -114,6 +140,19 @@ export function App() {
           onBack={exit}
         />
       );
+    case 'library':
+      return (
+        <LibraryScreen
+          key={screen.kind}
+          client={client}
+          session={session}
+          kind={screen.kind}
+          memo={screen.memo}
+          onOpen={openDetails}
+          onNavigate={navigate}
+          onBack={exit}
+        />
+      );
     default:
       return (
         <HomeScreen
@@ -125,7 +164,7 @@ export function App() {
           }}
           onOpen={openDetails}
           onPlay={play}
-          onLogout={logout}
+          onNavigate={navigate}
         />
       );
   }

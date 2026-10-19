@@ -10,6 +10,8 @@ export interface GridNav {
   col: number;
   /** Column to show for a row (live for the focused row, remembered for the others). */
   colOf(row: number): number;
+  /** Puts DOM focus back on the focused cell (e.g. after the sidebar closed). */
+  refocus(): void;
 }
 
 interface Options {
@@ -18,6 +20,10 @@ interface Options {
   onChange?(state: GridState): void;
   /** Keys the grid does not use (back, colour keys). Return true when handled. */
   onKey?(key: RemoteKey): boolean | void;
+  /** First look at every direction, before the grid moves. Return true when handled (e.g. sidebar). */
+  intercept?(dir: Direction, state: GridState): boolean;
+  /** While true the grid does not move DOM focus to its cell (the sidebar holds focus). */
+  paused?(): boolean;
 }
 
 const cellSelector = (row: number, col: number): string => `[data-row="${row}"][data-col="${col}"]`;
@@ -26,7 +32,7 @@ const cellSelector = (row: number, col: number): string => `[data-row="${row}"][
  * Focus without letting the browser scroll: Chromium 56 ignores `preventScroll` and would scroll
  * our overflow:hidden boxes to reveal the element, fighting the transforms that already place it.
  */
-function focusNoScroll(el: HTMLElement): void {
+export function focusNoScroll(el: HTMLElement): void {
   try {
     el.focus({ preventScroll: true } as FocusOptions);
   } catch (e) {
@@ -64,7 +70,11 @@ export function useGridNav(lengths: number[], options: Options = {}): GridNav {
     if (optsRef.current.onChange) optsRef.current.onChange(next);
   };
 
-  const move = (dir: Direction): void => commit(moveGrid(stateRef.current, dir, lengthsRef.current));
+  const move = (dir: Direction): void => {
+    const intercept = optsRef.current.intercept;
+    if (intercept && intercept(dir, stateRef.current)) return;
+    commit(moveGrid(stateRef.current, dir, lengthsRef.current));
+  };
 
   // TV browser: directions and OK come from the hidden pointer.
   useEffect(() => {
@@ -119,9 +129,16 @@ export function useGridNav(lengths: number[], options: Options = {}): GridNav {
       commit(clamped);
       return;
     }
+    const paused = optsRef.current.paused;
+    if (paused && paused()) return;
     focusCell(pos.row, pos.col);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pos.row, pos.col, lengthsKey]);
 
-  return { row: pos.row, col: pos.col, colOf: (row) => columnOf(stateRef.current, row) };
+  return {
+    row: pos.row,
+    col: pos.col,
+    colOf: (row) => columnOf(stateRef.current, row),
+    refocus: () => focusCell(stateRef.current.row, stateRef.current.col),
+  };
 }
