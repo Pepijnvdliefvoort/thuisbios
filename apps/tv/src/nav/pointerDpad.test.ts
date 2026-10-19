@@ -85,4 +85,50 @@ describe('pointer D-pad mode', () => {
     expect(onB).toHaveBeenCalledTimes(1);
     expect(onA).not.toHaveBeenCalled();
   });
+
+  it('prevents mousedown on non-inputs and allows it on inputs', () => {
+    const down = (t: HTMLElement) => {
+      const ev = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      t.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    expect(down(document.body)).toBe(true);
+    expect(down(el('b'))).toBe(true);
+    expect(down(el('i'))).toBe(false);
+  });
+
+  it('restores the remembered element on a click with nothing focused, without activating', () => {
+    el('b').focus();
+    el('b').blur();
+    expect(document.activeElement).toBe(document.body);
+    const onA = vi.fn();
+    const onB = vi.fn();
+    el('a').addEventListener('click', onA);
+    el('b').addEventListener('click', onB);
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(el('b'));
+    expect(onA).not.toHaveBeenCalled();
+    expect(onB).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the first focusable when the remembered one was removed', () => {
+    el('b').focus();
+    el('b').remove();
+    expect(document.activeElement).toBe(document.body);
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(el('a'));
+  });
+
+  it('ignores pointer movement right after a resize', () => {
+    window.dispatchEvent(new Event('resize'));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 10, clientY: 0, bubbles: true }));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 20, clientY: 0, bubbles: true }));
+    vi.advanceTimersByTime(200);
+    expect(document.activeElement).toBe(document.body);
+    vi.advanceTimersByTime(400);
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 0, bubbles: true }));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 40, clientY: 0, bubbles: true }));
+    vi.advanceTimersByTime(200);
+    expect(document.activeElement).toBe(el('a'));
+  });
 });

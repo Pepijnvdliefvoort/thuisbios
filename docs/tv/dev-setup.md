@@ -171,7 +171,8 @@ toggle it.
 In this browser the remote works as a mouse, not as a keyboard:
 
 - Outside the player, each press of an arrow key jumps the highlight to the next item in that
-  direction, like a real D-pad. Press **OK** to open the highlighted item. The pointer itself is
+  direction, like a real D-pad. Press **OK** to open the highlighted item. If the highlight is ever lost (for example
+  right after full screen turns on), the next **OK** or arrow press only brings it back. The pointer itself is
   hidden, only the highlight is visible. Typing in the server address field still works. On a
   desktop, add `?dpad` to the URL to try this mode with a mouse (the plain mouse keeps hover and
   click otherwise).
