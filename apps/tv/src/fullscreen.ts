@@ -35,11 +35,31 @@ export function requestFullscreen(doc: FullscreenDocument = document as Fullscre
 /**
  * Full screen needs a user gesture, so ask on every key press or click. This is cheap and also
  * re-enters full screen after the Back key left it.
+ *
+ * The owner wants full screen as soon as the pointer moves. Browsers only honour requestFullscreen
+ * inside a user gesture (click or key press), so a mousemove will almost certainly be refused. We
+ * try once anyway: on the first mousemove we ask, and a rejection or thrown error is swallowed
+ * (the webkit variants return undefined instead of a promise). The mousemove listener removes
+ * itself after that single attempt, or as soon as full screen is on. A refused attempt changes no
+ * state, so the click and key triggers keep working and still get their chance later.
  */
-export function requestFullscreenOnce(): void {
+export function requestFullscreenOnce(doc: Document = document): void {
   const handler = (): void => {
-    requestFullscreen();
+    requestFullscreen(doc as unknown as FullscreenDocument);
   };
-  document.addEventListener('keydown', handler, true);
-  document.addEventListener('click', handler, true);
+  const onFirstMove = (): void => {
+    doc.removeEventListener('mousemove', onFirstMove, true);
+    handler();
+  };
+  const onChange = (): void => {
+    const d = doc as unknown as FullscreenDocument;
+    if (d.fullscreenElement || d.webkitFullscreenElement) {
+      doc.removeEventListener('mousemove', onFirstMove, true);
+    }
+  };
+  doc.addEventListener('keydown', handler, true);
+  doc.addEventListener('click', handler, true);
+  doc.addEventListener('mousemove', onFirstMove, true);
+  doc.addEventListener('fullscreenchange', onChange);
+  doc.addEventListener('webkitfullscreenchange', onChange);
 }
