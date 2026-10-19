@@ -4,7 +4,7 @@ import { Icon } from './Icon';
 
 /** Header chip showing the connected TV; tap to pick another one. */
 export function TvChip({ onSignOut }: { onSignOut: () => void }) {
-  const { tv, session, openConnectTv } = useApp();
+  const { tv, session, openConnectTv, toast } = useApp();
   const [open, setOpen] = useState(false);
   const connect = () => {
     setOpen(false);
@@ -39,7 +39,7 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
                   <li key={s.DeviceId}>
                     <button
                       type="button"
-                      class={s.DeviceId === tv.tv?.DeviceId ? 'tv-item selected' : 'tv-item'}
+                      class={connected && s.DeviceId === tv.tv?.DeviceId ? 'tv-item selected' : 'tv-item'}
                       onClick={() => {
                         tv.chooseTv(s.DeviceId);
                         setOpen(false);
@@ -53,7 +53,19 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
                 ))}
               </ul>
             )}
-            {tv.tvs.length > 0 ? (
+            {connected ? (
+              <button
+                type="button"
+                class="btn secondary"
+                onClick={() => {
+                  tv.disconnect();
+                  setOpen(false);
+                  toast('Disconnected from TV');
+                }}
+              >
+                <Icon name="tv" size={20} /> Disconnect from TV
+              </button>
+            ) : tv.tvs.length > 0 ? (
               <button type="button" class="btn secondary" onClick={connect}>
                 <Icon name="tv" size={20} /> Connect a TV
               </button>
