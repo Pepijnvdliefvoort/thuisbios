@@ -31,6 +31,20 @@ describe('client', () => {
     expect((fetchFn.mock.calls[0] as unknown as [string])[0]).toBe('http://pc/Sessions?ControllableByUserId=u1&ActiveWithinSeconds=960');
   });
 
+  it('queries resumable, latest and library items via /Items', async () => {
+    const fetchFn = vi.fn(async () => ok({ Items: [], TotalRecordCount: 0 }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    await client.resume('u1', 40);
+    await client.latest('u1', 'Movie', 16);
+    await client.library('u1', 'Movie', 30);
+    const urls = fetchFn.mock.calls.map((c) => (c as unknown as [string])[0]);
+    expect(urls[0]).toContain('/Users/u1/Items?Filters=IsResumable&Recursive=true&IncludeItemTypes=Movie,Episode&SortBy=DatePlayed&SortOrder=Descending&Limit=40');
+    expect(urls[0]).toContain('EnableUserData=true');
+    expect(urls[1]).toContain('/Users/u1/Items?IncludeItemTypes=Movie&Recursive=true&SortBy=DateCreated&SortOrder=Descending&Limit=16');
+    expect(urls[2]).toContain('SortBy=SortName&SortOrder=Ascending');
+    expect(urls[2]).toContain('&Limit=30');
+  });
+
   it('signs in by name and throws JellyfinError on 401', async () => {
     const good = vi.fn(async () => ok({ AccessToken: 'a', User: { Id: 'u', Name: 'N' } }));
     const r = await authenticateByName({ serverUrl: 'http://pc', info, fetchFn: good as unknown as typeof fetch }, 'n', 'pw');

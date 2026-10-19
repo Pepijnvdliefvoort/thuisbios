@@ -29,8 +29,9 @@ export interface JellyfinClient {
   serverUrl: string;
   resume(userId: string, limit: number): Promise<BaseItem[]>;
   nextUp(userId: string, limit: number, seriesId?: string): Promise<BaseItem[]>;
+  /** Newest items by creation date (not the per-library "latest" endpoint). */
   latest(userId: string, type: MediaType, limit: number): Promise<BaseItem[]>;
-  library(userId: string, type: MediaType): Promise<BaseItem[]>;
+  library(userId: string, type: MediaType, limit?: number): Promise<BaseItem[]>;
   search(userId: string, term: string, limit: number): Promise<BaseItem[]>;
   item(userId: string, itemId: string): Promise<BaseItem>;
   seasons(userId: string, seriesId: string): Promise<BaseItem[]>;
@@ -77,19 +78,20 @@ export function createClient(options: ClientOptions): JellyfinClient {
   return {
     serverUrl: options.serverUrl,
     resume: (userId, limit) =>
-      items(`${user(userId)}/Items/Resume?Limit=${limit}&MediaTypes=Video&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`),
+      items(
+        `${user(userId)}/Items?Filters=IsResumable&Recursive=true&IncludeItemTypes=Movie,Episode&SortBy=DatePlayed&SortOrder=Descending&Limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+      ),
     nextUp: (userId, limit, seriesId) =>
       items(
         `/Shows/NextUp?UserId=${enc(userId)}&Limit=${limit}${seriesId ? `&SeriesId=${enc(seriesId)}` : ''}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
       ),
     latest: (userId, type, limit) =>
-      req<BaseItem[]>(
-        'GET',
-        `${user(userId)}/Items/Latest?IncludeItemTypes=${type}&Limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
-      ),
-    library: (userId, type) =>
       items(
-        `${user(userId)}/Items?IncludeItemTypes=${type}&Recursive=true&SortBy=SortName&SortOrder=Ascending&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+        `${user(userId)}/Items?IncludeItemTypes=${type}&Recursive=true&SortBy=DateCreated&SortOrder=Descending&Limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+      ),
+    library: (userId, type, limit) =>
+      items(
+        `${user(userId)}/Items?IncludeItemTypes=${type}&Recursive=true&SortBy=SortName&SortOrder=Ascending&Fields=${LIST_FIELDS}&${IMAGE_QUERY}${limit ? `&Limit=${limit}` : ''}`,
       ),
     search: (userId, term, limit) =>
       items(

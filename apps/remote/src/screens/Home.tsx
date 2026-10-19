@@ -1,16 +1,18 @@
 import { Icon } from '../components/Icon';
 import { Row } from '../components/Row';
+import { recentResumes } from '../jellyfin/resume';
 import { useApp } from '../context';
 import { useAsync } from '../useAsync';
 
 export function Home() {
   const { client, session, tv, openConnectTv } = useApp();
   const u = session.userId;
-  const resume = useAsync(() => client.resume(u, 12), [client, u]);
+  const resume = useAsync(() => client.resume(u, 40).then((items) => recentResumes(items, Date.now())), [client, u]);
   const nextUp = useAsync(() => client.nextUp(u, 12), [client, u]);
   const movies = useAsync(() => client.latest(u, 'Movie', 16), [client, u]);
   const shows = useAsync(() => client.latest(u, 'Series', 16), [client, u]);
-  const all = [resume, nextUp, movies, shows];
+  const library = useAsync(() => client.library(u, 'Movie', 30), [client, u]);
+  const all = [resume, nextUp, movies, shows, library];
   const allDone = all.every((r) => !r.loading);
   const allEmpty = allDone && all.every((r) => !r.data || r.data.length === 0);
   return (
@@ -29,10 +31,11 @@ export function Home() {
           </button>
         </section>
       ) : null}
-      <Row title="Continue watching" items={resume.data || []} shape="thumb" />
+      <Row title="Resume watching" items={resume.data || []} shape="thumb" />
       <Row title="Next up" items={nextUp.data || []} shape="thumb" />
       <Row title="Recently added movies" items={movies.data || []} shape="poster" />
       <Row title="Recently added shows" items={shows.data || []} shape="poster" />
+      <Row title="Movies" items={library.data || []} shape="poster" />
       {!allDone ? <p class="hint">Loading...</p> : null}
       {allEmpty ? (
         <p class="empty">{all.every((r) => r.error) ? "Couldn't load your library. Check the connection." : 'Nothing here yet.'}</p>

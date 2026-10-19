@@ -23,6 +23,7 @@ export interface UserData {
   PlaybackPositionTicks?: number;
   PlayedPercentage?: number;
   Played?: boolean;
+  LastPlayedDate?: string;
 }
 
 export interface ImageTags {
