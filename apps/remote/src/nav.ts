@@ -70,3 +70,10 @@ export function useNav() {
 
   return { stack, tab, setTab, push, back };
 }
+
+/**
+ * Whether the Now Playing screen should close: nothing plays anymore after it did (the TV stopped or
+ * finished) or after Stop was pressed. Not while it is merely opening with no state yet.
+ */
+export const shouldCloseNowPlaying = (wasPlaying: boolean, playing: boolean, stopRequested: boolean): boolean =>
+  !playing && (wasPlaying || stopRequested);
