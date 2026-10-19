@@ -1,5 +1,6 @@
 import { setLastNav } from '../debug/keyLogState';
 import { createBurstDetector, moveDelta, type Direction } from './pointerBursts';
+import { isGateActive } from './fullscreenGate';
 import { moveFocus } from './useRemote';
 
 /** True on the TV's browser (user agent has SMART-TV or Tizen) or when the URL has `?dpad`. */
@@ -85,7 +86,7 @@ export function installPointerDpad(doc: Document = document): () => void {
 
   const detector = createBurstDetector({
     onDirection(dir, dx, dy) {
-      if (!isDpadActive()) return;
+      if (!isDpadActive() || isGateActive()) return;
       setLastNav(dx, dy, dir);
       if (handler && handler.onDirection(dir)) return;
       if (!hasFocus()) {

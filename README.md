@@ -58,8 +58,9 @@ the TV browser's arrow-driven pointer. The player is a Netflix-style HTML5 playe
 machine for the remote's pointer and the keyboard, Jellyfin device profile, `?debug` overlay) with
 text subtitles (CC button). In the TV browser, Return while in full screen only leaves full screen,
 so the app treats that as a back step (details to home, player to details) and asks for full screen
-again; full screen only ends for good on the home screen. A small "Press OK for full screen" hint shows
-in the TV browser whenever the page is not in full screen. The `?debug` overlay shows these
+again; full screen only ends for good on the home screen. While the page is not in full screen, the TV browser shows a modal over the whole page ("Press OK to
+continue in full screen"); OK then only enters full screen and the arrows do not move the focus behind it.
+If the browser refuses full screen, the modal is turned off for the rest of the session. The `?debug` overlay shows these
 decisions. Follow [docs/tv/dev-setup.md](docs/tv/dev-setup.md) to install
 it on the TV and run the test checklist. If the TV refuses the install, the same guide explains
 how to run the app in the TV's web browser (`npm run preview -w apps/tv`, served on port 4173).
