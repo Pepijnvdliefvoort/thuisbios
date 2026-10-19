@@ -34,7 +34,7 @@ export function ConnectTv({ initialCode, onBack }: { initialCode?: string; onBac
       await client.authorizeQuickConnect(code, session.userId);
       if (!alive.current) return;
       setStatus('ok');
-      tvRef.current.refresh();
+      tvRef.current.reconnect();
       timer.current = setTimeout(() => backRef.current(), SUCCESS_MS);
     } catch (e) {
       if (!alive.current) return;

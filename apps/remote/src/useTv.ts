@@ -32,11 +32,10 @@ export interface TvApi {
   chooseTv(deviceId: string): void;
   /** Stops controlling the TV on this phone only: nothing is sent to the TV, which keeps its screensaver. Survives a reload. */
   disconnect(): void;
-  /**
-   * Polls the sessions now, and again a few times shortly after (a freshly connected TV needs a moment to sign in).
-   * Also clears a disconnect, since it is called right after a new TV was approved.
-   */
+  /** Polls the sessions now, and again a few times shortly after (a freshly connected TV needs a moment to sign in). */
   refresh(): void;
+  /** Called right after a new TV was approved by code: clears the disconnect, then does what {@link refresh} does. */
+  reconnect(): void;
   /** Current position in ticks, extrapolated from the last report. */
   position(): number;
   play(item: BaseItem, startTicks: number): Promise<boolean>;
@@ -151,6 +150,11 @@ export function useTv(
     setDisconnected(false);
   };
 
+  const refresh = () => {
+    void poll();
+    for (const ms of [1000, 2500, 5000]) setTimeout(() => void poll(), ms);
+  };
+
   return {
     tvs: listTvs(sessions, ownDeviceId),
     tv,
@@ -168,10 +172,10 @@ export function useTv(
       setDisconnected(true);
       setNowPlaying(null);
     },
-    refresh: () => {
+    refresh,
+    reconnect: () => {
       clearDisconnected();
-      void poll();
-      for (const ms of [1000, 2500, 5000]) setTimeout(() => void poll(), ms);
+      refresh();
     },
     position,
     play: (item, startTicks) => run((s) => playCommand(s, item.Id, startTicks)),
