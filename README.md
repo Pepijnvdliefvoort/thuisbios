@@ -81,7 +81,8 @@ committed.
 phone browsers (iOS Safari 15+, Android Chrome), so there is no legacy build. The phone is the main
 screen. It connects the TV: scan the QR code on the TV (the link is
 `http://<pc>:4174/?connect=<code>`) or tap "Connect a TV" and type the 6-digit Quick Connect code
-(the phone approves it with `POST /QuickConnect/Authorize`). It signs in to
+(the phone approves it with `POST /QuickConnect/Authorize`). The Connect a TV screen can also scan the
+TV's QR code with the camera (over plain HTTP it takes a photo; a live viewfinder needs HTTPS). It signs in to
 Jellyfin with username and password, browses the library (Home rows, Search, Library with
 Movies and Shows) and shows a details page with Play on TV, Resume on TV, Play from start and Show
 on TV; series have a season selector and an episode list. While the TV plays, a mini player bar and a

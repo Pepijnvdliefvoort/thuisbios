@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
+import { QrScanner } from '../components/QrScanner';
 import { useApp } from '../context';
-import { describeQuickConnectError, digitsOnly, normalizeQuickConnectCode } from '../jellyfin/quickConnect';
+import {
+  codeFromQrText,
+  describeQuickConnectError,
+  digitsOnly,
+  normalizeQuickConnectCode,
+} from '../jellyfin/quickConnect';
+import { canScanLive, decodeQrFromFile } from '../qr';
 
 type Status = 'idle' | 'busy' | 'ok' | 'error';
 
@@ -13,7 +20,9 @@ export function ConnectTv({ initialCode, onBack }: { initialCode?: string; onBac
   const [value, setValue] = useState(initialCode || '');
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
+  const [scanning, setScanning] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const photo = useRef<HTMLInputElement>(null);
   const alive = useRef(true);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const tvRef = useRef(tv);
@@ -60,6 +69,39 @@ export function ConnectTv({ initialCode, onBack }: { initialCode?: string; onBac
     if (digits.length === 6) void submit(digits);
   };
 
+  const onScanned = (text: string | null) => {
+    const code = text ? codeFromQrText(text) : null;
+    if (code) {
+      setValue(code);
+      void submit(code);
+    } else {
+      setStatus('error');
+      setError(text ? "That QR code isn't from the Thuisbios TV." : "Couldn't find the TV's QR code in that photo. Try again, closer to the screen.");
+    }
+  };
+
+  // Live viewfinder where the browser allows it (HTTPS); over plain HTTP the camera app takes a photo instead.
+  const scan = () => {
+    setError('');
+    if (status === 'error') setStatus('idle');
+    if (canScanLive()) setScanning(true);
+    else photo.current?.click();
+  };
+
+  const onPhoto = async (e: Event) => {
+    const el = e.target as HTMLInputElement;
+    const file = el.files && el.files[0];
+    el.value = '';
+    if (!file) return;
+    let text: string | null = null;
+    try {
+      text = await decodeQrFromFile(file);
+    } catch {
+      // unreadable image: same message as no QR code found
+    }
+    if (alive.current) onScanned(text);
+  };
+
   const busy = status === 'busy';
   return (
     <main class="connect">
@@ -80,7 +122,7 @@ export function ConnectTv({ initialCode, onBack }: { initialCode?: string; onBac
             <Icon name="tv" size={40} />
           </span>
           <h1>Connect your TV</h1>
-          <p class="connect-lead">Enter the code shown on your TV.</p>
+          <p class="connect-lead">Enter the code shown on your TV, or scan its QR code.</p>
           {busy && initialCode && value === initialCode ? (
             <p class="connect-busy" role="status">
               Connecting...
@@ -114,10 +156,23 @@ export function ConnectTv({ initialCode, onBack }: { initialCode?: string; onBac
               <button type="submit" class="btn primary" disabled={busy || value.length < 6}>
                 {busy ? 'Connecting...' : 'Connect'}
               </button>
+              <button type="button" class="btn secondary" disabled={busy} onClick={scan}>
+                <Icon name="qr" size={22} /> Scan QR code
+              </button>
+              <input ref={photo} type="file" accept="image/*" capture="environment" hidden onChange={onPhoto} />
             </form>
           )}
         </div>
       )}
+      {scanning ? (
+        <QrScanner
+          onText={(text) => {
+            setScanning(false);
+            onScanned(text);
+          }}
+          onCancel={() => setScanning(false)}
+        />
+      ) : null}
     </main>
   );
 }

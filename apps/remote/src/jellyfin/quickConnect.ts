@@ -27,6 +27,20 @@ export function parseConnectParam(search: string): { code: string | null; presen
   return { code, present: true, search: rest ? `?${rest}` : '' };
 }
 
+/** The Quick Connect code from the text of a scanned QR code: the TV's link (`...?connect=123456`) or a bare 6-digit code. */
+export function codeFromQrText(text: string): string | null {
+  const t = text.trim();
+  const bare = normalizeQuickConnectCode(t);
+  if (bare) return bare;
+  const q = t.indexOf('?');
+  if (q < 0) return null;
+  try {
+    return parseConnectParam(new URL(t).search).code;
+  } catch {
+    return null;
+  }
+}
+
 /** Plain-words message for a failed Quick Connect authorization. */
 export function describeQuickConnectError(e: unknown): string {
   if (e instanceof JellyfinError) {
