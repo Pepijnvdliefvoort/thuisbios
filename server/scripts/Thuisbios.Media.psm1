@@ -182,7 +182,8 @@ function New-SrtContent {
         $start = $StartSeconds + ($i * ($CueSeconds + 1))
         $end = $start + $CueSeconds
         [void]$sb.AppendLine([string]($i + 1))
-        [void]$sb.AppendLine('{0} --> {1}' -f (Format-SrtTimestamp -Seconds $start), (Format-SrtTimestamp -Seconds $end))
+        $timing = '{0} --> {1}' -f (Format-SrtTimestamp -Seconds $start), (Format-SrtTimestamp -Seconds $end)
+        [void]$sb.AppendLine($timing)
         [void]$sb.AppendLine($Lines[$i])
         [void]$sb.AppendLine()
     }
