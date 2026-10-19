@@ -58,6 +58,8 @@ export interface JellyfinClient {
   screensaverItems(userId: string, limit: number): Promise<BaseItem[]>;
   /** Tells the server this TV can be controlled from a phone (posted again after each socket connect). */
   reportCapabilities(): Promise<void>;
+  /** Ends this device's session on the server (the token stops working). */
+  logout(): Promise<void>;
   imageUrl(itemId: string, tag: string | undefined, maxHeight: number): string;
   /** Image resized by the server to exactly `width` x `height` (logos are only limited to that box). */
   imageUrlSized(itemId: string, type: ImageKind, tag: string, width: number, height: number): string;
@@ -145,6 +147,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
       const result = await request<ItemsResult>('GET', `/Users/${encodeURIComponent(userId)}/Items?${query}`);
       return result.Items;
     },
+    logout: () => request<void>('POST', '/Sessions/Logout'),
     reportCapabilities: () => request<void>('POST', '/Sessions/Capabilities/Full', REMOTE_CAPABILITIES),
     imageUrlSized: (itemId, type, tag, width, height) => {
       // Logos have transparent edges and odd shapes: only limit their box, never crop.

@@ -15,15 +15,22 @@ export type PlaystateCommand =
 export type RemoteCommand =
   | { type: 'play'; itemId: string; startPositionTicks: number }
   | { type: 'playstate'; command: PlaystateCommand; seekPositionTicks: number }
-  | { type: 'display'; itemId: string };
+  | { type: 'display'; itemId: string }
+  | { type: 'disconnect' };
 
 /** A parsed socket message: a keep-alive request or a command for the screens. */
 export type SocketMessage = { type: 'keepAlive'; seconds: number } | { type: 'command'; command: RemoteCommand };
 
+/**
+ * Private sign-out signal: the phone sends a Jellyfin "display message" with this text to disconnect the TV.
+ * Keep in sync with DISCONNECT_TEXT in apps/remote/src/jellyfin/commands.ts (apps never import each other).
+ */
+export const DISCONNECT_TEXT = 'thuisbios:disconnect';
+
 /** Capabilities posted to `/Sessions/Capabilities/Full` so the phone lists this TV as controllable. */
 export const REMOTE_CAPABILITIES = {
   PlayableMediaTypes: ['Video'],
-  SupportedCommands: ['DisplayContent'],
+  SupportedCommands: ['DisplayContent', 'DisplayMessage'],
   SupportsMediaControl: true,
   SupportsPersistentIdentifier: false,
 };
@@ -77,7 +84,11 @@ export function parseSocketMessage(raw: string): SocketMessage | null {
       };
     }
     case 'GeneralCommand': {
-      if (!data || data.Name !== 'DisplayContent' || !isObject(data.Arguments)) return null;
+      if (!data || !isObject(data.Arguments)) return null;
+      if (data.Name === 'DisplayMessage') {
+        return data.Arguments.Text === DISCONNECT_TEXT ? { type: 'command', command: { type: 'disconnect' } } : null;
+      }
+      if (data.Name !== 'DisplayContent') return null;
       const id = data.Arguments.ItemId;
       return typeof id === 'string' && id !== '' ? { type: 'command', command: { type: 'display', itemId: id } } : null;
     }
@@ -107,6 +118,8 @@ export function describeCommand(c: RemoteCommand): string {
       return `Play ${c.itemId} @${Math.round(ticksToSeconds(c.startPositionTicks))}s`;
     case 'playstate':
       return c.command === 'Seek' ? `Playstate Seek ${Math.round(ticksToSeconds(c.seekPositionTicks))}s` : `Playstate ${c.command}`;
+    case 'disconnect':
+      return 'Disconnect';
     default:
       return `DisplayContent ${c.itemId}`;
   }

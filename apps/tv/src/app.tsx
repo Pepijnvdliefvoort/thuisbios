@@ -89,6 +89,25 @@ export function App() {
   const showOnTopRef = useRef(showOnTop);
   showOnTopRef.current = showOnTop;
 
+  /** Phone "Disconnect": back to the base screen first (an open player unmounts and reports stopped), then sign out. */
+  const signOut = () => {
+    setStack([HOME]);
+    if (!client) return;
+    // Server logout is best effort and must not block the local sign-out; wait for it at most 500 ms
+    // so the player's stop report (sent on unmount, still needs the token) can go out first.
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearSession();
+      setSession(null);
+    };
+    setTimeout(finish, 500);
+    client.logout().then(finish, finish);
+  };
+  const signOutRef = useRef(signOut);
+  signOutRef.current = signOut;
+
   // Phone remote: hold the Jellyfin socket open while signed in and act on Play / DisplayContent.
   // Playstate commands are handled by the player itself.
   useEffect(() => {
@@ -100,6 +119,8 @@ export function App() {
           .item(session.userId, command.itemId)
           .then((item) => showOnTopRef.current(playerScreen(item, ticksToSeconds(command.startPositionTicks))))
           .catch(() => undefined);
+      } else if (command.type === 'disconnect') {
+        signOutRef.current();
       } else if (command.type === 'display') {
         client
           .item(session.userId, command.itemId)

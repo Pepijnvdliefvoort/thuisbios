@@ -24,9 +24,9 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
         <div class="sheet-backdrop" onClick={() => setOpen(false)}>
           <div class="sheet" role="dialog" aria-label="Choose a TV" onClick={(e) => e.stopPropagation()}>
             <h2>Your TV</h2>
-            {tv.tvs.length === 0 ? (
+            {!connected ? (
               <div class="empty-tv">
-                <p class="empty">{tv.loaded ? 'No TV yet' : 'Looking for your TV...'}</p>
+                <p class="empty">{tv.loaded ? 'No TV connected' : 'Looking for your TV...'}</p>
                 {tv.loaded ? (
                   <button type="button" class="btn primary" onClick={connect}>
                     <Icon name="tv" size={20} /> Connect a TV
@@ -39,7 +39,7 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
                   <li key={s.DeviceId}>
                     <button
                       type="button"
-                      class={connected && s.DeviceId === tv.tv?.DeviceId ? 'tv-item selected' : 'tv-item'}
+                      class={s.DeviceId === tv.tv?.DeviceId ? 'tv-item selected' : 'tv-item'}
                       onClick={() => {
                         tv.chooseTv(s.DeviceId);
                         setOpen(false);
@@ -60,14 +60,10 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
                 onClick={() => {
                   tv.disconnect();
                   setOpen(false);
-                  toast('Disconnected from TV');
+                  toast('Disconnected, the TV is signed out');
                 }}
               >
                 <Icon name="tv" size={20} /> Disconnect from TV
-              </button>
-            ) : tv.tvs.length > 0 ? (
-              <button type="button" class="btn secondary" onClick={connect}>
-                <Icon name="tv" size={20} /> Connect a TV
               </button>
             ) : null}
             <p class="signed-in">Signed in as {session.userName}</p>

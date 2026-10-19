@@ -25,6 +25,15 @@ describe('client', () => {
     expect(init.method).toBe('POST');
   });
 
+  it('sends a command body as JSON', async () => {
+    const fetchFn = vi.fn(async () => ok(undefined));
+    const client = createClient({ serverUrl: 'http://pc:8096', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    await client.send({ method: 'POST', path: '/Sessions/S/Message', body: { Text: 'x' } });
+    const [, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.body).toBe('{"Text":"x"}');
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json');
+  });
+
   it('asks for sessions the user may control', async () => {
     const fetchFn = vi.fn(async () => ok([]));
     const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });

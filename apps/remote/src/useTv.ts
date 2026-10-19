@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import {
+  disconnectCommand,
   playCommand,
   relativeSeekTicks,
   seekCommand,
@@ -30,7 +31,7 @@ export interface TvApi {
   nowPlaying: NowPlaying | null;
   /** Controls this TV (also reconnects after {@link disconnect}). */
   chooseTv(deviceId: string): void;
-  /** Stops controlling the TV on this phone only: nothing is sent to the TV, which keeps its screensaver. Survives a reload. */
+  /** Signs the TV out (it shows a new code and QR again) and stops controlling it on this phone. Survives a reload. */
   disconnect(): void;
   /** Polls the sessions now, and again a few times shortly after (a freshly connected TV needs a moment to sign in). */
   refresh(): void;
@@ -167,6 +168,9 @@ export function useTv(
       setNowPlaying(null);
     },
     disconnect: () => {
+      const target = tvRef.current;
+      // Best effort: the phone disconnects locally even when the TV cannot be reached.
+      if (target) client.send(disconnectCommand(target.Id)).catch(() => undefined);
       disconnectedRef.current = true;
       saveTvDisconnected(true);
       setDisconnected(true);

@@ -89,16 +89,16 @@ Now Playing screen offer play/pause, a scrub slider, -10 s / +10 s, previous and
 stop. The remote finds the TV through the Jellyfin sessions API (the TV app registers as
 remote-controllable) and polls `/Sessions` every 2 seconds while the page is visible.
 
-The TV sheet in the header lists the TVs and has "Disconnect from TV", which only stops this phone
-controlling the TV (the choice survives a reload; tap a TV in the list to reconnect).
+The TV sheet in the header has "Disconnect from TV", which signs the TV out so it shows a new Quick
+Connect code and QR again (the choice survives a reload). Reconnecting needs the code or the QR again.
 
 Without a TV connected, the play buttons play the video on the phone itself: direct play when the
 phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
 no native HLS). The phone reports its progress to Jellyfin, so it counts toward Resume watching.
 
 The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
-remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode and "Show on
-TV".
+remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on
+TV" and Disconnect (sign out).
 
 Every request uses the configured absolute server URL and there is no service worker, so the app can
 be wrapped with Capacitor later. Volume stays on the TV remote for now. Follow
