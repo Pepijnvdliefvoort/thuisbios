@@ -50,6 +50,29 @@ jobs:
           node-version: 22
       - run: node scripts/check-versions.mjs
 
+  tv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck -w apps/tv
+      - name: Test
+        run: npm test -w apps/tv
+      - name: Build
+        run: npm run build -w apps/tv
+      - name: Check build output is ES2017 only (Chromium 56)
+        run: npm run check:dist -w apps/tv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tv-dist
+          path: apps/tv/dist
+          if-no-files-found: error
+
   powershell:
     runs-on: windows-latest
     steps:

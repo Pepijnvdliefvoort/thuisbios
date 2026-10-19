@@ -1,0 +1,155 @@
+:root {
+  --bg: #0b0b10;
+  --fg: #f2f2f5;
+  --muted: #9a9aa8;
+  --accent: #e50914;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: sans-serif; overflow: hidden; }
+.screen { padding: 48px 64px; height: 100vh; }
+h1 { margin: 0 0 24px; font-size: 44px; }
+p { font-size: 26px; }
+.muted { color: var(--muted); }
+.error { color: #ff6b6b; font-size: 24px; }
+label { display: block; font-size: 26px; margin-bottom: 12px; }
+input {
+  width: 900px; font-size: 32px; padding: 16px 20px; margin-bottom: 24px;
+  background: #1c1c26; color: var(--fg); border: 3px solid #33333f;
+}
+input:focus { border-color: var(--accent); outline: none; }
+.btn {
+  font-size: 28px; padding: 16px 32px; margin: 0 16px 16px 0; color: var(--fg);
+  background: #26263a; border: 3px solid transparent; cursor: pointer;
+}
+.btn.small { font-size: 22px; padding: 10px 20px; margin: 0 0 0 16px; }
+.btn:focus, .btn:hover { border-color: var(--accent); outline: none; }
+.code { font-size: 140px; font-weight: bold; letter-spacing: 16px; margin: 24px 0; }
+.bar { display: flex; align-items: center; margin-bottom: 24px; }
+.bar h1 { margin: 0 auto 0 0; }
+.movies { display: flex; flex-direction: column; padding: 3vh 3vw; }
+.movies h1 { font-size: 2.4rem; text-align: center; margin-bottom: 2vh; }
+.shelf { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.tiles { display: flex; justify-content: center; }
+.pager {
+  flex: 0 0 auto; width: 3.5vw; height: 14vh; font-size: 2.4rem; color: var(--fg);
+  background: #1c1c26; border: 3px solid transparent; cursor: pointer;
+}
+.pager:disabled { opacity: 0.25; cursor: default; }
+.pager:hover:not(:disabled), .pager:focus { border-color: var(--accent); outline: none; }
+.poster {
+  flex: 0 0 auto; width: 15vw; margin: 0 1vw; padding: 0; color: var(--fg);
+  background: #14141c; border: 3px solid transparent; text-align: left; cursor: pointer;
+  transition: transform 0.15s;
+}
+.poster:hover, .poster:focus { transform: scale(1.04); border-color: var(--accent); outline: none; }
+.poster img, .poster .noimg { display: block; width: 100%; height: 22vw; max-height: 52vh; object-fit: cover; background: #1c1c26; }
+.poster .title { display: block; padding: 0.8vh 0.6vw; font-size: 1.4rem; line-height: 1.2; height: 4.2rem; overflow: hidden; }
+.foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; margin-top: 2vh; }
+.foot .muted { font-size: 1.2rem; margin-right: 3vw; }
+.foot .btn.small { margin: 0 0 0 1.5vw; }
+.buttons { margin: 24px 0; }
+.log { font-size: 22px; background: #14141c; padding: 16px; min-height: 280px; white-space: pre-wrap; }
+.player { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: #000; overflow: hidden; }
+.player video { width: 100%; height: 100%; }
+.debug {
+  position: absolute; left: 32px; top: 32px; max-width: 1500px; padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.75); font-size: 22px; line-height: 1.5;
+}
+[data-focusable] { cursor: pointer; }
+.keylog {
+  position: fixed; top: 8px; right: 8px; z-index: 9999; width: 640px; padding: 12px 16px;
+  background: #000; color: #fff; border: 3px solid #ffd400; font: 22px/1.4 monospace; pointer-events: none;
+}
+.keylog-head { color: #ffd400; font-weight: bold; }
+
+/* Player. Sizes in vh/vw for a 1080p TV; only transform and opacity are animated. */
+video::cue {
+  color: #fff; background: rgba(0, 0, 0, 0.7); font-size: 4.5vh; line-height: 1.3;
+  text-shadow: none; font-family: sans-serif;
+}
+.player svg { display: block; width: 100%; height: 100%; }
+.player .dim { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0, 0, 0, 0.35); opacity: 0; transition: opacity 200ms; pointer-events: none; }
+.player .dim.on { opacity: 1; }
+
+.chrome { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; flex-direction: column; justify-content: space-between; transition: opacity 200ms; }
+.chrome.hidden { opacity: 0; pointer-events: none; }
+.top {
+  display: flex; align-items: center; padding: 3.5vh 3vw 8vh;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+}
+.heading { margin-left: 2vw; }
+.heading .title { font-size: 3.4vh; font-weight: bold; line-height: 1.2; }
+.heading .year { font-size: 2.4vh; color: rgba(255, 255, 255, 0.7); margin-top: 0.4vh; }
+.heading .pausedlabel { font-size: 2.2vh; letter-spacing: 0.3vh; text-transform: uppercase; color: rgba(255, 255, 255, 0.7); margin-bottom: 0.6vh; }
+.chrome.paused .heading .title { font-size: 5vh; }
+.bottom {
+  padding: 10vh 4vw 4vh;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0));
+}
+
+.ctl {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  width: 7vh; height: 7vh; margin: 0; padding: 0; border: 0; border-radius: 50%;
+  color: #fff; background: transparent; cursor: pointer; outline: none;
+}
+.ctl svg { width: 62%; height: 62%; }
+.ctl.back { width: 6vh; height: 6vh; }
+.ctl.big { width: 10vh; height: 10vh; margin: 0 2.5vw; }
+.ctl.big svg { width: 70%; height: 70%; }
+.ctl:focus { background: #fff; color: #111; transform: scale(1.1); }
+.ctl.pill { width: auto; padding: 0 2.2vh; border-radius: 7vh; font-size: 2.4vh; }
+.ctl.pill svg { width: 4vh; height: 4vh; margin-right: 1vh; }
+.ctl.off { opacity: 0.4; cursor: default; }
+
+.seekbar { position: relative; padding: 1.6vh 0; outline: none; }
+.seekbar .track { position: relative; height: 0.6vh; background: rgba(255, 255, 255, 0.3); margin: 0.2vh 0; transform-origin: center; transition: transform 150ms; }
+.seekbar:focus .track { transform: scaleY(1.7); }
+.seekbar .buffered, .seekbar .played { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: left center; }
+.seekbar .buffered { background: rgba(255, 255, 255, 0.4); }
+.seekbar .played { background: var(--accent); }
+.seekbar .thumbwrap { position: absolute; top: 50%; left: 0; width: 100%; height: 0; }
+.seekbar .thumb {
+  position: absolute; top: -1.2vh; left: -1.2vh; width: 2.4vh; height: 2.4vh; border-radius: 50%;
+  background: var(--accent); opacity: 0; transform: scale(0.4); transition: opacity 150ms, transform 150ms;
+}
+.seekbar:focus .thumb, .seekbar.scrubbing .thumb { opacity: 1; transform: scale(1); }
+.seekbar .tip {
+  position: absolute; bottom: 2.6vh; left: 0; transform: translateX(-50%); padding: 0.5vh 1.2vh;
+  font-size: 2.4vh; background: rgba(0, 0, 0, 0.8); border-radius: 0.6vh; white-space: nowrap;
+}
+.times { display: flex; justify-content: space-between; font-size: 2.4vh; color: rgba(255, 255, 255, 0.85); margin-top: 0.4vh; }
+
+.ctlrow { position: relative; display: flex; align-items: center; justify-content: center; margin-top: 1.5vh; }
+.main-group { display: flex; align-items: center; }
+.ctlrow .cc { position: absolute; right: 0; top: 50%; margin-top: -3.5vh; }
+
+.bubble {
+  position: absolute; top: 50%; margin-top: -8vh; width: 16vh; height: 16vh; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55); color: #fff; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; opacity: 0; transition: opacity 200ms; pointer-events: none;
+}
+.bubble.left { left: 14vw; }
+.bubble.right { right: 14vw; }
+.bubble.on { opacity: 1; }
+.bubble svg { width: 6vh; height: 6vh; }
+.bubble span { font-size: 3vh; font-weight: bold; margin-top: -0.4vh; }
+
+.spinwrap { position: absolute; top: 50%; left: 50%; width: 10vh; height: 10vh; margin: -5vh 0 0 -5vh; pointer-events: none; }
+.spinner { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.pausedcard { position: absolute; left: 5vw; bottom: 12vh; opacity: 0; transition: opacity 200ms; pointer-events: none; }
+.pausedcard.on { opacity: 1; }
+.pausedcard .pausedlabel { font-size: 2.2vh; letter-spacing: 0.3vh; text-transform: uppercase; color: rgba(255, 255, 255, 0.7); }
+.pausedcard .pausedtitle { font-size: 5vh; font-weight: bold; margin-top: 0.8vh; }
+
+.notice { position: absolute; left: 50%; top: 4vh; transform: translateX(-50%); padding: 1vh 2vh; font-size: 2.2vh; background: rgba(0, 0, 0, 0.8); border-radius: 0.8vh; }
+
+.errorwrap { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.85); }
+.errorcard { width: 60vw; padding: 5vh 4vw; background: #1c1c26; border-radius: 1.2vh; text-align: center; }
+.errorcard h2 { margin: 0 0 2vh; font-size: 4vh; }
+.errorcard p { font-size: 2.6vh; color: #ff8a8a; margin: 0 0 4vh; }
+.errorbtns .btn { margin: 0 1vw; }
+
+/* D-pad mode (TV browser): the arrows move the focus highlight, the real pointer is hidden. */
+body.dpad, body.dpad * { cursor: none; }

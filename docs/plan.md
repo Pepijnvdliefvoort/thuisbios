@@ -45,7 +45,7 @@ The UE49NU7100 is a 2018 model running **Tizen 4.0**. That shapes almost every t
 
 **Player choice.** Tizen offers HTML5 `<video>` and Samsung's own **AVPlay** API. Plan: start with HTML5 video plus a Jellyfin device profile that describes exactly the codecs above, so Jellyfin decides direct play vs. transcode for us. Switch to AVPlay only if we hit limits (it handles MKV audio track switching and 4K HDR more reliably). This is the first thing to verify in phase 2.
 
-**Sideloading.** The app is installed via Tizen Studio in Developer Mode (Apps panel, type `12345` on the remote, enter your PC's IP). It needs a **Samsung certificate** (free, created in Tizen Studio's Certificate Manager with a Samsung account) tied to the TV's DUID. Certificates expire after a while and then need re-signing and reinstalling; fine for personal use.
+**Sideloading.** The app is installed via the Tizen extension for VS Code in Developer Mode (Apps panel, type `12345` on the remote, enter your PC's IP). It needs a **Samsung certificate** (free, created in the extension's Certificate Manager with a Samsung account) tied to the TV's DUID. Certificates expire after a while and then need re-signing and reinstalling; fine for personal use.
 
 Reference: the open-source `jellyfin-tizen` app proves Jellyfin works on this generation of TV. We won't use it as the UI, but its device profile is a useful starting point.
 
@@ -122,7 +122,7 @@ Tips for this TV: prefer HEVC or H.264 video, AAC/AC3/E-AC3 audio (add an AC3 tr
 | Phase | Goal | Done when |
 |---|---|---|
 | **1. Server** | Jellyfin running on your PC with part of your library | You can browse and play in a browser on the PC and in the official Jellyfin app on your phone |
-| **2. TV spike** | Prove the platform | Tizen Studio set up, certificate made, a "hello world" app with D-pad focus installed on the TV, and one movie (direct play) + one transcoded file playing via HTML5 video (or AVPlay) |
+| **2. TV spike** | Prove the platform | Tizen VS Code extension set up, certificate made, a "hello world" app with D-pad focus installed on the TV, and one movie (direct play) + one transcoded file playing via HTML5 video (or AVPlay) |
 | **3. TV MVP** | Usable app | Quick Connect login, profile picker, home rows, detail page, playback with resume and progress reporting |
 | **4. Phone remote MVP** | Phone controls the TV | PWA with search, browse, "Play on TV", play/pause/seek/next/prev, live now-playing view, and volume that reaches the soundbar |
 | **5. Polish** | Feels like Netflix | Series flow (Next Up, auto-next, skip intro), audio/subtitle switching, trickplay thumbnails, transitions, optional Samsung power-on/launch from phone, upload flow, then remote access and the move off the PC |
