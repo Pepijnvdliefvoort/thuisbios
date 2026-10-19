@@ -258,3 +258,13 @@ input:focus { outline: none; border-color: var(--accent); }
 .ptr-ring { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--muted); border-top-color: var(--accent); }
 .ptr-ring.spinning { animation: ptr-spin 0.8s linear infinite; }
 @keyframes ptr-spin { to { transform: rotate(360deg); } }
+
+/* Player (plays on the phone) */
+.player {
+  position: fixed; inset: 0; z-index: 20; background: #000; overflow-y: auto;
+  padding: calc(var(--safe-top) + 60px) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+.player-head { padding: 0 var(--gutter) 12px; }
+.player-head h1 { font-size: 18px; line-height: 1.2; }
+.player-video { display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 70vh; background: #000; }
+@media (orientation: landscape) { .player-video { max-height: calc(100vh - 120px); } }

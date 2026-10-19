@@ -38,7 +38,7 @@ export function Details({ id, onBack }: { id: string; onBack: () => void }) {
 }
 
 function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders }) {
-  const { client, session, tv, toast, openItem } = useApp();
+  const { client, session, tv, toast, openItem, playOnPhone } = useApp();
   const isSeries = item.Type === 'Series';
   const isEpisode = item.Type === 'Episode';
   // For a series, "play" means the episode to watch next.
@@ -56,10 +56,16 @@ function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders
   const playItem = target.data;
   const resume = playItem ? resumeTicks(playItem) : 0;
   const noTv = !tv.tv;
-  const disabled = noTv || !playItem;
+  const disabled = !playItem;
 
   const send = async (action: Promise<boolean>) => {
     if (await action) toast('Sent to TV');
+  };
+
+  // Without a TV the video plays on the phone itself.
+  const start = (target: BaseItem, ticks: number) => {
+    if (noTv) playOnPhone(target, ticks);
+    else void send(tv.play(target, ticks));
   };
 
   const meta = [
@@ -92,22 +98,22 @@ function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders
         ) : null}
         {resume > 0 && playItem ? (
           <>
-            <button type="button" class="btn primary" disabled={disabled} onClick={() => void send(tv.play(playItem, resume))}>
-              <Icon name="play" /> Resume on TV ({formatTicksClock(resume)})
+            <button type="button" class="btn primary" disabled={disabled} onClick={() => start(playItem, resume)}>
+              <Icon name="play" /> {noTv ? 'Resume' : 'Resume on TV'} ({formatTicksClock(resume)})
             </button>
-            <button type="button" class="btn secondary" disabled={disabled} onClick={() => void send(tv.play(playItem, 0))}>
+            <button type="button" class="btn secondary" disabled={disabled} onClick={() => start(playItem, 0)}>
               <Icon name="restart" size={20} /> Play from start
             </button>
           </>
         ) : (
-          <button type="button" class="btn primary" disabled={disabled} onClick={() => playItem && void send(tv.play(playItem, 0))}>
-            <Icon name="play" /> {isSeries ? 'Play next episode on TV' : 'Play on TV'}
+          <button type="button" class="btn primary" disabled={disabled} onClick={() => playItem && start(playItem, 0)}>
+            <Icon name="play" /> {(isSeries ? 'Play next episode' : 'Play') + (noTv ? '' : ' on TV')}
           </button>
         )}
         <button type="button" class="btn secondary" disabled={noTv} onClick={() => void send(tv.show(item))}>
           <Icon name="eye" size={20} /> Show on TV
         </button>
-        {noTv ? <p class="hint small">Open Thuisbios on your TV and sign in to use these buttons.</p> : null}
+        {noTv ? <p class="hint small">No TV connected, so this plays on your phone.</p> : null}
       </div>
 
       {item.Overview ? <p class="overview">{item.Overview}</p> : null}
@@ -119,7 +125,7 @@ function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders
 }
 
 function Episodes({ series, onOpen, reloaders }: { series: BaseItem; onOpen: (id: string) => void; reloaders: Reloaders }) {
-  const { client, session, tv, toast } = useApp();
+  const { client, session, tv, toast, playOnPhone } = useApp();
   const seasons = useAsync(() => client.seasons(session.userId, series.Id), [client, session.userId, series.Id]);
   const [picked, setPicked] = useState<string | null>(null);
   const seasonId = picked || (seasons.data && seasons.data[0] ? seasons.data[0].Id : null);
@@ -175,10 +181,10 @@ function Episodes({ series, onOpen, reloaders }: { series: BaseItem; onOpen: (id
               <button
                 type="button"
                 class="ep-play"
-                disabled={!tv.tv}
-                aria-label={`Play ${ep.Name} on TV`}
+                aria-label={tv.tv ? `Play ${ep.Name} on TV` : `Play ${ep.Name}`}
                 onClick={async () => {
-                  if (await tv.play(ep, from)) toast('Sent to TV');
+                  if (!tv.tv) playOnPhone(ep, from);
+                  else if (await tv.play(ep, from)) toast('Sent to TV');
                 }}
               >
                 <Icon name="play" size={26} />

@@ -85,3 +85,39 @@ export interface RemoteSession {
   NowPlayingItem?: BaseItem;
   PlayState?: PlayState;
 }
+
+export interface MediaStream {
+  Type?: 'Video' | 'Audio' | 'Subtitle' | string;
+  Codec?: string;
+}
+
+/** One playable version of an item, from a PlaybackInfo response. */
+export interface MediaSource {
+  Id: string;
+  Container?: string;
+  SupportsDirectPlay?: boolean;
+  SupportsDirectStream?: boolean;
+  SupportsTranscoding?: boolean;
+  DirectStreamUrl?: string;
+  TranscodingUrl?: string;
+  TranscodingSubProtocol?: string;
+  MediaStreams?: MediaStream[];
+}
+
+export interface PlaybackInfoResponse {
+  MediaSources: MediaSource[];
+  PlaySessionId?: string;
+  ErrorCode?: string;
+}
+
+export type PlayMethod = 'DirectPlay' | 'DirectStream' | 'Transcode';
+
+/** What the phone tells Jellyfin about its own playback (start, progress, stopped). */
+export interface PlaybackReport {
+  itemId: string;
+  mediaSourceId: string;
+  playSessionId?: string;
+  positionTicks: number;
+  playMethod: PlayMethod;
+  isPaused?: boolean;
+}

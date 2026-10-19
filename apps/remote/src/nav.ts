@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import type { BaseItem } from './jellyfin/types';
 
 /** A screen pushed on top of the current tab. */
 export type Screen = { kind: 'details'; id: string } | { kind: 'nowPlaying' }
-  | { kind: 'connect'; code?: string };
+  | { kind: 'connect'; code?: string }
+  | { kind: 'player'; item: BaseItem; startTicks: number };
 
 export type Tab = 'home' | 'search' | 'library';
 

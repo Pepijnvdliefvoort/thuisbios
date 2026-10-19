@@ -89,6 +89,10 @@ Now Playing screen offer play/pause, a scrub slider, -10 s / +10 s, previous and
 stop. The remote finds the TV through the Jellyfin sessions API (the TV app registers as
 remote-controllable) and polls `/Sessions` every 2 seconds while the page is visible.
 
+Without a TV connected, the play buttons play the video on the phone itself: direct play when the
+phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
+no native HLS). The phone reports its progress to Jellyfin, so it counts toward Resume watching.
+
 The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
 remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode and "Show on
 TV".
@@ -144,5 +148,5 @@ Docker image builds (GHCR) and the other test jobs are added together with the f
 | 1. Server | Jellyfin on the Windows PC with a test library | done |
 | 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
 | 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done |
-| 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume to the soundbar | in review: remote PWA built (browse, play on TV, transport controls); volume to the soundbar not yet |
+| 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume to the soundbar | in review: remote PWA built (browse, play on TV or on the phone, transport controls); volume to the soundbar not yet |
 | 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | planned |

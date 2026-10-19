@@ -13,6 +13,7 @@ import { Details } from './screens/Details';
 import { Home } from './screens/Home';
 import { Library } from './screens/Library';
 import { NowPlaying } from './screens/NowPlaying';
+import { Player } from './screens/Player';
 import { Search } from './screens/Search';
 import { SignIn } from './screens/SignIn';
 import { parseConnectParam } from './jellyfin/quickConnect';
@@ -128,6 +129,10 @@ function Shell({
       remember();
       nav.push({ kind: 'nowPlaying' });
     },
+    playOnPhone: (item, startTicks) => {
+      remember();
+      nav.push({ kind: 'player', item, startTicks });
+    },
   };
 
   const top = nav.stack[nav.stack.length - 1];
@@ -154,9 +159,12 @@ function Shell({
         {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
         {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
         {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
+        {top && top.kind === 'player' ? (
+          <Player key={`${nav.stack.length}:player`} item={top.item} startTicks={top.startTicks} onBack={nav.back} />
+        ) : null}
         <div class="bottom">
-          {top && (top.kind === 'nowPlaying' || top.kind === 'connect') ? null : <MiniPlayer />}
-          {top && top.kind === 'connect' ? null : <TabBar tab={nav.tab} onChange={nav.setTab} />}
+          {top && (top.kind === 'nowPlaying' || top.kind === 'connect' || top.kind === 'player') ? null : <MiniPlayer />}
+          {top && (top.kind === 'connect' || top.kind === 'player') ? null : <TabBar tab={nav.tab} onChange={nav.setTab} />}
         </div>
         <Toast message={toastText} />
       </div>
