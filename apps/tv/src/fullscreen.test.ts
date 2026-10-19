@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { requestFullscreen } from './fullscreen';
+import { fullscreenSupported, isFullscreen, requestFullscreen, shouldShowFullscreenHint } from './fullscreen';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -56,5 +56,30 @@ describe('requestFullscreen', () => {
     });
     expect(requestFullscreen({ documentElement: { requestFullscreen: throwing } })).toBe(false);
     await Promise.resolve();
+  });
+});
+
+describe('shouldShowFullscreenHint', () => {
+  const base = { dpad: true, tizen: false, supported: true, fullscreen: false };
+  it('shows in the TV browser outside full screen', () => {
+    expect(shouldShowFullscreenHint(base)).toBe(true);
+  });
+  it('hides in full screen, as a Tizen app, without D-pad mode or without API', () => {
+    expect(shouldShowFullscreenHint({ ...base, fullscreen: true })).toBe(false);
+    expect(shouldShowFullscreenHint({ ...base, tizen: true })).toBe(false);
+    expect(shouldShowFullscreenHint({ ...base, dpad: false })).toBe(false);
+    expect(shouldShowFullscreenHint({ ...base, supported: false })).toBe(false);
+  });
+});
+
+describe('isFullscreen and fullscreenSupported', () => {
+  it('detects standard and webkit full screen elements', () => {
+    expect(isFullscreen({})).toBe(false);
+    expect(isFullscreen({ fullscreenElement: {} as Element })).toBe(true);
+    expect(isFullscreen({ webkitFullscreenElement: {} as Element })).toBe(true);
+  });
+  it('detects API support', () => {
+    expect(fullscreenSupported({ documentElement: {} })).toBe(false);
+    expect(fullscreenSupported({ documentElement: { webkitRequestFullscreen: () => undefined } })).toBe(true);
   });
 });

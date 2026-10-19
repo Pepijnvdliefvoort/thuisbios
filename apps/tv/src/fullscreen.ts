@@ -63,3 +63,28 @@ export function requestFullscreenOnce(doc: Document = document): void {
   doc.addEventListener('fullscreenchange', onChange);
   doc.addEventListener('webkitfullscreenchange', onChange);
 }
+
+/** True when the document is currently in full screen (standard or webkit-prefixed API). */
+export function isFullscreen(doc: Pick<FullscreenDocument, 'fullscreenElement' | 'webkitFullscreenElement'> = document as FullscreenDocument): boolean {
+  return !!(doc.fullscreenElement || doc.webkitFullscreenElement);
+}
+
+/** True when the Fullscreen API (standard or webkit-prefixed) exists on the document element. */
+export function fullscreenSupported(doc: Pick<FullscreenDocument, 'documentElement'> = document as FullscreenDocument): boolean {
+  const el = doc.documentElement;
+  return !!(el && (el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen));
+}
+
+export interface FullscreenHintFlags {
+  /** TV browser or D-pad mode. */
+  dpad: boolean;
+  /** Running as an installed Tizen app. */
+  tizen: boolean;
+  supported: boolean;
+  fullscreen: boolean;
+}
+
+/** The "Press OK for full screen" hint shows only in the TV browser, outside full screen. */
+export function shouldShowFullscreenHint(f: FullscreenHintFlags): boolean {
+  return f.dpad && !f.tizen && f.supported && !f.fullscreen;
+}
