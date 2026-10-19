@@ -163,6 +163,11 @@ instead. Nothing is installed on the TV.
    address bar. If the Back button leaves full screen, the next button press switches it back.
 7. Bookmark the page in the TV's browser so you can open it quickly next time.
 
+To see which remote buttons reach the app, open `http://<PC IP>:4173/?debug`, or press the yellow
+**C** button on the remote. A box in the corner lists the last buttons received and counts pointer
+moves and clicks; press yellow again to hide it. In this browser the arrow keys may move a mouse
+pointer instead: the app highlights whatever the pointer hovers, and OK clicks it.
+
 ## 9. What to test
 
 Start the app. On first start it asks for the Jellyfin address and shows a **Quick Connect code**.

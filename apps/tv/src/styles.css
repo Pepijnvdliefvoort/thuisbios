@@ -43,3 +43,9 @@ input:focus { border-color: var(--accent); outline: none; }
   position: absolute; left: 32px; top: 32px; max-width: 1500px; padding: 12px 20px;
   background: rgba(0, 0, 0, 0.75); font-size: 22px; line-height: 1.5;
 }
+[data-focusable] { cursor: pointer; }
+.keylog {
+  position: fixed; top: 8px; right: 8px; z-index: 9999; width: 640px; padding: 12px 16px;
+  background: #000; color: #fff; border: 3px solid #ffd400; font: 22px/1.4 monospace; pointer-events: none;
+}
+.keylog-head { color: #ffd400; font-weight: bold; }
