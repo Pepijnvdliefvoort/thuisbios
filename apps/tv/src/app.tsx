@@ -8,9 +8,8 @@ import { clearSession, loadSession, saveSession } from './storage';
 import { ConnectScreen } from './screens/ConnectScreen';
 import { MoviesScreen } from './screens/MoviesScreen';
 import { PlayerScreen } from './screens/PlayerScreen';
-import { VolumeScreen } from './screens/VolumeScreen';
 
-type Screen = { name: 'movies' } | { name: 'player'; item: MovieItem } | { name: 'volume' };
+type Screen = { name: 'movies' } | { name: 'player'; item: MovieItem };
 
 export function App() {
   const [session, setSession] = useState<Session | null>(loadSession);
@@ -63,15 +62,12 @@ export function App() {
           onExit={exit}
         />
       );
-    case 'volume':
-      return <VolumeScreen onExit={exit} />;
     default:
       return (
         <MoviesScreen
           client={client}
           session={session}
           onPlay={(item) => open({ name: 'player', item })}
-          onVolume={() => open({ name: 'volume' })}
           onLogout={logout}
         />
       );

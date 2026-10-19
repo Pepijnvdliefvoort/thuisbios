@@ -8,14 +8,13 @@ interface Props {
   client: JellyfinClient;
   session: Session;
   onPlay(item: MovieItem): void;
-  onVolume(): void;
   onLogout(): void;
 }
 
 const POSTER_HEIGHT = 440;
 const PER_PAGE = 5;
 
-export function MoviesScreen({ client, session, onPlay, onVolume, onLogout }: Props) {
+export function MoviesScreen({ client, session, onPlay, onLogout }: Props) {
   const [movies, setMovies] = useState<MovieItem[] | null>(null);
   const [error, setError] = useState('');
   const [page, setPage] = useState(0);
@@ -23,10 +22,6 @@ export function MoviesScreen({ client, session, onPlay, onVolume, onLogout }: Pr
   useRemote((key) => {
     if (key === 'back') {
       exitApp();
-      return true;
-    }
-    if (key === 'red') {
-      onVolume();
       return true;
     }
     return false;
@@ -81,9 +76,6 @@ export function MoviesScreen({ client, session, onPlay, onVolume, onLogout }: Pr
         <span class="muted">
           Page {page + 1} of {pages}
         </span>
-        <button data-focusable class="btn small" onClick={onVolume}>
-          Volume test
-        </button>
         <button data-focusable class="btn small" onClick={onLogout}>
           Sign out
         </button>

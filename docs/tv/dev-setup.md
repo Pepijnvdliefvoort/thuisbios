@@ -2,7 +2,7 @@
 
 Goal of phase 2: prove on the real TV (Samsung UE49NU7100, 2018) that our own app can be
 installed, that the remote's arrow keys work, that Jellyfin video plays (direct play and
-transcoded), and find out whether the volume buttons reach the soundbar.
+transcoded).
 
 You need: the Windows PC with Jellyfin running ([phase 1](../server/windows-setup.md)), the TV on
 the same home network, a Samsung account (free), Node.js 22 and Visual Studio Code on the PC.
@@ -130,7 +130,7 @@ installing, create a new certificate the same way and install again.
 You can also run the app in a desktop browser first: `npm run dev -w apps/tv`, then open
 <http://localhost:5173>. The arrow keys move focus, Enter selects, Esc or Backspace is Back, and
 R, G, Y, B are the red, green, yellow and blue keys. The browser cannot play the transcoded
-(HLS) video, and the Tizen volume functions do not exist there; for those, use the TV.
+(HLS) video; for that, use the TV.
 
 ## 8. Run on the TV and debug
 
@@ -201,7 +201,7 @@ Tick off every line and write down what happened (also if it fails: the exact me
 - [ ] **Sign in**: the code appears, entering it on the phone logs the TV in, the movie row appears
   with posters.
 - [ ] **D-pad**: left and right move the highlight along the posters, up and down reach the
-  "Volume test" and "Sign out" buttons and back. The highlighted poster grows slightly.
+  "Sign out" button and back. The highlighted poster grows slightly.
 - [ ] **Direct play**: play a movie that should direct play (for example Big Buck Bunny as
   H.264 + AAC). The overlay says **DirectPlay**. Picture and sound work.
 - [ ] **Transcode**: play the movie with DTS audio (for example from the test library). The overlay
@@ -215,15 +215,8 @@ Tick off every line and write down what happened (also if it fails: the exact me
   partial progress bar ("resume").
 - [ ] **4K or HDR file** (if you have one): note whether it plays, stutters, or turns into a
   transcode.
-- [ ] **Volume test**: press the **red** key (or the button) on the movie list. Press **Volume up**
-  and **Volume down** with a movie not playing, then **Mute**. Look at the result lines on screen
-  and listen: does the **soundbar** volume change, or only the TV's own speaker level? Does the
-  soundbar's display react? Write down which buttons work. Also press **Read volume**: the
-  number should change after Volume up.
 
-Results of the volume test decide how phase 4 handles volume (see the "Is TV volume reachable?"
-section in [docs/plan.md](../plan.md)). If the soundbar does not follow, that is a valid outcome:
-phase 4 then uses Samsung's network remote API instead.
+The TV's own volume buttons control the soundbar, so the app needs no volume screen.
 
 ## Troubleshooting
 

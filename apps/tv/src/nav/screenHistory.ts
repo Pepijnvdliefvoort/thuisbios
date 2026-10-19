@@ -6,7 +6,7 @@ export interface HistoryHost {
 }
 
 export interface ScreenHistory {
-  /** Call when entering a sub screen (player, volume): pushes one history entry. */
+  /** Call when entering a sub screen (player): pushes one history entry. */
   enter(): void;
   /** Leave the sub screen. Uses history.back() when we pushed an entry, else calls `fallback`. */
   back(fallback: () => void): void;
@@ -16,7 +16,7 @@ export interface ScreenHistory {
 
 /**
  * Keeps the browser history in step with the in-app screens: the list is the base entry, and the
- * player and volume screens push one extra entry, so the browser's back action returns to the list
+ * player screen pushes one extra entry, so the browser's back action returns to the list
  * instead of leaving the app.
  */
 export function createScreenHistory(host: HistoryHost): ScreenHistory {
