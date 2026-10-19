@@ -25,15 +25,53 @@ export interface AuthenticationResult {
   User: { Id: string; Name: string };
 }
 
-export interface MovieItem {
-  Id: string;
-  Name: string;
-  ProductionYear?: number;
-  ImageTags?: { Primary?: string };
+/** Where the viewer stopped, as the server reports it for the signed-in user. */
+export interface UserData {
+  PlaybackPositionTicks?: number;
+  PlayedPercentage?: number;
+  Played?: boolean;
 }
 
+export interface ImageTags {
+  Primary?: string;
+  Backdrop?: string;
+  Thumb?: string;
+  Logo?: string;
+}
+
+/** A movie, series, season or episode. Episodes usually lack their own backdrop and logo; use `artFor`. */
+export interface BaseItem {
+  Id: string;
+  Name: string;
+  Type?: 'Movie' | 'Series' | 'Season' | 'Episode' | string;
+  ProductionYear?: number;
+  SeriesName?: string;
+  SeriesId?: string;
+  SeasonId?: string;
+  ParentIndexNumber?: number;
+  IndexNumber?: number;
+  Overview?: string;
+  Genres?: string[];
+  OfficialRating?: string;
+  CommunityRating?: number;
+  RunTimeTicks?: number;
+  ChildCount?: number;
+  ImageTags?: ImageTags;
+  BackdropImageTags?: string[];
+  ParentBackdropItemId?: string;
+  ParentBackdropImageTags?: string[];
+  ParentThumbItemId?: string;
+  ParentThumbImageTag?: string;
+  SeriesPrimaryImageTag?: string;
+  ParentLogoItemId?: string;
+  ParentLogoImageTag?: string;
+  UserData?: UserData;
+}
+
+export type MovieItem = BaseItem;
+
 export interface ItemsResult {
-  Items: MovieItem[];
+  Items: BaseItem[];
   TotalRecordCount: number;
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { debugRequested, initialState, onLastSeek, reduce, type KeyLogState } from './keyLogState';
+import { debugRequested, initialState, onLastBack, onLastSeek, reduce, type KeyLogState } from './keyLogState';
 
 const EVENTS = ['keydown', 'keyup', 'mousemove', 'click'];
 
@@ -24,6 +24,8 @@ export function KeyLog() {
 
   useEffect(() => onLastSeek((text) => setState((s) => ({ ...s, seek: text }))), []);
 
+  useEffect(() => onLastBack((text) => setState((s) => ({ ...s, back: text }))), []);
+
   if (!state.enabled) return null;
   return (
     <div class="keylog">
@@ -40,6 +42,7 @@ export function KeyLog() {
         mouse moves: {state.moves}, clicks: {state.clicks}
       </div>
       <div>{state.seek || 'input: -'}</div>
+      <div>{state.back ? `back: ${state.back}` : 'back: -'}</div>
     </div>
   );
 }

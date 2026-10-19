@@ -26,27 +26,89 @@ input:focus { border-color: var(--accent); outline: none; }
 .code { font-size: 140px; font-weight: bold; letter-spacing: 16px; margin: 24px 0; }
 .bar { display: flex; align-items: center; margin-bottom: 24px; }
 .bar h1 { margin: 0 auto 0 0; }
-.movies { display: flex; flex-direction: column; padding: 3vh 3vw; }
-.movies h1 { font-size: 2.4rem; text-align: center; margin-bottom: 2vh; }
-.shelf { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: 0; }
-.tiles { display: flex; justify-content: center; }
-.pager {
-  flex: 0 0 auto; width: 3.5vw; height: 14vh; font-size: 2.4rem; color: var(--fg);
-  background: #1c1c26; border: 3px solid transparent; cursor: pointer;
+/* Home and details. Fixed 1920x1080 layout in px (the TV browser renders at 1920x1080); only transform and opacity are animated. */
+.home, .details { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; background: var(--bg); }
+.hero { position: absolute; top: 0; left: 0; width: 1920px; height: 560px; overflow: hidden; }
+.backdrop { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #14141c; }
+.backdrop-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 300ms; }
+.backdrop-img.on { opacity: 1; }
+.hero-shade {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  background:
+    linear-gradient(to right, rgba(11, 11, 16, 0.95) 0%, rgba(11, 11, 16, 0.7) 35%, rgba(11, 11, 16, 0) 70%),
+    linear-gradient(to top, #0b0b10 0%, rgba(11, 11, 16, 0) 45%);
 }
-.pager:disabled { opacity: 0.25; cursor: default; }
-.pager:hover:not(:disabled), .pager:focus { border-color: var(--accent); outline: none; }
-.poster {
-  flex: 0 0 auto; width: 15vw; margin: 0 1vw; padding: 0; color: var(--fg);
-  background: #14141c; border: 3px solid transparent; text-align: left; cursor: pointer;
-  transition: transform 0.15s;
+.brand { position: absolute; top: 36px; left: 64px; font-size: 36px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; color: var(--accent); }
+.signout {
+  position: absolute; top: 28px; right: 64px; font-size: 24px; padding: 8px 22px; color: var(--fg);
+  background: rgba(38, 38, 58, 0.8); border: 3px solid transparent; cursor: pointer; outline: none;
 }
-.poster:hover, .poster:focus { transform: scale(1.04); border-color: var(--accent); outline: none; }
-.poster img, .poster .noimg { display: block; width: 100%; height: 22vw; max-height: 52vh; object-fit: cover; background: #1c1c26; }
-.poster .title { display: block; padding: 0.8vh 0.6vw; font-size: 1.4rem; line-height: 1.2; height: 4.2rem; overflow: hidden; }
-.foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; margin-top: 2vh; }
-.foot .muted { font-size: 1.2rem; margin-right: 3vw; }
-.foot .btn.small { margin: 0 0 0 1.5vw; }
+.signout:focus { border-color: var(--accent); transform: scale(1.06); }
+.hero-text { position: absolute; left: 64px; bottom: 36px; width: 820px; }
+
+.info { margin-bottom: 20px; }
+.info-title { margin: 0 0 8px; font-size: 64px; line-height: 1.1; }
+.logo { display: block; max-width: 520px; max-height: 140px; margin-bottom: 12px; }
+.info-sub { font-size: 30px; margin-bottom: 8px; }
+.info-meta { font-size: 24px; color: rgba(255, 255, 255, 0.8); margin-bottom: 8px; }
+.info-genres { font-size: 22px; color: var(--muted); margin-bottom: 8px; }
+.info-overview {
+  margin: 8px 0 0; font-size: 24px; line-height: 32px; max-height: 96px; color: rgba(255, 255, 255, 0.9);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+.hero-buttons { display: flex; align-items: center; }
+.hbtn {
+  font-size: 28px; padding: 12px 36px; margin: 0 20px 0 0; color: var(--fg);
+  background: rgba(255, 255, 255, 0.18); border: 3px solid transparent; cursor: pointer; outline: none;
+}
+.hbtn.primary { background: #fff; color: #111; }
+.hbtn:focus { border-color: var(--accent); transform: scale(1.06); }
+.hbtn:disabled { opacity: 0.5; cursor: default; }
+
+.rows-view { position: absolute; top: 560px; left: 0; width: 1920px; height: 520px; overflow: hidden; }
+.rows { transition: transform 200ms; }
+.state { margin: 40px 64px; font-size: 28px; }
+.row { position: relative; }
+.row-title { margin: 0; padding: 0 0 0 64px; height: 52px; line-height: 52px; font-size: 28px; font-weight: normal; }
+.track { position: relative; margin-left: 64px; transition: transform 200ms; }
+
+.tile {
+  position: absolute; top: 0; margin: 0; padding: 0; color: var(--fg); text-align: left; font-family: inherit;
+  background: #14141c; border: 3px solid transparent; cursor: pointer; outline: none; transition: transform 150ms;
+}
+.tile:focus { transform: scale(1.08); border-color: var(--accent); z-index: 2; }
+.tile .art { display: block; position: relative; overflow: hidden; background: #1c1c26; }
+.tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tile .noimg {
+  display: block; width: 100%; height: 100%; padding: 16px; font-size: 24px; color: var(--muted); overflow: hidden;
+  background: linear-gradient(135deg, #26263a, #14141c);
+}
+.tile .progress { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255, 255, 255, 0.3); }
+.tile .progress i { display: block; width: 100%; height: 100%; background: var(--accent); transform-origin: left center; }
+.tile .cap { display: block; padding: 6px 8px 0; overflow: hidden; }
+.tile .cap-title, .tile .cap-sub { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .cap-title { font-size: 24px; line-height: 30px; }
+.tile .cap-sub { font-size: 20px; line-height: 26px; color: var(--muted); }
+
+.details-shade {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  background:
+    linear-gradient(to right, rgba(11, 11, 16, 0.95) 0%, rgba(11, 11, 16, 0.75) 40%, rgba(11, 11, 16, 0.1) 80%),
+    linear-gradient(to top, #0b0b10 0%, rgba(11, 11, 16, 0) 50%);
+}
+.details-main { position: absolute; top: 0; right: 0; bottom: 0; left: 64px; width: 1792px; padding: 60px 0; display: flex; flex-direction: column; justify-content: flex-end; }
+.details-main .info { width: 900px; }
+.details .info-overview { max-height: 128px; -webkit-line-clamp: 4; }
+.seasons { height: 92px; margin: 16px 0 0 -12px; padding: 12px 0 0 12px; overflow: hidden; }
+.seasons-track { display: flex; transition: transform 200ms; }
+.pill {
+  flex: 0 0 auto; width: 150px; margin: 0 20px 0 0; padding: 10px 0; font-size: 24px; color: var(--fg);
+  background: rgba(255, 255, 255, 0.12); border: 3px solid transparent; cursor: pointer; outline: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.pill.on { background: rgba(255, 255, 255, 0.35); }
+.pill:focus { border-color: var(--accent); transform: scale(1.06); }
+.episodes { position: relative; height: 286px; margin: 0 0 0 -12px; padding: 12px 0 0 12px; overflow: hidden; }
+.episodes .track { margin-left: 0; }
 .buttons { margin: 24px 0; }
 .log { font-size: 22px; background: #14141c; padding: 16px; min-height: 280px; white-space: pre-wrap; }
 .player { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: #000; overflow: hidden; }

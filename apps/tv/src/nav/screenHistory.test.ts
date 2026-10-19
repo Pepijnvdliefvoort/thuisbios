@@ -16,12 +16,44 @@ function fakeHost() {
 }
 
 describe('createScreenHistory', () => {
-  it('pushes one entry when entering a sub screen', () => {
+  it('pushes one entry per sub screen and counts the depth', () => {
     const host = fakeHost();
     const nav = createScreenHistory(host);
+    expect(nav.depth()).toBe(0);
     nav.enter();
     nav.enter();
-    expect(host.history.pushState).toHaveBeenCalledTimes(1);
+    expect(host.history.pushState).toHaveBeenCalledTimes(2);
+    expect(nav.depth()).toBe(2);
+  });
+
+  it('each back() goes back one screen: details -> home', () => {
+    const host = fakeHost();
+    const nav = createScreenHistory(host);
+    const onPop = vi.fn();
+    nav.onPop(onPop);
+    const fallback = vi.fn();
+    nav.enter(); // details
+    nav.enter(); // player
+    nav.back(fallback);
+    expect(nav.depth()).toBe(1);
+    expect(onPop).toHaveBeenCalledTimes(1);
+    nav.back(fallback);
+    expect(nav.depth()).toBe(0);
+    expect(onPop).toHaveBeenCalledTimes(2);
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it('a browser pop (RETURN) lowers the depth and never below 0', () => {
+    const host = fakeHost();
+    const nav = createScreenHistory(host);
+    const onPop = vi.fn();
+    nav.onPop(onPop);
+    nav.enter();
+    (host.addEventListener as ReturnType<typeof vi.fn>).mock.calls[0][1]();
+    expect(nav.depth()).toBe(0);
+    (host.addEventListener as ReturnType<typeof vi.fn>).mock.calls[0][1]();
+    expect(nav.depth()).toBe(0);
+    expect(onPop).toHaveBeenCalledTimes(2);
   });
 
   it('back() uses history.back and the popstate listener returns to the list', () => {

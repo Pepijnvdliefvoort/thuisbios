@@ -16,6 +16,8 @@ export interface KeyLogState {
   clicks: number;
   /** Last pointer decision: "nav: ..." (D-pad mode) or "player: ..." (the player). */
   seek: string;
+  /** Last Return/back decision, e.g. "fullscreen exit at depth 1: back". */
+  back: string;
 }
 
 export const MAX_ENTRIES = 6;
@@ -43,10 +45,12 @@ export const initialState = (enabled: boolean): KeyLogState => ({
   moves: 0,
   clicks: 0,
   seek: '',
+  back: '',
 });
 
 type SeekListener = (text: string) => void;
 let seekListeners: SeekListener[] = [];
+let backListeners: SeekListener[] = [];
 
 /** The player reports each direction it handled here, e.g. "player: right [watching] -> seekBy(10)". */
 export function setLastPlayer(text: string): void {
@@ -57,6 +61,18 @@ export function setLastPlayer(text: string): void {
 export function setLastNav(dx: number, dy: number, dir: string): void {
   const text = `nav: dx=${dx} dy=${dy} -> ${dir}`;
   seekListeners.forEach((l) => l(text));
+}
+
+/** The Return-key logic reports each full-screen exit and back decision here. */
+export function setLastBack(text: string): void {
+  backListeners.forEach((l) => l(text));
+}
+
+export function onLastBack(listener: SeekListener): () => void {
+  backListeners = backListeners.concat([listener]);
+  return () => {
+    backListeners = backListeners.filter((l) => l !== listener);
+  };
 }
 
 export function onLastSeek(listener: SeekListener): () => void {

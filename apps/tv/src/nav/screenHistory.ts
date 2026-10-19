@@ -6,41 +6,43 @@ export interface HistoryHost {
 }
 
 export interface ScreenHistory {
-  /** Call when entering a sub screen (player): pushes one history entry. */
+  /** Call when entering a sub screen (details, player): pushes one history entry. */
   enter(): void;
-  /** Leave the sub screen. Uses history.back() when we pushed an entry, else calls `fallback`. */
+  /** Leave one sub screen. Uses history.back() when we pushed an entry, else calls `fallback`. */
   back(fallback: () => void): void;
-  /** Called when the browser goes back (RETURN key or back button). Returns an unsubscribe function. */
+  /** Number of sub screens we pushed entries for (0 on the home screen). */
+  depth(): number;
+  /** Called when the browser goes back (RETURN key or back button), once per entry. Returns an unsubscribe function. */
   onPop(listener: () => void): () => void;
 }
 
 /**
- * Keeps the browser history in step with the in-app screens: the list is the base entry, and the
- * player screen pushes one extra entry, so the browser's back action returns to the list
- * instead of leaving the app.
+ * Keeps the browser history in step with the in-app screens: home is the base entry and every sub
+ * screen (details, player) pushes one more, so the browser's back action returns to the previous
+ * screen instead of leaving the app. `depth` counts the pushed entries.
  */
 export function createScreenHistory(host: HistoryHost): ScreenHistory {
-  let pushed = false;
+  let depth = 0;
   const listeners: Array<() => void> = [];
   const handler = () => {
-    pushed = false;
+    if (depth > 0) depth--;
     listeners.slice().forEach((l) => l());
   };
   let attached = false;
   return {
     enter() {
-      if (pushed) return;
       try {
-        host.history.pushState({ thuisbios: 'sub' }, '');
-        pushed = true;
+        host.history.pushState({ thuisbios: 'sub', depth: depth + 1 }, '');
+        depth++;
       } catch (e) {
-        pushed = false;
+        // Without a history entry back() falls back to a plain screen change.
       }
     },
     back(fallback) {
-      if (pushed) host.history.back();
+      if (depth > 0) host.history.back();
       else fallback();
     },
+    depth: () => depth,
     onPop(listener) {
       listeners.push(listener);
       if (!attached) {
