@@ -49,9 +49,22 @@ Run the tests with `Invoke-Pester -Path server/tests` (Pester 5).
 ## TV app (phase 2 spike)
 
 `apps/tv` is an npm workspace package: Preact + TypeScript + Vite, transpiled for Chromium 56
-(Tizen 4.0) with `@vitejs/plugin-legacy`. The spike has a Quick Connect sign-in, paged tiles of the
-latest movies (D-pad, or the TV browser's arrow-driven pointer), a Netflix-style HTML5 player (one input state machine for the remote's pointer and the keyboard, Jellyfin device
-profile, `?debug` overlay) and text subtitles (CC button). Follow [docs/tv/dev-setup.md](docs/tv/dev-setup.md) to install
+(Tizen 4.0) with `@vitejs/plugin-legacy`. The spike has a Quick Connect sign-in and a Netflix-style home screen: a hero billboard for the
+featured item (it follows the focused tile) above rows of Continue watching, Next up, recently
+added movies and series, and all movies and series. OK on a tile opens a details page (movie,
+episode, or series with a season selector and episode list) with Play, Resume and Play from start,
+so playback resumes where it stopped. Pressing Left from the first column opens a sidebar (Home,
+Movies, Shows, Sign out) over a narrow icon rail; Movies and Shows are poster grids of the whole
+library, and Return goes back to Home. Items without a backdrop show a generic dark background
+instead of the previous image. Navigation is a (row, column) grid driven by the D-pad or by
+the TV browser's arrow-driven pointer. The player is a Netflix-style HTML5 player (one input state
+machine for the remote's pointer and the keyboard, Jellyfin device profile, `?debug` overlay) with
+text subtitles (CC button). In the TV browser, Return while in full screen only leaves full screen,
+so the app treats that as a back step (details to home, player to details) and asks for full screen
+again; full screen only ends for good on the home screen. While the page is not in full screen, the TV browser shows a modal over the whole page ("Press OK to
+continue in full screen"); OK then only enters full screen and the arrows do not move the focus behind it.
+If the browser refuses full screen twice in a row after OK, the modal is turned off for the rest of the session; the OK press is swallowed for a second so it never starts a movie. The `?debug` overlay shows these
+decisions. Follow [docs/tv/dev-setup.md](docs/tv/dev-setup.md) to install
 it on the TV and run the test checklist. If the TV refuses the install, the same guide explains
 how to run the app in the TV's web browser (`npm run preview -w apps/tv`, served on port 4173).
 

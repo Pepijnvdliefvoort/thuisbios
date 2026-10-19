@@ -16,6 +16,10 @@ export interface KeyLogState {
   clicks: number;
   /** Last pointer decision: "nav: ..." (D-pad mode) or "player: ..." (the player). */
   seek: string;
+  /** Last Return/back decision, e.g. "fullscreen exit at depth 1: back". */
+  back: string;
+  /** Last full-screen gate decision, prefixed with a running counter. */
+  gate: string;
 }
 
 export const MAX_ENTRIES = 6;
@@ -43,10 +47,15 @@ export const initialState = (enabled: boolean): KeyLogState => ({
   moves: 0,
   clicks: 0,
   seek: '',
+  back: '',
+  gate: '',
 });
 
 type SeekListener = (text: string) => void;
 let seekListeners: SeekListener[] = [];
+let backListeners: SeekListener[] = [];
+let gateListeners: SeekListener[] = [];
+let gateCount = 0;
 
 /** The player reports each direction it handled here, e.g. "player: right [watching] -> seekBy(10)". */
 export function setLastPlayer(text: string): void {
@@ -57,6 +66,32 @@ export function setLastPlayer(text: string): void {
 export function setLastNav(dx: number, dy: number, dir: string): void {
   const text = `nav: dx=${dx} dy=${dy} -> ${dir}`;
   seekListeners.forEach((l) => l(text));
+}
+
+/** The Return-key logic reports each full-screen exit and back decision here. */
+export function setLastBack(text: string): void {
+  backListeners.forEach((l) => l(text));
+}
+
+/** The full-screen gate reports each decision here; a running counter makes repeats visible. */
+export function setLastGate(text: string): void {
+  gateCount += 1;
+  const line = `#${gateCount} ${text}`;
+  gateListeners.forEach((l) => l(line));
+}
+
+export function onLastGate(listener: SeekListener): () => void {
+  gateListeners = gateListeners.concat([listener]);
+  return () => {
+    gateListeners = gateListeners.filter((l) => l !== listener);
+  };
+}
+
+export function onLastBack(listener: SeekListener): () => void {
+  backListeners = backListeners.concat([listener]);
+  return () => {
+    backListeners = backListeners.filter((l) => l !== listener);
+  };
 }
 
 export function onLastSeek(listener: SeekListener): () => void {

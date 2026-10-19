@@ -17,7 +17,10 @@ interface FullscreenDocument {
  * Asks the browser for full screen. Returns true when a request was sent.
  * Does nothing when already in full screen or when running as an installed Tizen app.
  */
-export function requestFullscreen(doc: FullscreenDocument = document as FullscreenDocument): boolean {
+export function requestFullscreen(
+  doc: FullscreenDocument = document as FullscreenDocument,
+  onReject?: (e: unknown) => void,
+): boolean {
   if (isTizen()) return false;
   if (doc.fullscreenElement || doc.webkitFullscreenElement) return false;
   const el = doc.documentElement;
@@ -25,8 +28,9 @@ export function requestFullscreen(doc: FullscreenDocument = document as Fullscre
   if (!request) return false;
   try {
     const result = request.call(el);
-    if (result && typeof result.catch === 'function') result.catch(() => undefined);
+    if (result && typeof result.catch === 'function') result.catch((e: unknown) => (onReject ? onReject(e) : undefined));
   } catch (e) {
+    if (onReject) onReject(e);
     return false;
   }
   return true;
@@ -62,4 +66,29 @@ export function requestFullscreenOnce(doc: Document = document): void {
   doc.addEventListener('mousemove', onFirstMove, true);
   doc.addEventListener('fullscreenchange', onChange);
   doc.addEventListener('webkitfullscreenchange', onChange);
+}
+
+/** True when the document is currently in full screen (standard or webkit-prefixed API). */
+export function isFullscreen(doc: Pick<FullscreenDocument, 'fullscreenElement' | 'webkitFullscreenElement'> = document as FullscreenDocument): boolean {
+  return !!(doc.fullscreenElement || doc.webkitFullscreenElement);
+}
+
+/** True when the Fullscreen API (standard or webkit-prefixed) exists on the document element. */
+export function fullscreenSupported(doc: Pick<FullscreenDocument, 'documentElement'> = document as FullscreenDocument): boolean {
+  const el = doc.documentElement;
+  return !!(el && (el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen));
+}
+
+export interface FullscreenGateFlags {
+  /** TV browser or D-pad mode. */
+  dpad: boolean;
+  /** Running as an installed Tizen app. */
+  tizen: boolean;
+  supported: boolean;
+  fullscreen: boolean;
+}
+
+/** The full-screen gate (modal) shows only in the TV browser, outside full screen. */
+export function shouldShowFullscreenGate(f: FullscreenGateFlags): boolean {
+  return f.dpad && !f.tizen && f.supported && !f.fullscreen;
 }

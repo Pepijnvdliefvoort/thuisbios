@@ -212,10 +212,16 @@ TV then signs in by itself.
 Tick off every line and write down what happened (also if it fails: the exact message helps).
 
 - [ ] **Install**: the app starts from the apps panel on the TV.
-- [ ] **Sign in**: the code appears, entering it on the phone logs the TV in, the movie row appears
-  with posters.
-- [ ] **D-pad**: left and right move the highlight along the posters, up and down reach the
-  "Sign out" button and back. The highlighted poster grows slightly.
+- [ ] **Sign in**: the code appears, entering it on the phone logs the TV in, the home screen
+  appears with a hero at the top and rows of tiles below it.
+- [ ] **D-pad**: left and right move the highlight along a row, up and down move between rows (each
+  row remembers its position), up from the first row reaches the hero buttons and then "Sign out".
+  The highlighted tile grows slightly and the hero follows it after a moment.
+- [ ] **Details and resume**: OK on a tile opens the details page. A partly watched movie offers
+  "Resume from ..." and "Play from start"; a series shows seasons and episodes.
+- [ ] **Return key**: Return in the player goes to the details page (or home) and may leave full
+  screen; press OK to get full screen back. On the home screen full screen may end. With `?debug`
+  the overlay shows the back decisions.
 - [ ] **Direct play**: play a movie that should direct play (for example Big Buck Bunny as
   H.264 + AAC). The overlay says **DirectPlay**. Picture and sound work.
 - [ ] **Transcode**: play the movie with DTS audio (for example from the test library). The overlay

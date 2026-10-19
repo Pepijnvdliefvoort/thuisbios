@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks';
+import { isGateActive } from './fullscreenGate';
 import { mapKey, type RemoteKey } from './keys';
 import { pickNext, type Rect } from './spatial';
 
@@ -38,6 +39,7 @@ export function useRemote(onKey?: (key: RemoteKey, event: KeyboardEvent) => bool
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
+      if (isGateActive()) return;
       const typing = isTyping(document.activeElement);
       const key = mapKey(event, typing);
       if (!key) return;

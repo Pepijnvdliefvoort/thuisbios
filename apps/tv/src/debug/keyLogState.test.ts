@@ -88,3 +88,18 @@ describe('toggle key while typing', () => {
     expect(reduce(initialState(false), plain).enabled).toBe(true);
   });
 });
+
+describe('gate line', () => {
+  it('starts empty and numbers each report', async () => {
+    const { onLastGate, setLastGate } = await import('./keyLogState');
+    expect(initialState(true).gate).toBe('');
+    const seen: string[] = [];
+    const off = onLastGate((t) => seen.push(t));
+    setLastGate('a');
+    setLastGate('b');
+    off();
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).toMatch(/^#\d+ a$/);
+    expect(seen[1]).toMatch(/^#\d+ b$/);
+  });
+});

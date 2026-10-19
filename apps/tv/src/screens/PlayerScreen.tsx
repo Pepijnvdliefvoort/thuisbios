@@ -16,7 +16,8 @@ import {
   subtitleButtonLabel,
   subtitleVttUrl,
 } from '../jellyfin/subtitles';
-import type { MediaSource, MovieItem, Session } from '../jellyfin/types';
+import { playerTitle } from '../jellyfin/itemInfo';
+import type { BaseItem, MediaSource, Session } from '../jellyfin/types';
 import { debugRequested } from '../debug/keyLogState';
 import { setDpadHandler } from '../nav/pointerDpad';
 import { useRemote } from '../nav/useRemote';
@@ -39,7 +40,9 @@ import { usePlayerInput } from '../player/usePlayerInput';
 interface Props {
   client: JellyfinClient;
   session: Session;
-  item: MovieItem;
+  item: BaseItem;
+  /** Where to start, in seconds (resume). 0 or missing starts from the beginning. */
+  startSeconds?: number;
   onExit(): void;
 }
 
@@ -61,7 +64,7 @@ const MEDIA_KEYS: { [k: string]: MediaKey } = {
   rewind: 'rew',
 };
 
-export function PlayerScreen({ client, session, item, onExit }: Props) {
+export function PlayerScreen({ client, session, item, startSeconds, onExit }: Props) {
   const video = useRef<HTMLVideoElement>(null);
   const [forceTranscode, setForceTranscode] = useState(false);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -78,6 +81,9 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
   const [bubbleView, setBubbleView] = useState<Bubble | null>(null);
   const errorRef = useRef('');
   errorRef.current = error;
+  // Where to seek once metadata is loaded: the resume point, or the current spot after a transcode switch.
+  const startRef = useRef(startSeconds || 0);
+  const startedRef = useRef(false);
 
   const { state, dispatch, preview } = usePlayerInput({ video, onExit });
   const controlsVisible = state.mode === 'controls' && !error;
@@ -110,6 +116,7 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
     setLoaded(null);
     setError('');
     setStatus('loading');
+    startedRef.current = false;
     client
       .playbackInfo(session.userId, item.Id, forceTranscode)
       .then((info) => {
@@ -210,13 +217,19 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
     } else v.pause();
   };
 
+  /** Switching streams reloads the video; keep the current spot instead of restarting. */
+  const toggleTranscode = (on: boolean) => {
+    if (video.current && video.current.currentTime > 0) startRef.current = video.current.currentTime;
+    setForceTranscode(on);
+  };
+
   useRemote((key: RemoteKey) => {
     if (key === 'green') {
       setShowDebug((x) => !x);
       return true;
     }
     if (key === 'yellow') {
-      setForceTranscode((f) => !f);
+      toggleTranscode(!forceTranscode);
       return true;
     }
     // With the error card up, Back leaves and the arrows/OK work on its buttons as usual.
@@ -268,7 +281,7 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
   const shownPos = preview !== null ? preview : position;
   const fraction = (t: number) => (duration > 0 ? Math.max(0, Math.min(1, t / duration)) : 0);
   const scrubbing = preview !== null;
-  const title = item.Name;
+  const title = playerTitle(item);
   const chromeClass =
     'chrome' + (controlsVisible ? '' : ' hidden') + (paused ? ' paused' : '') + (state.focus === 'progress' ? ' onbar' : '');
   const ccDisabled = subs.length === 0 && imageOnly;
@@ -294,7 +307,14 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
             setPaused(true);
             dispatch({ type: 'playState', playing: false });
           }}
-          onLoadedMetadata={(e) => setDuration((e.target as HTMLVideoElement).duration || 0)}
+          onLoadedMetadata={(e) => {
+            const v = e.target as HTMLVideoElement;
+            setDuration(v.duration || 0);
+            if (!startedRef.current) {
+              startedRef.current = true;
+              if (startRef.current > 0) v.currentTime = startRef.current;
+            }
+          }}
           onDurationChange={(e) => setDuration((e.target as HTMLVideoElement).duration || 0)}
           onWaiting={() => {
             setStatus('buffering');
@@ -421,7 +441,7 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
       {error && (
         <div class="errorwrap">
           <div class="errorcard">
-            <h2>Can't play this movie</h2>
+            <h2>Can't play this video</h2>
             <p>{error}</p>
             <div class="errorbtns">
               <button data-focusable data-kind="button" class="btn" ref={(el) => {
@@ -430,7 +450,7 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
                 Back
               </button>
               {!forceTranscode && (
-                <button data-focusable data-kind="button" class="btn" onClick={() => setForceTranscode(true)}>
+                <button data-focusable data-kind="button" class="btn" onClick={() => toggleTranscode(true)}>
                   Try transcoding
                 </button>
               )}
