@@ -170,12 +170,15 @@ toggle it.
 
 In this browser the remote works as a mouse, not as a keyboard:
 
-- The arrow keys move the pointer. Point at a movie and press **OK** to click it. Use the big
+- The arrow keys move the pointer. Point at a movie and press **OK** to click it. Use the
   arrow buttons on both sides to see more movies. The small buttons at the bottom are for Volume
   test and Sign out.
-- While a movie plays, move the pointer or press **OK** to show the big buttons (Back to list, back
-  10 seconds, Play/Pause, forward 30 seconds). They hide by themselves after 4 seconds, and stay
-  visible while paused. Clicking the picture also pauses or plays.
+- While a movie plays, move the pointer left or right with the arrows to jump back or forward 10
+  seconds. A short "-10 s" or "+10 s" appears. Press **OK** to pause and show the buttons (Back to
+  list, back 10 seconds, Play/Pause, forward 30 seconds). Moving the pointer up or down also shows
+  them. They hide by themselves after 4 seconds while playing, and stay visible while paused. The
+  first click while playing may hide the pointer so it never runs into the screen edge; pause to
+  get it back.
 - **RETURN** goes back to the movie list.
 
 ## 9. What to test
