@@ -1,5 +1,5 @@
 import { setLastNav } from '../debug/keyLogState';
-import { createBurstDetector, moveDelta } from './pointerBursts';
+import { createBurstDetector, moveDelta, type Direction } from './pointerBursts';
 import { moveFocus } from './useRemote';
 
 /** True on the TV's browser (user agent has SMART-TV or Tizen) or when the URL has `?dpad`. */
@@ -10,24 +10,44 @@ export function dpadRequested(userAgent: string, search: string): boolean {
 
 const RESIZE_GRACE_MS = 400;
 
+/**
+ * A screen can take over directions and clicks while D-pad mode stays on (hidden cursor, mousedown
+ * prevention, resize grace). The player installs one. Return false to fall back to the default.
+ */
+export interface DpadHandler {
+  onDirection(dir: Direction): boolean;
+  onClick(): boolean;
+}
+
 let installed = false;
-let suspended = false;
+let handler: DpadHandler | null = null;
+let redirecting = false;
 let bodyClassTarget: Document | null = null;
 
 const syncBodyClass = () => {
   if (!bodyClassTarget || !bodyClassTarget.body) return;
-  const on = installed && !suspended;
-  if (on) bodyClassTarget.body.classList.add('dpad');
+  if (installed) bodyClassTarget.body.classList.add('dpad');
   else bodyClassTarget.body.classList.remove('dpad');
 };
 
-/** True while pointer-as-D-pad mode is installed and not suspended (the player suspends it). */
-export const isDpadActive = (): boolean => installed && !suspended;
+/** True while pointer-as-D-pad mode is installed. */
+export const isDpadActive = (): boolean => installed;
 
-/** The player calls this on mount (true) and unmount (false). */
-export function setDpadSuspended(value: boolean): void {
-  suspended = value;
-  syncBodyClass();
+/** Routes directions and clicks to `h` (or back to the defaults with null). */
+export function setDpadHandler(h: DpadHandler | null): void {
+  handler = h;
+}
+
+/** Clicks an element without the D-pad click listener redirecting or handing it to the handler again. */
+export function activateElement(el: HTMLElement): void {
+  if (typeof el.click !== 'function') return;
+  const was = redirecting;
+  redirecting = true;
+  try {
+    el.click();
+  } finally {
+    redirecting = was;
+  }
 }
 
 const isTyping = (el: Element | null): boolean =>
@@ -47,7 +67,6 @@ export function installPointerDpad(doc: Document = document): () => void {
   syncBodyClass();
 
   let last: { x: number; y: number } | null = null;
-  let redirecting = false;
   let remembered: HTMLElement | null = null;
   let graceUntil = 0;
 
@@ -68,6 +87,7 @@ export function installPointerDpad(doc: Document = document): () => void {
     onDirection(dir, dx, dy) {
       if (!isDpadActive()) return;
       setLastNav(dx, dy, dir);
+      if (handler && handler.onDirection(dir)) return;
       if (!hasFocus()) {
         restoreFocus();
         return;
@@ -113,6 +133,12 @@ export function installPointerDpad(doc: Document = document): () => void {
   const onClick = (e: Event) => {
     if (redirecting || !isDpadActive()) return;
     const active = doc.activeElement as HTMLElement | null;
+    if (handler && !isTyping(e.target as Element | null) && !isTyping(active) && handler.onClick()) {
+      // Not stopImmediatePropagation: fullscreen still needs this click as its user gesture.
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
     // Typing must keep working: let clicks on or into text fields through.
     if (isTyping(e.target as Element | null) || isTyping(active)) return;
     if (!active || active === doc.body || active === doc.documentElement) {
@@ -126,12 +152,7 @@ export function installPointerDpad(doc: Document = document): () => void {
     if (typeof active.click !== 'function') return;
     e.stopImmediatePropagation();
     e.preventDefault();
-    redirecting = true;
-    try {
-      active.click();
-    } finally {
-      redirecting = false;
-    }
+    activateElement(active);
   };
 
   doc.addEventListener('mousemove', onMove);
@@ -152,6 +173,7 @@ export function installPointerDpad(doc: Document = document): () => void {
     doc.removeEventListener('click', onClick, true);
     detector.dispose();
     installed = false;
+    handler = null;
     syncBodyClass();
     bodyClassTarget = null;
   };

@@ -17,11 +17,24 @@ import {
   subtitleVttUrl,
 } from '../jellyfin/subtitles';
 import type { MediaSource, MovieItem, Session } from '../jellyfin/types';
-import { setLastSeek } from '../debug/keyLogState';
+import { debugRequested } from '../debug/keyLogState';
+import { setDpadHandler } from '../nav/pointerDpad';
 import { useRemote } from '../nav/useRemote';
-import { createAutoHide, formatTime, type AutoHide } from './autoHide';
-import { setDpadSuspended } from '../nav/pointerDpad';
-import { createPointerSeek, moveDelta, type PointerSeek } from './pointerSeek';
+import type { RemoteKey } from '../nav/keys';
+import { formatRemaining, formatSeekTotal, formatTime } from '../player/format';
+import {
+  BackIcon,
+  CaptionsIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Forward10Icon,
+  PauseIcon,
+  PlayIcon,
+  Replay10Icon,
+  SpinnerIcon,
+} from '../player/icons';
+import { SEEK_STEP, type Bubble, type MediaKey } from '../player/playerInput';
+import { usePlayerInput } from '../player/usePlayerInput';
 
 interface Props {
   client: JellyfinClient;
@@ -38,65 +51,58 @@ interface Loaded {
 }
 
 const PROGRESS_MS = 10000;
-const SEEK_BACK = 10;
-const SEEK_FORWARD = 30;
+
+const MEDIA_KEYS: { [k: string]: MediaKey } = {
+  play: 'play',
+  pause: 'pause',
+  playPause: 'playPause',
+  stop: 'stop',
+  fastForward: 'ff',
+  rewind: 'rew',
+};
 
 export function PlayerScreen({ client, session, item, onExit }: Props) {
   const video = useRef<HTMLVideoElement>(null);
   const [forceTranscode, setForceTranscode] = useState(false);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState('');
-  const [showDebug, setShowDebug] = useState(true);
+  const [showDebug, setShowDebug] = useState(() => debugRequested(window.location));
   const [status, setStatus] = useState('loading');
   const [position, setPosition] = useState(0);
+  const [bufferedEnd, setBufferedEnd] = useState(0);
   const [duration, setDuration] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const hide = useRef<AutoHide | null>(null);
-  const pointerSeek = useRef<PointerSeek | null>(null);
-  const lastPos = useRef<{ x: number; y: number } | null>(null);
-  const visibleRef = useRef(true);
+  const [buffering, setBuffering] = useState(false);
+  const [notice, setNotice] = useState('');
   const [subSel, setSubSel] = useState(-1);
-  const [hint, setHint] = useState<{ text: string; n: number } | null>(null);
-  visibleRef.current = controlsVisible;
+  const [bubbleView, setBubbleView] = useState<Bubble | null>(null);
+  const errorRef = useRef('');
+  errorRef.current = error;
 
+  const { state, dispatch, preview } = usePlayerInput({ video, onExit });
+  const controlsVisible = state.mode === 'controls' && !error;
+
+  // Keep the last bubble around so it can fade out instead of vanishing.
   useEffect(() => {
-    const h = createAutoHide(setControlsVisible);
-    hide.current = h;
-    return () => {
-      h.dispose();
-      hide.current = null;
-    };
-  }, []);
+    if (state.bubble) setBubbleView(state.bubble);
+  }, [state.bubble]);
+
+  // D-pad mode stays on in the player; directions and OK go to the state machine instead.
   useEffect(() => {
-    // The player has its own pointer handling; D-pad mode stays off while it is mounted.
-    setDpadSuspended(true);
-    return () => setDpadSuspended(false);
-  }, []);
-  useEffect(() => {
-    const ps = createPointerSeek({
-      onSeek: (s) => {
-        const v = video.current;
-        if (v) v.currentTime = Math.max(0, v.currentTime + s);
-        setHint((h) => ({ text: s < 0 ? '\u221210 s' : '+10 s', n: h ? h.n + 1 : 1 }));
+    setDpadHandler({
+      onDirection: (dir) => {
+        if (errorRef.current) return false;
+        dispatch({ type: 'dir', dir });
+        return true;
       },
-      onVertical: () => {
-        if (hide.current) hide.current.poke();
+      onClick: () => {
+        if (errorRef.current) return false;
+        dispatch({ type: 'ok' });
+        return true;
       },
-      onBurst: setLastSeek,
     });
-    pointerSeek.current = ps;
-    return () => {
-      ps.dispose();
-      pointerSeek.current = null;
-    };
-  }, []);
-  const poke = () => {
-    if (hide.current) hide.current.poke();
-  };
-  useEffect(() => {
-    if (hide.current) hide.current.setPaused(paused);
-  }, [paused]);
+    return () => setDpadHandler(null);
+  }, [dispatch]);
 
   // Ask Jellyfin how to play this item for this TV.
   useEffect(() => {
@@ -139,6 +145,7 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
       if (src) URL.revokeObjectURL(src);
       v.removeChild(old[i]);
     }
+    setNotice('');
     const track = subs[subSel];
     if (!track) return;
     let alive = true;
@@ -165,7 +172,7 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
       })
       .catch((e: Error) => {
         if (!alive) return;
-        setError(`Subtitles failed: ${e.message}`);
+        setNotice(`Subtitles failed: ${e.message}`);
         setSubSel(-1);
       });
     return () => {
@@ -197,89 +204,111 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
   const toggle = () => {
     const v = video.current;
     if (!v) return;
-    if (v.paused) v.play();
-    else v.pause();
-    poke();
-  };
-  const onMouseMove = (e: MouseEvent) => {
-    const d = moveDelta(e, lastPos.current);
-    lastPos.current = { x: e.clientX, y: e.clientY };
-    const t = e.target as Element | null;
-    if (visibleRef.current && t && t.closest && t.closest('.ctl')) {
-      // Aiming at a button: never seek.
-      if (pointerSeek.current) pointerSeek.current.reset();
-      poke();
-      return;
-    }
-    if (pointerSeek.current) pointerSeek.current.move(d.dx, d.dy);
-  };
-  const onClick = () => {
-    poke();
-  };
-  const seek = (seconds: number) => {
-    const v = video.current;
-    if (v) v.currentTime = Math.max(0, v.currentTime + seconds);
-    poke();
+    if (v.paused) {
+      const p = v.play() as Promise<void> | undefined;
+      if (p && typeof p.catch === 'function') p.catch(() => undefined);
+    } else v.pause();
   };
 
-  useRemote((key) => {
-    const v = video.current;
-    switch (key) {
-      case 'back':
-      case 'stop':
+  useRemote((key: RemoteKey) => {
+    if (key === 'green') {
+      setShowDebug((x) => !x);
+      return true;
+    }
+    if (key === 'yellow') {
+      setForceTranscode((f) => !f);
+      return true;
+    }
+    // With the error card up, Back leaves and the arrows/OK work on its buttons as usual.
+    if (error) {
+      if (key === 'back' || key === 'stop') {
         onExit();
         return true;
-      case 'enter':
-      case 'playPause':
-        toggle();
-        return true;
-      case 'play':
-        if (v) v.play();
-        return true;
-      case 'pause':
-        if (v) v.pause();
-        return true;
-      case 'right':
-      case 'fastForward':
-        seek(SEEK_FORWARD);
-        return true;
+      }
+      return false;
+    }
+    switch (key) {
+      case 'up':
+      case 'down':
       case 'left':
-      case 'rewind':
-        seek(-SEEK_BACK);
+      case 'right':
+        dispatch({ type: 'dir', dir: key });
         return true;
-      case 'green':
-        setShowDebug((s) => !s);
+      case 'enter':
+        dispatch({ type: 'ok' });
         return true;
-      case 'yellow':
-        setForceTranscode((f) => !f);
+      case 'back':
+        dispatch({ type: 'back' });
         return true;
       default:
+        if (MEDIA_KEYS[key]) {
+          dispatch({ type: 'media', key: MEDIA_KEYS[key] });
+          return true;
+        }
         return false;
     }
   });
 
+
+  const seekTo = (seconds: number) => {
+    const v = video.current;
+    if (v) v.currentTime = Math.max(0, v.currentTime + seconds);
+  };
+  const updateBuffered = (v: HTMLVideoElement) => {
+    const r = v.buffered;
+    for (let i = 0; i < r.length; i++) {
+      if (v.currentTime >= r.start(i) && v.currentTime <= r.end(i) + 0.5) {
+        setBufferedEnd(r.end(i));
+        return;
+      }
+    }
+  };
+
   const d = loaded && loaded.debug;
+  const shownPos = preview !== null ? preview : position;
+  const fraction = (t: number) => (duration > 0 ? Math.max(0, Math.min(1, t / duration)) : 0);
+  const scrubbing = preview !== null;
+  const title = item.Name;
+  const chromeClass =
+    'chrome' + (controlsVisible ? '' : ' hidden') + (paused ? ' paused' : '') + (state.focus === 'progress' ? ' onbar' : '');
+  const ccDisabled = subs.length === 0 && imageOnly;
+
   return (
-    <main class={controlsVisible ? 'player' : 'player nocursor'} onMouseMove={onMouseMove} onClick={onClick}>
+    <main class="player">
       {loaded && (
         <video
           key={loaded.src}
           ref={video}
           src={loaded.src}
           autoPlay
-          onClick={toggle}
+          onPlay={() => {
+            setPaused(false);
+            dispatch({ type: 'playState', playing: true });
+          }}
           onPlaying={() => {
             setStatus('playing');
-            setPaused(false);
+            setBuffering(false);
           }}
           onPause={() => {
             setStatus('paused');
             setPaused(true);
+            dispatch({ type: 'playState', playing: false });
           }}
           onLoadedMetadata={(e) => setDuration((e.target as HTMLVideoElement).duration || 0)}
           onDurationChange={(e) => setDuration((e.target as HTMLVideoElement).duration || 0)}
-          onWaiting={() => setStatus('buffering')}
-          onTimeUpdate={(e) => setPosition(Math.floor((e.target as HTMLVideoElement).currentTime))}
+          onWaiting={() => {
+            setStatus('buffering');
+            setBuffering(true);
+          }}
+          onStalled={() => setBuffering(true)}
+          onCanPlay={() => setBuffering(false)}
+          onSeeked={() => setBuffering(false)}
+          onProgress={(e) => updateBuffered(e.target as HTMLVideoElement)}
+          onTimeUpdate={(e) => {
+            const v = e.target as HTMLVideoElement;
+            setPosition(v.currentTime);
+            updateBuffered(v);
+          }}
           onEnded={onExit}
           onError={(e) => {
             const code = (e.target as HTMLVideoElement).error;
@@ -287,6 +316,129 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
           }}
         />
       )}
+
+      <div class={paused && !error ? 'dim on' : 'dim'} />
+
+      {/* Paused with the controls hidden (after Back): a calm title card. */}
+      <div class={paused && !controlsVisible && !error ? 'pausedcard on' : 'pausedcard'}>
+        <div class="pausedlabel">Paused</div>
+        <div class="pausedtitle">{title}</div>
+      </div>
+
+      {(buffering || (!loaded && !error)) && !error && (
+        <div class="spinwrap">
+          <SpinnerIcon />
+        </div>
+      )}
+
+      {(['left', 'right'] as const).map((side) => (
+        <div
+          key={side}
+          class={`bubble ${side}${state.bubble && state.bubble.side === side ? ' on' : ''}`}
+        >
+          {side === 'left' ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+          <span>{bubbleView && bubbleView.side === side ? formatSeekTotal(bubbleView.total) : ''}</span>
+        </div>
+      ))}
+
+      {!error && (
+      <div class={chromeClass}>
+        <div class="top">
+          <button data-focusable data-kind="button" class="ctl back" onClick={onExit} aria-label="Back">
+            <BackIcon />
+          </button>
+          <div class="heading">
+            {paused && <div class="pausedlabel">Paused</div>}
+            <div class="title">{title}</div>
+            {item.ProductionYear ? <div class="year">{item.ProductionYear}</div> : null}
+          </div>
+        </div>
+        <div class="bottom">
+          <div
+            class={'seekbar' + (scrubbing ? ' scrubbing' : '')}
+            data-focusable
+            data-kind="progress"
+            tabIndex={0}
+            role="slider"
+            aria-label="Progress"
+          >
+            <div class="track">
+              <div class="buffered" style={{ transform: `scaleX(${fraction(bufferedEnd)})` }} />
+              <div class="played" style={{ transform: `scaleX(${fraction(shownPos)})` }} />
+            </div>
+            <div class="thumbwrap" style={{ transform: `translateX(${fraction(shownPos) * 100}%)` }}>
+              <div class="thumb" />
+              {scrubbing && <div class="tip">{formatTime(shownPos)}</div>}
+            </div>
+          </div>
+          <div class="times">
+            <span>{formatTime(shownPos)}</span>
+            <span>{formatRemaining(shownPos, duration)}</span>
+          </div>
+          <div class="ctlrow">
+            <div class="main-group">
+              <button data-focusable data-kind="button" class="ctl" onClick={() => seekTo(-SEEK_STEP)} aria-label="Back 10 seconds">
+                <Replay10Icon />
+              </button>
+              <button
+                data-focusable
+                data-kind="button"
+                data-play
+                class="ctl big"
+                onClick={toggle}
+                aria-label={paused ? 'Play' : 'Pause'}
+              >
+                {paused ? <PlayIcon /> : <PauseIcon />}
+              </button>
+              <button data-focusable data-kind="button" class="ctl" onClick={() => seekTo(SEEK_STEP)} aria-label="Forward 10 seconds">
+                <Forward10Icon />
+              </button>
+            </div>
+            {subs.length > 0 && (
+              <button
+                data-focusable
+                data-kind="button"
+                class="ctl pill cc"
+                onClick={() => setSubSel((i) => nextSubtitle(subs.length, i))}
+              >
+                <CaptionsIcon />
+                <span>{subtitleButtonLabel(subs, subSel).replace('CC: ', '')}</span>
+              </button>
+            )}
+            {ccDisabled && (
+              <button class="ctl pill cc off" disabled title="Image subtitles are not supported yet">
+                <CaptionsIcon />
+                <span>n/a</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      )}
+
+      {notice && <div class="notice">{notice}</div>}
+
+      {error && (
+        <div class="errorwrap">
+          <div class="errorcard">
+            <h2>Can't play this movie</h2>
+            <p>{error}</p>
+            <div class="errorbtns">
+              <button data-focusable data-kind="button" class="btn" ref={(el) => {
+                  if (el) el.focus();
+                }} onClick={onExit}>
+                Back
+              </button>
+              {!forceTranscode && (
+                <button data-focusable data-kind="button" class="btn" onClick={() => setForceTranscode(true)}>
+                  Try transcoding
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDebug && (
         <div class="debug">
           <strong>{item.Name}</strong>
@@ -294,63 +446,11 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
             {d ? `${d.method} | ${d.container} | ${d.video} | ${d.audio} | ${d.resolution} | ${d.bitrate}` : 'Asking the server...'}
           </div>
           <div>
-            {status} {position}s {forceTranscode ? '| forced transcode' : ''}
+            {status} {Math.floor(position)}s {forceTranscode ? '| forced transcode' : ''} | {state.mode}
           </div>
-          {error && <div class="error">{error}</div>}
           <div class="muted">Yellow: force transcode on/off. Green: hide this. Back: exit.</div>
         </div>
       )}
-      <div class={controlsVisible ? 'controls' : 'controls hidden'}>
-        <div class="ctl-row">
-          <button data-focusable class="ctl" onClick={onExit}>
-            <span class="icon">&larr;</span>Back to list
-          </button>
-          <button data-focusable class="ctl" onClick={() => seek(-SEEK_BACK)}>
-            <span class="icon">&laquo;</span>Back 10s
-          </button>
-          <button data-focusable class="ctl main" onClick={toggle}>
-            <span class="icon">{paused ? '\u25B6' : '\u275A\u275A'}</span>
-            {paused ? 'Play' : 'Pause'}
-          </button>
-          <button data-focusable class="ctl" onClick={() => seek(SEEK_FORWARD)}>
-            <span class="icon">&raquo;</span>Forward 30s
-          </button>
-          {subs.length > 0 && (
-            <button
-              data-focusable
-              class="ctl"
-              onClick={() => {
-                setSubSel((i) => nextSubtitle(subs.length, i));
-                poke();
-              }}
-            >
-              <span class="icon">CC</span>
-              {subtitleButtonLabel(subs, subSel)}
-            </button>
-          )}
-          {subs.length === 0 && imageOnly && (
-            <button data-focusable class="ctl" disabled title="Image subtitles are not supported yet">
-              <span class="icon">CC</span>CC: n/a
-            </button>
-          )}
-        </div>
-        <div class="progress">
-          <span>{formatTime(position)}</span>
-          <div class="track">
-            <div
-              class="fill"
-              style={{ transform: `scaleX(${duration > 0 ? Math.min(1, position / duration) : 0})` }}
-            />
-          </div>
-          <span>{formatTime(duration)}</span>
-        </div>
-      </div>
-      {hint && (
-        <div key={hint.n} class="seekhint go">
-          {hint.text}
-        </div>
-      )}
-      {!showDebug && error && <div class="debug error">{error}</div>}
     </main>
   );
 }

@@ -49,8 +49,7 @@ input:focus { border-color: var(--accent); outline: none; }
 .foot .btn.small { margin: 0 0 0 1.5vw; }
 .buttons { margin: 24px 0; }
 .log { font-size: 22px; background: #14141c; padding: 16px; min-height: 280px; white-space: pre-wrap; }
-.player { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: #000; }
-.player.nocursor, .player.nocursor * { cursor: none; }
+.player { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: #000; overflow: hidden; }
 .player video { width: 100%; height: 100%; }
 .debug {
   position: absolute; left: 32px; top: 32px; max-width: 1500px; padding: 12px 20px;
@@ -63,35 +62,94 @@ input:focus { border-color: var(--accent); outline: none; }
 }
 .keylog-head { color: #ffd400; font-weight: bold; }
 
-.controls {
-  position: absolute; left: 0; right: 0; bottom: 0; padding: 0 4vw 4vh;
-  display: flex; flex-direction: column; align-items: center;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0));
-}
-.controls.hidden { opacity: 0; pointer-events: none; }
-.ctl-row { display: flex; align-items: center; justify-content: center; }
-.ctl {
-  height: 7vh; min-width: 8vw; margin: 0 0.8vw; padding: 0 1vw; color: var(--fg);
-  background: rgba(38, 38, 58, 0.85); border: 3px solid transparent; cursor: pointer;
-  font-size: 1.1rem; line-height: 1.1;
-}
-.ctl .icon { display: block; font-size: 1.6rem; }
-.ctl.main { height: 9vh; min-width: 10vw; background: rgba(20, 20, 28, 0.85); border-color: var(--accent); }
-.ctl.main .icon { font-size: 2rem; }
-.ctl:hover, .ctl:focus { transform: scale(1.06); border-color: #fff; outline: none; }
+/* Player. Sizes in vh/vw for a 1080p TV; only transform and opacity are animated. */
 video::cue {
   color: #fff; background: rgba(0, 0, 0, 0.7); font-size: 4.5vh; line-height: 1.3;
   text-shadow: none; font-family: sans-serif;
 }
-.progress { width: 70vw; margin-top: 2vh; display: flex; align-items: center; font-size: 1.1rem; }
-.progress .track { flex: 1 1 auto; height: 0.8vh; margin: 0 1.5vw; background: #444; }
-.progress .fill { height: 100%; width: 100%; transform: scaleX(0); background: var(--accent); transform-origin: left; }
-.seekhint {
-  position: absolute; top: 45%; left: 50%; margin-left: -6rem; width: 12rem; text-align: center;
-  font-size: 2.4rem; opacity: 0; pointer-events: none; text-shadow: 0 0 4px #000;
+.player svg { display: block; width: 100%; height: 100%; }
+.player .dim { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0, 0, 0, 0.35); opacity: 0; transition: opacity 200ms; pointer-events: none; }
+.player .dim.on { opacity: 1; }
+
+.chrome { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; flex-direction: column; justify-content: space-between; transition: opacity 200ms; }
+.chrome.hidden { opacity: 0; pointer-events: none; }
+.top {
+  display: flex; align-items: center; padding: 3.5vh 3vw 8vh;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
 }
-.seekhint.go { animation: seekhint 0.8s ease-out; }
-@keyframes seekhint { 0% { opacity: 1; } 60% { opacity: 1; } 100% { opacity: 0; } }
+.heading { margin-left: 2vw; }
+.heading .title { font-size: 3.4vh; font-weight: bold; line-height: 1.2; }
+.heading .year { font-size: 2.4vh; color: rgba(255, 255, 255, 0.7); margin-top: 0.4vh; }
+.heading .pausedlabel { font-size: 2.2vh; letter-spacing: 0.3vh; text-transform: uppercase; color: rgba(255, 255, 255, 0.7); margin-bottom: 0.6vh; }
+.chrome.paused .heading .title { font-size: 5vh; }
+.bottom {
+  padding: 10vh 4vw 4vh;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0));
+}
+
+.ctl {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  width: 7vh; height: 7vh; margin: 0; padding: 0; border: 0; border-radius: 50%;
+  color: #fff; background: transparent; cursor: pointer; outline: none;
+}
+.ctl svg { width: 62%; height: 62%; }
+.ctl.back { width: 6vh; height: 6vh; }
+.ctl.big { width: 10vh; height: 10vh; margin: 0 2.5vw; }
+.ctl.big svg { width: 70%; height: 70%; }
+.ctl:focus { background: #fff; color: #111; transform: scale(1.1); }
+.ctl.pill { width: auto; padding: 0 2.2vh; border-radius: 7vh; font-size: 2.4vh; }
+.ctl.pill svg { width: 4vh; height: 4vh; margin-right: 1vh; }
+.ctl.off { opacity: 0.4; cursor: default; }
+
+.seekbar { position: relative; padding: 1.6vh 0; outline: none; }
+.seekbar .track { position: relative; height: 0.6vh; background: rgba(255, 255, 255, 0.3); margin: 0.2vh 0; transform-origin: center; transition: transform 150ms; }
+.seekbar:focus .track { transform: scaleY(1.7); }
+.seekbar .buffered, .seekbar .played { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: left center; }
+.seekbar .buffered { background: rgba(255, 255, 255, 0.4); }
+.seekbar .played { background: var(--accent); }
+.seekbar .thumbwrap { position: absolute; top: 50%; left: 0; width: 100%; height: 0; }
+.seekbar .thumb {
+  position: absolute; top: -1.2vh; left: -1.2vh; width: 2.4vh; height: 2.4vh; border-radius: 50%;
+  background: var(--accent); opacity: 0; transform: scale(0.4); transition: opacity 150ms, transform 150ms;
+}
+.seekbar:focus .thumb, .seekbar.scrubbing .thumb { opacity: 1; transform: scale(1); }
+.seekbar .tip {
+  position: absolute; bottom: 2.6vh; left: 0; transform: translateX(-50%); padding: 0.5vh 1.2vh;
+  font-size: 2.4vh; background: rgba(0, 0, 0, 0.8); border-radius: 0.6vh; white-space: nowrap;
+}
+.times { display: flex; justify-content: space-between; font-size: 2.4vh; color: rgba(255, 255, 255, 0.85); margin-top: 0.4vh; }
+
+.ctlrow { position: relative; display: flex; align-items: center; justify-content: center; margin-top: 1.5vh; }
+.main-group { display: flex; align-items: center; }
+.ctlrow .cc { position: absolute; right: 0; top: 50%; margin-top: -3.5vh; }
+
+.bubble {
+  position: absolute; top: 50%; margin-top: -8vh; width: 16vh; height: 16vh; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55); color: #fff; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; opacity: 0; transition: opacity 200ms; pointer-events: none;
+}
+.bubble.left { left: 14vw; }
+.bubble.right { right: 14vw; }
+.bubble.on { opacity: 1; }
+.bubble svg { width: 6vh; height: 6vh; }
+.bubble span { font-size: 3vh; font-weight: bold; margin-top: -0.4vh; }
+
+.spinwrap { position: absolute; top: 50%; left: 50%; width: 10vh; height: 10vh; margin: -5vh 0 0 -5vh; pointer-events: none; }
+.spinner { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.pausedcard { position: absolute; left: 5vw; bottom: 12vh; opacity: 0; transition: opacity 200ms; pointer-events: none; }
+.pausedcard.on { opacity: 1; }
+.pausedcard .pausedlabel { font-size: 2.2vh; letter-spacing: 0.3vh; text-transform: uppercase; color: rgba(255, 255, 255, 0.7); }
+.pausedcard .pausedtitle { font-size: 5vh; font-weight: bold; margin-top: 0.8vh; }
+
+.notice { position: absolute; left: 50%; top: 4vh; transform: translateX(-50%); padding: 1vh 2vh; font-size: 2.2vh; background: rgba(0, 0, 0, 0.8); border-radius: 0.8vh; }
+
+.errorwrap { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.85); }
+.errorcard { width: 60vw; padding: 5vh 4vw; background: #1c1c26; border-radius: 1.2vh; text-align: center; }
+.errorcard h2 { margin: 0 0 2vh; font-size: 4vh; }
+.errorcard p { font-size: 2.6vh; color: #ff8a8a; margin: 0 0 4vh; }
+.errorbtns .btn { margin: 0 1vw; }
 
 /* D-pad mode (TV browser): the arrows move the focus highlight, the real pointer is hidden. */
 body.dpad, body.dpad * { cursor: none; }

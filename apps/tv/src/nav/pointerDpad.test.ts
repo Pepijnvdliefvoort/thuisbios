@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { dpadRequested, installPointerDpad, isDpadActive, setDpadSuspended } from './pointerDpad';
+import { dpadRequested, installPointerDpad, activateElement, isDpadActive, setDpadHandler } from './pointerDpad';
 
 describe('dpadRequested', () => {
   it('is on for the TV browser', () => {
@@ -27,17 +27,19 @@ describe('pointer D-pad mode', () => {
   });
   afterEach(() => {
     remove();
-    setDpadSuspended(false);
+    setDpadHandler(null);
     vi.useRealTimers();
     document.body.innerHTML = '';
   });
   const el = (id: string) => document.getElementById(id) as HTMLElement;
 
-  it('hides the cursor via a body class and follows suspension', () => {
+  it('hides the cursor via a body class while installed', () => {
     expect(document.body.classList.contains('dpad')).toBe(true);
-    setDpadSuspended(true);
+    expect(isDpadActive()).toBe(true);
+    remove();
     expect(isDpadActive()).toBe(false);
     expect(document.body.classList.contains('dpad')).toBe(false);
+    remove = installPointerDpad(document);
   });
 
   it('focuses the first focusable on the first press', () => {
@@ -74,16 +76,60 @@ describe('pointer D-pad mode', () => {
     expect(onB).toHaveBeenCalledTimes(1);
   });
 
-  it('does not redirect while suspended', () => {
+  const press = (dx: number) => {
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: dx, clientY: 0, bubbles: true }));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: dx * 2, clientY: 0, bubbles: true }));
+    vi.advanceTimersByTime(200);
+  };
+
+  it('sends directions to a handler and skips moveFocus when it returns true', () => {
     el('a').focus();
-    setDpadSuspended(true);
+    const onDirection = vi.fn(() => true);
+    setDpadHandler({ onDirection, onClick: () => false });
+    press(10);
+    expect(onDirection).toHaveBeenCalledWith('right');
+    expect(document.activeElement).toBe(el('a'));
+  });
+
+  it('falls back to moveFocus when the handler returns false', () => {
+    el('a').focus();
+    // jsdom has no layout: give the buttons positions so b is right of a.
+    el('a').getBoundingClientRect = () => ({ left: 0, top: 0, right: 100, bottom: 50 }) as DOMRect;
+    el('b').getBoundingClientRect = () => ({ left: 200, top: 0, right: 300, bottom: 50 }) as DOMRect;
+    const onDirection = vi.fn(() => false);
+    setDpadHandler({ onDirection, onClick: () => false });
+    press(10);
+    expect(onDirection).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(el('b'));
+  });
+
+  it('sends clicks to the handler; false means the default redirect', () => {
+    el('a').focus();
     const onA = vi.fn();
     const onB = vi.fn();
     el('a').addEventListener('click', onA);
     el('b').addEventListener('click', onB);
+    const onClick = vi.fn(() => true);
+    setDpadHandler({ onDirection: () => false, onClick });
     el('b').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    expect(onB).toHaveBeenCalledTimes(1);
+    expect(onClick).toHaveBeenCalledTimes(1);
     expect(onA).not.toHaveBeenCalled();
+    expect(onB).not.toHaveBeenCalled();
+    onClick.mockReturnValue(false);
+    el('b').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(onA).toHaveBeenCalledTimes(1);
+    expect(onB).not.toHaveBeenCalled();
+  });
+
+  it('activateElement clicks without calling the handler again', () => {
+    el('a').focus();
+    const onA = vi.fn();
+    el('a').addEventListener('click', onA);
+    const onClick = vi.fn(() => true);
+    setDpadHandler({ onDirection: () => false, onClick });
+    activateElement(el('a'));
+    expect(onA).toHaveBeenCalledTimes(1);
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it('prevents mousedown on non-inputs and allows it on inputs', () => {

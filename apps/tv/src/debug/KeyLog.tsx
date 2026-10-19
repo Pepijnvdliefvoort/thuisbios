@@ -39,7 +39,7 @@ export function KeyLog() {
       <div class="keylog-head">
         mouse moves: {state.moves}, clicks: {state.clicks}
       </div>
-      <div>{state.seek || 'seek: -'}</div>
+      <div>{state.seek || 'input: -'}</div>
     </div>
   );
 }

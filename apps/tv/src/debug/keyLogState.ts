@@ -14,7 +14,7 @@ export interface KeyLogState {
   entries: KeyEntry[];
   moves: number;
   clicks: number;
-  /** Last pointer-seek decision, e.g. "seek: dx=-12 dy=0 -> -10s". */
+  /** Last pointer decision: "nav: ..." (D-pad mode) or "player: ..." (the player). */
   seek: string;
 }
 
@@ -45,18 +45,11 @@ export const initialState = (enabled: boolean): KeyLogState => ({
   seek: '',
 });
 
-const RESULT_TEXT: { [k: string]: string } = { back: '-10s', forward: '+10s', vertical: 'vertical', ignored: 'ignored' };
-
-/** Text for the last pointer-seek decision. */
-export const describeSeek = (dx: number, dy: number, result: string): string =>
-  `seek: dx=${dx} dy=${dy} -> ${RESULT_TEXT[result] || result}`;
-
 type SeekListener = (text: string) => void;
 let seekListeners: SeekListener[] = [];
 
-/** The player reports each pointer-seek decision here; the overlay shows it. */
-export function setLastSeek(dx: number, dy: number, result: string): void {
-  const text = describeSeek(dx, dy, result);
+/** The player reports each direction it handled here, e.g. "player: right [watching] -> seekBy(10)". */
+export function setLastPlayer(text: string): void {
   seekListeners.forEach((l) => l(text));
 }
 

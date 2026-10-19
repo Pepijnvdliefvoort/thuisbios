@@ -176,19 +176,32 @@ In this browser the remote works as a mouse, not as a keyboard:
   hidden, only the highlight is visible. Typing in the server address field still works. On a
   desktop, add `?dpad` to the URL to try this mode with a mouse (the plain mouse keeps hover and
   click otherwise).
-- While a movie plays, move the pointer left or right with the arrows to jump back or forward 10
-  seconds. A short "-10 s" or "+10 s" appears. Press **OK** to pause and show the buttons (Back to
-  list, back 10 seconds, Play/Pause, forward 30 seconds). Moving the pointer up or down also shows
-  them. They hide by themselves after 4 seconds while playing, and stay visible while paused. The
-  pointer is hidden while the buttons are hidden and comes back with them. With `?debug` the box
-  also shows the last seek decision (for example `seek: dx=-12 dy=0 -> -10s`) or, outside the
-  player, the last move (for example `nav: dx=12 dy=0 -> right`).
-- **RETURN** goes back to the movie list.
+- The player uses the same arrows, **OK** and **RETURN**, through one state machine (the keyboard
+  arrows, Enter, Escape/Backspace and the media keys do the same on a desktop). It has two modes:
+  - **Watching** (controls hidden): left or right jumps back or forward 10 seconds. Repeated
+    presses add up in a round badge on that side of the screen ("-10", "-20", "-30"), which fades
+    about 0.8 seconds after the last press. Up or down shows the controls with focus on
+    Play/Pause. **OK** pauses and shows the controls (or resumes a paused movie). **RETURN** leaves
+    the player. The media keys (play, pause, play/pause, fast forward, rewind, stop) do what they say.
+  - **Controls** (visible): the arrows move the highlight between the back arrow, the progress
+    bar, back 10 seconds, Play/Pause, forward 10 seconds and the CC button; **OK** activates the
+    highlighted one. They hide by themselves after 4 seconds without input while playing and stay
+    visible while paused. **RETURN** hides them first, a second **RETURN** leaves the player.
+  - **Progress bar**: when highlighted, left and right move the position 10 seconds per press. The
+    target time shows on the bar and the jump happens about 0.6 seconds after the last press. Up
+    or down leave the bar.
+  - With `?debug` the corner box also shows what the player decided for the last direction (for
+    example `player: right [watching] -> seekBy(10)`) or, outside the player, the last move (for
+    example `nav: dx=12 dy=0 -> right`). The movie and stream details are only shown with
+    `?debug`; press the green key to toggle them.
+- Full screen: the first press of a button or click asks for full screen. The app also tries on the
+  first pointer move, but browsers normally refuse that without a button press or click; if it is
+  refused, nothing is lost and the next press still works.
 
-Subtitles: when a movie has text subtitles (SRT, ASS, embedded text), a **CC** button appears next
-to the playback buttons. Each press cycles Off, track 1, track 2 and so on, back to Off. Image
-subtitles (PGS, dvdsub) are not supported yet; if a movie only has those, the button shows
-"CC: n/a" and is disabled.
+Subtitles: when a movie has text subtitles (SRT, ASS, embedded text), a **CC** button appears at
+the right of the control row. Each press cycles Off, track 1, track 2 and so on, back to Off.
+Image subtitles (PGS, dvdsub) are not supported yet; if a movie only has those, a greyed-out CC
+button shows "n/a".
 
 ## 9. What to test
 
@@ -210,7 +223,7 @@ Tick off every line and write down what happened (also if it fails: the exact me
 - [ ] **Forced transcode**: while a movie plays press the **yellow** key. The picture restarts as
   Transcode and plays.
 - [ ] **Remote keys in the player**: Play/Pause button on the remote pauses and resumes. Left and
-  right (or fast forward and rewind) jump 10 seconds. **Green** hides the overlay. **Back** leaves the
+  right (or fast forward and rewind) jump 10 seconds and the badge adds them up. **Green** toggles the overlay (shown with `?debug`). **Back** leaves the
   player.
 - [ ] **Progress**: after leaving the player, open the Jellyfin web UI on the PC. The movie shows a
   partial progress bar ("resume").
