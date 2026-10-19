@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampGrid, columnOf, initialGrid, moveGrid, rowTops, rowVisible, tileWindow, trackOffset } from './focusGrid';
+import { clampGrid, columnOf, initialGrid, moveGrid, tileWindow, trackOffset } from './focusGrid';
 
 describe('moveGrid', () => {
   const lengths = [1, 2, 5, 0, 3];
@@ -88,19 +88,10 @@ describe('tileWindow', () => {
   });
 });
 
-describe('rowVisible', () => {
-  it('keeps rows within the radius', () => {
-    expect([0, 1, 2, 3, 4, 5].map((i) => rowVisible(i, 2, 2))).toEqual([true, true, true, true, true, false]);
-  });
-});
-
-describe('trackOffset and rowTops', () => {
+describe('trackOffset', () => {
   it('does not scroll near the start', () => {
     expect(trackOffset(0, 340, 1)).toBe(0);
     expect(trackOffset(1, 340, 1)).toBe(0);
     expect(trackOffset(4, 340, 1)).toBe(1020);
-  });
-  it('stacks rows', () => {
-    expect(rowTops([320, 416, 416])).toEqual([0, 320, 736]);
   });
 });

@@ -68,8 +68,6 @@ export interface BaseItem {
   UserData?: UserData;
 }
 
-export type MovieItem = BaseItem;
-
 export interface ItemsResult {
   Items: BaseItem[];
   TotalRecordCount: number;

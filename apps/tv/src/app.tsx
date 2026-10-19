@@ -7,21 +7,18 @@ import { ticksToSeconds } from './jellyfin/playback';
 import type { BaseItem, Session } from './jellyfin/types';
 import { createReturnKey, installReturnKey } from './nav/returnKey';
 import { createScreenHistory } from './nav/screenHistory';
-import { planSectionChange, type LibraryKind, type SectionId, type SidebarItemId } from './nav/sidebar';
 import { subscribeRemote } from './remote/bus';
 import { startRemoteSocket } from './remote/socket';
 import { registerRemoteKeys } from './tizen/api';
 import { clearSession, loadSession, saveSession } from './storage';
 import { ConnectScreen } from './screens/ConnectScreen';
 import { DetailsScreen, type DetailsMemo } from './screens/DetailsScreen';
-import { LibraryScreen, type LibraryMemo } from './screens/LibraryScreen';
-import { HomeScreen, type HomeSnapshot } from './screens/HomeScreen';
+import { ScreensaverScreen } from './screens/ScreensaverScreen';
 import { PlayerScreen } from './screens/PlayerScreen';
 
-/** The screen stack: home at the bottom, then a library (Movies / Shows), details, the player. */
+/** The screen stack: the screensaver at the bottom, then details (Show on TV), the player. */
 type Screen =
-  | { name: 'home' }
-  | { name: 'library'; kind: LibraryKind; memo: LibraryMemo }
+  | { name: 'screensaver' }
   | { name: 'details'; item: BaseItem; memo: DetailsMemo }
   | { name: 'player'; item: BaseItem; startSeconds: number; nonce: number };
 
@@ -34,16 +31,13 @@ const playerScreen = (item: BaseItem, startSeconds: number): Extract<Screen, { n
   nonce: ++playerNonce,
 });
 
-const HOME: Screen = { name: 'home' };
-
-const sectionOf = (s: Screen): SectionId => (s.name === 'library' ? s.kind : 'home');
+const HOME: Screen = { name: 'screensaver' };
 
 export function App() {
   const [session, setSession] = useState<Session | null>(loadSession);
   const [stack, setStack] = useState<Screen[]>([HOME]);
   const stackRef = useRef(stack);
   stackRef.current = stack;
-  const homeSnapshot = useRef<HomeSnapshot | null>(null);
 
   const nav = useRef(createScreenHistory(window));
 
@@ -124,7 +118,6 @@ export function App() {
       <ConnectScreen
         onConnected={(s) => {
           saveSession(s);
-          homeSnapshot.current = null;
           setStack([HOME]);
           setSession(s);
         }}
@@ -134,31 +127,9 @@ export function App() {
 
   const logout = () => {
     clearSession();
-    homeSnapshot.current = null;
     setStack([HOME]);
     setSession(null);
   };
-  /** Sidebar choice: Home -> library pushes one history entry, library <-> library replaces it, library -> Home goes back. */
-  const navigate = (target: SidebarItemId) => {
-    const plan = planSectionChange(sectionOf(stackRef.current[stackRef.current.length - 1]), target);
-    switch (plan.type) {
-      case 'logout':
-        logout();
-        break;
-      case 'push':
-        open({ name: 'library', kind: plan.kind, memo: {} });
-        break;
-      case 'replace': {
-        const next: Screen = { name: 'library', kind: plan.kind, memo: {} };
-        setStack((s) => s.slice(0, -1).concat([next]));
-        break;
-      }
-      case 'back':
-        exit();
-        break;
-    }
-  };
-  const openDetails = (item: BaseItem) => open({ name: 'details', item, memo: {} });
   const play = (item: BaseItem, startSeconds: number) => open(playerScreen(item, startSeconds));
 
   const screen = stack[stack.length - 1];
@@ -187,32 +158,7 @@ export function App() {
           onBack={exit}
         />
       );
-    case 'library':
-      return (
-        <LibraryScreen
-          key={screen.kind}
-          client={client}
-          session={session}
-          kind={screen.kind}
-          memo={screen.memo}
-          onOpen={openDetails}
-          onNavigate={navigate}
-          onBack={exit}
-        />
-      );
     default:
-      return (
-        <HomeScreen
-          client={client}
-          session={session}
-          snapshot={homeSnapshot.current}
-          onSnapshot={(s) => {
-            homeSnapshot.current = s;
-          }}
-          onOpen={openDetails}
-          onPlay={play}
-          onNavigate={navigate}
-        />
-      );
+      return <ScreensaverScreen client={client} session={session} onSignOut={logout} />;
   }
 }

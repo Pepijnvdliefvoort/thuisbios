@@ -2,16 +2,14 @@ import type { JellyfinClient } from '../jellyfin/client';
 import { artFor, artUrl } from '../jellyfin/art';
 import { displayTitle, episodeSubtitle, progressFraction } from '../jellyfin/itemInfo';
 import type { BaseItem } from '../jellyfin/types';
-import type { RowKind } from '../jellyfin/homeRows';
+
+export type RowKind = 'landscape' | 'poster';
 
 /** Tile geometry in px for the 1920x1080 TV layout. Images are requested at exactly these sizes. */
 export const TILE = {
   landscape: { w: 320, h: 180, stride: 340, caption: 64 },
   poster: { w: 180, h: 270, stride: 200, caption: 36 },
 };
-
-/** Poster size of the Movies / Shows grid (7 columns next to the rail). */
-export const LIBRARY_TILE = { w: 210, h: 315, stride: 230, caption: 36 };
 
 export interface TileSize {
   w: number;

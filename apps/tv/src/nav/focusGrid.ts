@@ -64,21 +64,6 @@ export function tileWindow(focused: number, count: number, before: number, after
   return { start, end: Math.max(start, end) };
 }
 
-/** True when a row is close enough to the focused row to be rendered. */
-export const rowVisible = (index: number, focusedRow: number, radius: number): boolean =>
-  Math.abs(index - focusedRow) <= radius;
-
 /** Horizontal scroll of a tile track: nothing near the start, then the focused tile stays `keepBefore` tiles from the left. */
 export const trackOffset = (col: number, stride: number, keepBefore: number): number =>
   Math.max(0, col - keepBefore) * stride;
-
-/** Top position of every row when rows are stacked with the given heights. */
-export function rowTops(heights: number[]): number[] {
-  const tops: number[] = [];
-  let y = 0;
-  heights.forEach((h) => {
-    tops.push(y);
-    y += h;
-  });
-  return tops;
-}

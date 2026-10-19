@@ -41,11 +41,3 @@ export function registerRemoteKeys(): string[] {
   }
   return registered;
 }
-
-export function exitApp(): void {
-  try {
-    tizenApi()?.application?.getCurrentApplication().exit();
-  } catch (e) {
-    // Not on a TV.
-  }
-}
