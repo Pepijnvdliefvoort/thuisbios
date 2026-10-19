@@ -21,6 +21,14 @@ export const MAX_ENTRIES = 6;
 /** Yellow colour key on the TV remote (C) and the C key on a desktop keyboard. */
 export const isToggleKey = (keyCode: number): boolean => keyCode === 405 || keyCode === 67;
 
+/** True when the key event comes from a text field: typing a "c" must not toggle the overlay. */
+export function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as { tagName?: string } | null;
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return true;
+  const active = typeof document !== 'undefined' ? document.activeElement : null;
+  return !!active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+}
+
 /** True when the URL asks for the overlay: `?debug` or `#debug` (also `#/x?debug`). */
 export function debugRequested(loc: { search: string; hash: string }): boolean {
   const has = (s: string): boolean => /(^|[?&#/])debug(=(1|true))?($|[&#])/.test(s);
@@ -41,7 +49,7 @@ export function reduce(state: KeyLogState, event: Event): KeyLogState {
   if (event.type !== 'keydown' && event.type !== 'keyup') return state;
   const e = event as KeyboardEvent;
   // The toggle key flips the overlay on keydown and is not logged itself.
-  if (e.type === 'keydown' && isToggleKey(e.keyCode)) {
+  if (e.type === 'keydown' && isToggleKey(e.keyCode) && !isTypingTarget(e.target)) {
     return { ...state, enabled: !state.enabled };
   }
   if (!state.enabled) return state;

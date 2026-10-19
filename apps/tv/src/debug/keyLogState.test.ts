@@ -66,3 +66,25 @@ describe('reduce', () => {
     expect([s.moves, s.clicks]).toEqual([2, 1]);
   });
 });
+
+describe('toggle key while typing', () => {
+  it('ignores C in an input but still toggles from the body', () => {
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    const typed = key('keydown', 67, { bubbles: true });
+    input.dispatchEvent(typed);
+    expect(reduce(initialState(false), typed).enabled).toBe(false);
+
+    const area = document.createElement('textarea');
+    document.body.appendChild(area);
+    const typed2 = key('keydown', 67, { bubbles: true });
+    area.dispatchEvent(typed2);
+    expect(reduce(initialState(true), typed2).enabled).toBe(true);
+    input.remove();
+    area.remove();
+
+    const plain = key('keydown', 67, { bubbles: true });
+    document.body.dispatchEvent(plain);
+    expect(reduce(initialState(false), plain).enabled).toBe(true);
+  });
+});
