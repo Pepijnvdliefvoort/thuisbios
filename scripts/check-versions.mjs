@@ -15,6 +15,7 @@ const versions = {
   'package.json': readJson('package.json').version,
   '.release-please-manifest.json (".")': readJson('.release-please-manifest.json')['.'],
   'apps/tv/package.json': readJson('apps/tv/package.json').version,
+  'apps/remote/package.json': readJson('apps/remote/package.json').version,
   'apps/tv/public/config.xml (widget version)': widgetVersion(read('apps/tv/public/config.xml')),
 };
 

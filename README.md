@@ -25,10 +25,11 @@ sessions (remote control) API. The phone sends commands to the TV session throug
 docs/plan.md              project plan
 docs/server/              Jellyfin setup guide for Windows (windows-setup.md)
 docs/tv/                  TV app: Tizen setup, install and test guide (dev-setup.md)
+docs/remote/              phone remote: setup guide for the owner (setup.md)
 scripts/                  repo tooling (version checks)
 packages/jellyfin-client/ planned: shared typed Jellyfin API client
-apps/tv/                  Samsung Tizen 4.0 TV app, phase 2 spike (Preact + TypeScript + Vite)
-apps/remote/              planned: phone remote PWA (Preact + TypeScript + Vite)
+apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite), served to the TV browser
+apps/remote/              phone remote PWA, phase 4 (Preact + TypeScript + Vite)
 services/relay/           planned: optional ASP.NET Core relay for Samsung TV control
 server/                   Jellyfin helper scripts (PowerShell) and Pester tests; device profile planned
 ```
@@ -81,6 +82,35 @@ Signing and packaging (`npm run package -w apps/tv`) need the Tizen CLI and a Sa
 certificate, so they run on the owner's PC, never in CI. Certificates and `.wgt` files are never
 committed.
 
+## Phone remote (phase 4)
+
+`apps/remote` is the phone remote: a PWA ("Thuisbios Remote", Preact + TypeScript + Vite) for modern
+phone browsers (iOS Safari 15+, Android Chrome), so there is no legacy build. It signs in to
+Jellyfin with username and password, browses the library (Home rows, Search, Library with
+Movies and Shows) and shows a details page with Play on TV, Resume on TV, Play from start and Show
+on TV; series have a season selector and an episode list. While the TV plays, a mini player bar and a
+Now Playing screen offer play/pause, a scrub slider, -10 s / +10 s, previous and next episode and
+stop. The remote finds the TV through the Jellyfin sessions API (the TV app registers as
+remote-controllable) and polls `/Sessions` every 2 seconds while the page is visible.
+
+The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
+remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode and "Show on
+TV".
+
+Every request uses the configured absolute server URL and there is no service worker, so the app can
+be wrapped with Capacitor later. Volume stays on the TV remote for now. Follow
+[docs/remote/setup.md](docs/remote/setup.md) to run it on the PC and add it to the phone's home
+screen.
+
+```bash
+npm install
+npm run dev -w apps/remote       # desktop browser at http://localhost:5174
+npm test -w apps/remote          # Vitest
+npm run build -w apps/remote     # apps/remote/dist
+npm run preview -w apps/remote   # serves dist on the network, port 4174
+npm run icons -w apps/remote     # regenerate the PWA icons (public/*.png)
+```
+
 ## Branching and releases
 
 - `develop` is the continuously evolving integration branch.
@@ -101,8 +131,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the details.
 GitHub Actions in `.github/workflows`:
 
 - `ci.yml`: commitlint (commits and PR title), markdownlint, version consistency check (root,
-  `apps/tv/package.json` and the Tizen `config.xml` must agree), TV app (typecheck, Vitest, build,
-  ES2017 syntax check, `dist` uploaded as artifact), PowerShell (PSScriptAnalyzer and Pester tests
+  `apps/tv/package.json`, `apps/remote/package.json` and the Tizen `config.xml` must agree), TV app
+  (typecheck, Vitest, build, ES2017 syntax check, `dist` uploaded as artifact), phone remote
+  (typecheck, Vitest, build, `dist` uploaded as the `remote-dist` artifact), PowerShell (PSScriptAnalyzer and Pester tests
   for `server/` on Windows).
 - `release-please.yml`: on push to `main`, opens or updates the release PR and creates tags and releases.
 - `sync-develop.yml`: after a release, opens a PR from `main` back into `develop`.
@@ -115,7 +146,7 @@ Docker image builds (GHCR) and the other test jobs are added together with the f
 | Phase | Goal | Status |
 |---|---|---|
 | 1. Server | Jellyfin on the Windows PC with a test library | done |
-| 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | in progress: app built, owner tests on the TV with [docs/tv/dev-setup.md](docs/tv/dev-setup.md) |
-| 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | planned |
-| 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume to the soundbar | planned |
+| 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
+| 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done |
+| 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume to the soundbar | in review: remote PWA built (browse, play on TV, transport controls); volume to the soundbar not yet |
 | 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | planned |
