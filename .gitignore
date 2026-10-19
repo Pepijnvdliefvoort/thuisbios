@@ -1,0 +1,35 @@
+# Node
+node_modules/
+dist/
+build/
+coverage/
+*.log
+npm-debug.log*
+.env
+.env.*
+!.env.example
+
+# Tizen
+*.p12
+*.wgt
+.buildResult/
+.buildResult
+.sign/
+.sign
+.tizen-studio-data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.iml
+
+# OS
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# Test media
+media/
+*.mkv
+*.mp4
