@@ -12,8 +12,8 @@ interface Props {
   onLogout(): void;
 }
 
-const POSTER_HEIGHT = 660;
-const PER_PAGE = 3;
+const POSTER_HEIGHT = 440;
+const PER_PAGE = 5;
 
 export function MoviesScreen({ client, session, onPlay, onVolume, onLogout }: Props) {
   const [movies, setMovies] = useState<MovieItem[] | null>(null);
