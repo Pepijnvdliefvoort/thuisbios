@@ -16,7 +16,7 @@
     create the folders). Does not need administrator rights.
 
 .PARAMETER MediaRoot
-    Root of the Jellyfin media library, for example D:\Thuisbios\Media.
+    Root of the Jellyfin media library, for example C:\Thuisbios\Media.
 
 .PARAMETER StagingPath
     Where the big downloads go. Defaults to a folder in the user's temp directory.
@@ -37,10 +37,10 @@
     Overwrite output files that already exist.
 
 .EXAMPLE
-    .\Get-TestMedia.ps1 -MediaRoot D:\Thuisbios\Media
+    .\Get-TestMedia.ps1 -MediaRoot C:\Thuisbios\Media
 
 .EXAMPLE
-    .\Get-TestMedia.ps1 -MediaRoot D:\Thuisbios\Media -ClipSeconds 120 -WhatIf
+    .\Get-TestMedia.ps1 -MediaRoot C:\Thuisbios\Media -ClipSeconds 120 -WhatIf
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
