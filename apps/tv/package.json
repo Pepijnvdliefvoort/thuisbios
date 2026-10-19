@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build": "vite build",
+    "preview": "vite preview --host --port 4173",
     "check:dist": "node scripts/check-dist.mjs",
     "package": "node scripts/package.mjs"
   },
