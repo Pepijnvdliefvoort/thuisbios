@@ -29,14 +29,18 @@ export function normalizeServerUrl(input: string): string {
   return url;
 }
 
-/** Server URL to prefill: the build-time setting, else this page's host on Jellyfin's default port. */
+/**
+ * Server URL to prefill: the build-time setting, else this page's host. On an http page that is
+ * Jellyfin's own port (8096); on an https page (Tailscale Serve) it is port 8920, where Serve
+ * publishes Jellyfin over https (see docs/remote/tailscale.md).
+ */
 export function defaultServerUrl(
   envUrl: string | undefined,
   loc: { protocol: string; hostname: string },
 ): string {
   if (envUrl && envUrl.trim()) return normalizeServerUrl(envUrl);
   if (!loc.hostname) return '';
-  return `${loc.protocol === 'https:' ? 'https:' : 'http:'}//${loc.hostname}:8096`;
+  return loc.protocol === 'https:' ? `https://${loc.hostname}:8920` : `http://${loc.hostname}:8096`;
 }
 
 export function createDeviceId(random: () => number = Math.random): string {

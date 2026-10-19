@@ -103,8 +103,8 @@ Caveats to know:
 - **The PC must be on and awake** to watch. Turn off sleep while Jellyfin is in use, or accept it as a PoC limitation.
 - **Network:** give the PC a fixed LAN IP (DHCP reservation in your router), use wired Ethernet if possible (4K remuxes can exceed 80 Mbit/s; the TV's own LAN port is only 100 Mbit/s, which is enough for most files but tight for full UHD Blu-ray remuxes). Allow Jellyfin's port (8096) through Windows Firewall for private networks.
 - **Transcoding** uses your CPU/GPU. With a reasonably modern GPU (NVIDIA NVENC, Intel QSV, AMD AMF) enable hardware acceleration in Jellyfin. Good file choices (H.264/HEVC + AAC/AC3 + SRT subs) mean almost everything direct-plays and the PC barely works.
-- **Remote access** (outside the house) is out of scope for the PoC. When wanted, Tailscale is the simplest and safest; no ports opened to the internet.
-- **Phone remote over HTTPS:** a PWA installable on iPhone needs HTTPS for some features. On the LAN we can either skip install features for the PoC or use Tailscale's built-in HTTPS certificates. Decide in phase 4.
+- **Remote access** (outside the house): decided, Tailscale Serve on the PC, tailnet only (no Funnel), so no ports are opened to the internet. See [remote/tailscale.md](remote/tailscale.md).
+- **Phone remote over HTTPS:** decided, Tailscale's built-in HTTPS certificates. Tailscale Serve publishes the phone app on `https://<pc>.<tailnet>.ts.net` (port 443) and Jellyfin on port 8920. The TV stays on the home address over HTTP.
 
 ## 6. Media library conventions
 
