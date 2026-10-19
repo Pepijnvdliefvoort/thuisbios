@@ -47,12 +47,12 @@ describe('hasOnlyImageSubtitles', () => {
 describe('subtitleVttUrl', () => {
   it('builds the WebVTT url', () => {
     expect(subtitleVttUrl('http://jf:8096', 'item1', 'src1', 3, 'tok')).toBe(
-      'http://jf:8096/Videos/item1/src1/Subtitles/3/0/Stream.vtt?api_key=tok',
+      'http://jf:8096/Videos/item1/src1/Subtitles/3/0/Stream.vtt?api_key=tok&ApiKey=tok',
     );
   });
   it('encodes ids and token', () => {
     expect(subtitleVttUrl('http://jf', 'a b', 'c/d', 0, 't&k')).toBe(
-      'http://jf/Videos/a%20b/c%2Fd/Subtitles/0/0/Stream.vtt?api_key=t%26k',
+      'http://jf/Videos/a%20b/c%2Fd/Subtitles/0/0/Stream.vtt?api_key=t%26k&ApiKey=t%26k',
     );
   });
 });

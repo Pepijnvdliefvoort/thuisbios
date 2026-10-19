@@ -95,9 +95,9 @@ const BACKOFF_MS = [1000, 2000, 5000, 10000, 30000];
 export const reconnectDelayMs = (attempt: number): number =>
   BACKOFF_MS[Math.max(0, Math.min(attempt, BACKOFF_MS.length - 1))];
 
-/** `ws://host/socket?...` for a server URL (https becomes wss). */
+/** `ws://host/socket?...` for a server URL (https becomes wss). Both `api_key` (legacy) and `ApiKey` (Jellyfin 10.11+) carry the token. */
 export function socketUrl(serverUrl: string, token: string, deviceId: string): string {
-  return `${serverUrl.replace(/^http/, 'ws')}/socket?api_key=${encodeURIComponent(token)}&deviceId=${encodeURIComponent(deviceId)}`;
+  return `${serverUrl.replace(/^http/, 'ws')}/socket?api_key=${encodeURIComponent(token)}&ApiKey=${encodeURIComponent(token)}&deviceId=${encodeURIComponent(deviceId)}`;
 }
 
 /** Short text for the debug overlay, e.g. "Playstate Seek 600s". */

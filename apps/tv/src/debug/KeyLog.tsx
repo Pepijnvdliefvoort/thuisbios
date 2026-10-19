@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { debugRequested, initialState, onLastBack, onLastGate, onLastRemote, onLastSeek, onSocketState, reduce, type KeyLogState } from './keyLogState';
+import { debugRequested, initialState, onLastBack, onLastGate, onLastRemote, onLastSeek, onCapabilitiesState, onSocketState, reduce, type KeyLogState } from './keyLogState';
 
 const EVENTS = ['keydown', 'keyup', 'mousemove', 'click'];
 
@@ -30,6 +30,7 @@ export function KeyLog() {
 
   useEffect(() => onLastRemote((text) => setState((s) => ({ ...s, remote: text }))), []);
 
+  useEffect(() => onCapabilitiesState((text) => setState((s) => ({ ...s, capabilities: text }))), []);
   useEffect(() => onSocketState((text) => setState((s) => ({ ...s, socket: text }))), []);
 
   if (!state.enabled) return null;
@@ -50,7 +51,7 @@ export function KeyLog() {
       <div>{state.seek || 'input: -'}</div>
       <div>{state.gate ? `gate: ${state.gate}` : 'gate: -'}</div>
       <div>{state.back ? `back: ${state.back}` : 'back: -'}</div>
-      <div>{`remote: ${state.socket || '-'} | ${state.remote || '-'}`}</div>
+      <div>{`remote: ${state.socket || '-'} | ${state.remote || '-'} | capabilities: ${state.capabilities || '-'}`}</div>
     </div>
   );
 }

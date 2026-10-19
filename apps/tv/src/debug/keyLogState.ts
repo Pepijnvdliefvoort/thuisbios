@@ -24,6 +24,8 @@ export interface KeyLogState {
   remote: string;
   /** Phone-remote socket state: connecting, open or closed. */
   socket: string;
+  /** Last capabilities post: ok or failed (with the HTTP status). */
+  capabilities: string;
 }
 
 export const MAX_ENTRIES = 6;
@@ -55,6 +57,7 @@ export const initialState = (enabled: boolean): KeyLogState => ({
   gate: '',
   remote: '',
   socket: '',
+  capabilities: '',
 });
 
 type SeekListener = (text: string) => void;
@@ -63,6 +66,7 @@ let backListeners: SeekListener[] = [];
 let gateListeners: SeekListener[] = [];
 let remoteListeners: SeekListener[] = [];
 let socketListeners: SeekListener[] = [];
+let capabilitiesListeners: SeekListener[] = [];
 let gateCount = 0;
 
 /** The player reports each direction it handled here, e.g. "player: right [watching] -> seekBy(10)". */
@@ -96,6 +100,18 @@ export function setLastRemote(text: string): void {
 /** The phone-remote socket reports connecting / open / closed here. */
 export function setSocketState(text: string): void {
   socketListeners.forEach((l) => l(text));
+}
+
+/** The capabilities poster reports "ok" or "failed HTTP 401" here. */
+export function setCapabilitiesState(text: string): void {
+  capabilitiesListeners.forEach((l) => l(text));
+}
+
+export function onCapabilitiesState(listener: SeekListener): () => void {
+  capabilitiesListeners = capabilitiesListeners.concat([listener]);
+  return () => {
+    capabilitiesListeners = capabilitiesListeners.filter((l) => l !== listener);
+  };
 }
 
 export function onLastRemote(listener: SeekListener): () => void {

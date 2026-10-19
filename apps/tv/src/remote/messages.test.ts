@@ -83,8 +83,8 @@ describe('reconnectDelayMs', () => {
 
 describe('socketUrl', () => {
   it('switches the scheme and encodes the params', () => {
-    expect(socketUrl('http://h:8096', 'a b', 'id/1')).toBe('ws://h:8096/socket?api_key=a%20b&deviceId=id%2F1');
-    expect(socketUrl('https://h', 't', 'd')).toBe('wss://h/socket?api_key=t&deviceId=d');
+    expect(socketUrl('http://h:8096', 'a b', 'id/1')).toBe('ws://h:8096/socket?api_key=a%20b&ApiKey=a%20b&deviceId=id%2F1');
+    expect(socketUrl('https://h', 't', 'd')).toBe('wss://h/socket?api_key=t&ApiKey=t&deviceId=d');
   });
 });
 

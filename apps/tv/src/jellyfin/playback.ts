@@ -55,8 +55,9 @@ export function selectPlayMethod(
 /** Makes a server-relative URL absolute and adds the access token (a <video> cannot send headers). */
 export function resolveStreamUrl(serverUrl: string, url: string, token: string): string {
   const absolute = /^https?:\/\//i.test(url) ? url : `${serverUrl}${url.startsWith('/') ? '' : '/'}${url}`;
-  if (/[?&]api_key=/i.test(absolute)) return absolute;
-  return `${absolute}${absolute.includes('?') ? '&' : '?'}api_key=${encodeURIComponent(token)}`;
+  if (/[?&](api_key|ApiKey)=/i.test(absolute)) return absolute;
+  const t = encodeURIComponent(token);
+  return `${absolute}${absolute.includes('?') ? '&' : '?'}api_key=${t}&ApiKey=${t}`;
 }
 
 /** Reads a query parameter (case-insensitive) from a (relative) URL. */

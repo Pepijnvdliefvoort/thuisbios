@@ -26,6 +26,18 @@ describe('listTvs', () => {
     expect(list.map((x) => x.Id)).toEqual(['tv']);
   });
 
+  it('lists a Thuisbios TV that is not controllable yet, after controllable ones', () => {
+    const list = listTvs(
+      [
+        s({ Id: 'tv-nc', DeviceId: 'c', Client: 'Thuisbios TV', SupportsRemoteControl: false, PlayableMediaTypes: [] }),
+        s({ Id: 'tv', DeviceId: 'd', Client: 'Thuisbios TV', LastActivityDate: '2026-01-01T08:00:00Z' }),
+        s({ Id: 'own', DeviceId: 'phone', Client: 'Thuisbios TV', SupportsRemoteControl: false }),
+      ],
+      'phone',
+    );
+    expect(list.map((x) => x.Id)).toEqual(['tv', 'tv-nc']);
+  });
+
   it('puts the Thuisbios TV app first, then the most recent', () => {
     const list = listTvs(
       [

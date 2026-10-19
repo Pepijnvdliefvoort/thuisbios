@@ -62,9 +62,10 @@ describe('url helpers', () => {
   });
 
   it('makes urls absolute and appends the api key once', () => {
-    expect(resolveStreamUrl('http://h:8096', '/v/x?a=1', 'tok')).toBe('http://h:8096/v/x?a=1&api_key=tok');
-    expect(resolveStreamUrl('http://h:8096', '/v/x', 'tok')).toBe('http://h:8096/v/x?api_key=tok');
+    expect(resolveStreamUrl('http://h:8096', '/v/x?a=1', 'tok')).toBe('http://h:8096/v/x?a=1&api_key=tok&ApiKey=tok');
+    expect(resolveStreamUrl('http://h:8096', '/v/x', 'tok')).toBe('http://h:8096/v/x?api_key=tok&ApiKey=tok');
     expect(resolveStreamUrl('http://h:8096', '/v/x?api_key=zzz', 'tok')).toBe('http://h:8096/v/x?api_key=zzz');
+    expect(resolveStreamUrl('http://h:8096', '/v/x?ApiKey=zzz', 'tok')).toBe('http://h:8096/v/x?ApiKey=zzz');
   });
 
   it('reads query parameters case-insensitively', () => {

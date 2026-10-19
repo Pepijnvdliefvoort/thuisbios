@@ -7,20 +7,22 @@ const isTvApp = (s: RemoteSession): boolean => s.Client === TV_CLIENT_NAME;
 const playsVideo = (s: RemoteSession): boolean => !!s.PlayableMediaTypes && s.PlayableMediaTypes.indexOf('Video') >= 0;
 
 /**
- * The sessions that can act as a TV: remote-controllable, not this phone, and either the Thuisbios TV app
- * or something that can play video. One entry per device (the most recently active session wins);
- * the Thuisbios TV app comes first, then the most recently active.
+ * The sessions that can act as a TV: not this phone, and either the Thuisbios TV app (even when not yet
+ * remote-controllable) or a remote-controllable session that can play video. One entry per device (the most recently active session wins);
+ * controllable Thuisbios TVs come first, then other Thuisbios TVs, then the most recently active.
  */
 export function listTvs(sessions: RemoteSession[], ownDeviceId: string): RemoteSession[] {
   const byDevice = new Map<string, RemoteSession>();
   for (const s of sessions) {
-    if (!s.SupportsRemoteControl || s.DeviceId === ownDeviceId) continue;
-    if (!isTvApp(s) && !playsVideo(s)) continue;
+    if (s.DeviceId === ownDeviceId) continue;
+    // The Thuisbios TV app is listed even before it is controllable (it posts its capabilities shortly after sign-in).
+    if (!isTvApp(s) && !(s.SupportsRemoteControl && playsVideo(s))) continue;
     const prev = byDevice.get(s.DeviceId);
     if (!prev || time(s) >= time(prev)) byDevice.set(s.DeviceId, s);
   }
   return Array.from(byDevice.values()).sort((a, b) => {
-    const tv = Number(isTvApp(b)) - Number(isTvApp(a));
+    const ctl = (x: RemoteSession): number => Number(isTvApp(x) && !!x.SupportsRemoteControl);
+    const tv = ctl(b) - ctl(a) || Number(isTvApp(b)) - Number(isTvApp(a));
     return tv !== 0 ? tv : time(b) - time(a);
   });
 }
