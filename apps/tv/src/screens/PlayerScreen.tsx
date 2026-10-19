@@ -11,6 +11,7 @@ import {
 import type { MediaSource, MovieItem, Session } from '../jellyfin/types';
 import { useRemote } from '../nav/useRemote';
 import { createAutoHide, formatTime, type AutoHide } from './autoHide';
+import { createPointerSeek, moveDelta, type PointerSeek } from './pointerSeek';
 
 interface Props {
   client: JellyfinClient;
@@ -42,6 +43,12 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
   const [paused, setPaused] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const hide = useRef<AutoHide | null>(null);
+  const container = useRef<HTMLElement>(null);
+  const pointerSeek = useRef<PointerSeek | null>(null);
+  const lastPos = useRef<{ x: number; y: number } | null>(null);
+  const visibleRef = useRef(true);
+  const [hint, setHint] = useState<{ text: string; n: number } | null>(null);
+  visibleRef.current = controlsVisible;
 
   useEffect(() => {
     const h = createAutoHide(setControlsVisible);
@@ -51,11 +58,30 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
       hide.current = null;
     };
   }, []);
+  useEffect(() => {
+    const ps = createPointerSeek({
+      onSeek: (s) => {
+        const v = video.current;
+        if (v) v.currentTime = Math.max(0, v.currentTime + s);
+        setHint((h) => ({ text: s < 0 ? '\u221210 s' : '+10 s', n: h ? h.n + 1 : 1 }));
+      },
+      onVertical: () => {
+        if (hide.current) hide.current.poke();
+      },
+    });
+    pointerSeek.current = ps;
+    return () => {
+      ps.dispose();
+      pointerSeek.current = null;
+      exitLock();
+    };
+  }, []);
   const poke = () => {
     if (hide.current) hide.current.poke();
   };
   useEffect(() => {
     if (hide.current) hide.current.setPaused(paused);
+    if (paused) exitLock();
   }, [paused]);
 
   // Ask Jellyfin how to play this item for this TV.
@@ -112,6 +138,23 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
     else v.pause();
     poke();
   };
+  const onMouseMove = (e: MouseEvent) => {
+    const d = moveDelta(e, lastPos.current);
+    lastPos.current = { x: e.clientX, y: e.clientY };
+    const t = e.target as Element | null;
+    if (t && t.closest && t.closest('.ctl')) {
+      // Aiming at a button: never seek.
+      if (pointerSeek.current) pointerSeek.current.reset();
+      poke();
+      return;
+    }
+    if (pointerSeek.current) pointerSeek.current.move(d.dx, d.dy);
+  };
+  const onClick = () => {
+    poke();
+    const v = video.current;
+    if (v && !v.paused) requestLock(container.current);
+  };
   const seek = (seconds: number) => {
     const v = video.current;
     if (v) v.currentTime = Math.max(0, v.currentTime + seconds);
@@ -156,7 +199,7 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
 
   const d = loaded && loaded.debug;
   return (
-    <main class="player" onMouseMove={poke} onClick={poke}>
+    <main class="player" ref={container} onMouseMove={onMouseMove} onClick={onClick}>
       {loaded && (
         <video
           key={loaded.src}
@@ -223,7 +266,36 @@ export function PlayerScreen({ client, session, item, onExit }: Props) {
           <span>{formatTime(duration)}</span>
         </div>
       </div>
+      {hint && (
+        <div key={hint.n} class="seekhint go">
+          {hint.text}
+        </div>
+      )}
       {!showDebug && error && <div class="debug error">{error}</div>}
     </main>
   );
+}
+
+function requestLock(el: HTMLElement | null): void {
+  try {
+    const e = el as (HTMLElement & { webkitRequestPointerLock?: () => void }) | null;
+    if (!e || document.pointerLockElement === e) return;
+    const req = e.requestPointerLock || e.webkitRequestPointerLock;
+    if (req) {
+      const p = req.call(e) as unknown as Promise<void> | undefined;
+      if (p && typeof p.catch === 'function') p.catch(() => undefined);
+    }
+  } catch (_) {
+    /* pointer lock is optional */
+  }
+}
+
+function exitLock(): void {
+  try {
+    const d = document as Document & { webkitExitPointerLock?: () => void };
+    const exit = d.exitPointerLock || d.webkitExitPointerLock;
+    if (exit) exit.call(document);
+  } catch (_) {
+    /* ignore */
+  }
 }
