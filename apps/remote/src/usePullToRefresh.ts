@@ -20,7 +20,9 @@ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, 
 /**
  * Pull to refresh for a page: when the page is scrolled to the top and the finger drags down, the spinner
  * follows it; releasing past the threshold runs `load` (plus a TV poll). `pageRef` must be the page's root
- * element; hidden pages (other tabs) ignore touches.
+ * element; hidden pages (other tabs) ignore touches. All listeners are passive: a non-passive touchmove on the
+ * document makes iOS wait for the main thread before every scroll. Native overscroll is off (`overscroll-behavior:
+ * none`), so nothing needs cancelling.
  */
 export function usePullToRefresh(pageRef: RefObject<HTMLElement | null>, load: () => Promise<unknown>): PullState {
   const { tv } = useApp();
@@ -60,7 +62,6 @@ export function usePullToRefresh(pageRef: RefObject<HTMLElement | null>, load: (
         else if (isPullStart(dx, dy) && scrollOffset() <= 0) pulling = true;
         else return;
       }
-      if (e.cancelable) e.preventDefault(); // only while pulling, so normal scrolling is never blocked
       distance = pullDistance(dy);
       setState({ offset: distance, refreshing: false, dragging: true });
     };
@@ -85,7 +86,7 @@ export function usePullToRefresh(pageRef: RefObject<HTMLElement | null>, load: (
     };
 
     document.addEventListener('touchstart', onStart, { passive: true });
-    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchmove', onMove, { passive: true });
     document.addEventListener('touchend', onEnd, { passive: true });
     document.addEventListener('touchcancel', onEnd, { passive: true });
     return () => {

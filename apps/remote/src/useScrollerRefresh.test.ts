@@ -18,4 +18,13 @@ describe('nudgeDelay', () => {
     expect(nudgeDelay(false, 1000, 1000 + SETTLE_MS)).toBe(0);
     expect(nudgeDelay(false, 1000, 9000)).toBe(0);
   });
+
+  it('waits for momentum scrolling to stop after the touch ended', () => {
+    expect(nudgeDelay(false, 1000, 2500, 2400)).toBe(SETTLE_MS - 100);
+    expect(nudgeDelay(false, 1000, 3300, 2400)).toBe(0);
+  });
+
+  it('ignores an older scroll than the touch end', () => {
+    expect(nudgeDelay(false, 2000, 2300, 1000)).toBe(SETTLE_MS - 300);
+  });
 });
