@@ -29,10 +29,10 @@ describe('defaultServerUrl', () => {
   it('prefers the build-time URL', () => {
     expect(defaultServerUrl('http://192.168.1.50:8096/', loc)).toBe('http://192.168.1.50:8096');
   });
-  it('falls back to this page host on port 8096', () => {
+  it('falls back to this page host: 8096 on http, 8920 on https', () => {
     expect(defaultServerUrl(undefined, loc)).toBe('http://192.168.1.192:8096');
     expect(defaultServerUrl('  ', loc)).toBe('http://192.168.1.192:8096');
-    expect(defaultServerUrl(undefined, { protocol: 'https:', hostname: 'pc.tail.ts.net' })).toBe('https://pc.tail.ts.net:8096');
+    expect(defaultServerUrl(undefined, { protocol: 'https:', hostname: 'pc.tail.ts.net' })).toBe('https://pc.tail.ts.net:8920');
   });
   it('is empty without a hostname (e.g. a native shell)', () => {
     expect(defaultServerUrl(undefined, { protocol: 'capacitor:', hostname: '' })).toBe('');

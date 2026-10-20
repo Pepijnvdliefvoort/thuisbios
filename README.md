@@ -9,7 +9,7 @@ Full plan: [docs/plan.md](docs/plan.md).
 ## Architecture
 
 ```text
- Phone remote ──HTTP + WebSocket──▶ Jellyfin (Windows PC) ◀──HTTP + WebSocket── TV app
+ Phone remote ──HTTP(S) + WebSocket──▶ Jellyfin (Windows PC) ◀──HTTP + WebSocket── TV app
  (PWA)                              NVIDIA RTX 4060 Ti                          (Samsung Tizen 4.0)
       │                             NVENC transcoding                                  ▲
       └──── optional: relay service ──▶ Samsung TV control API (volume, power, launch) ┘
@@ -25,7 +25,7 @@ sessions (remote control) API. The phone sends commands to the TV session throug
 docs/plan.md              project plan
 docs/server/              Jellyfin setup guide for Windows (windows-setup.md)
 docs/tv/                  TV app: Tizen setup, install and test guide (dev-setup.md)
-docs/remote/              phone remote: setup guide for the owner (setup.md)
+docs/remote/              phone remote: setup guide (setup.md), away from home via Tailscale (tailscale.md)
 scripts/                  repo tooling (version checks)
 packages/jellyfin-client/ planned: shared typed Jellyfin API client
 apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite), served to the TV browser
@@ -106,6 +106,10 @@ be wrapped with Capacitor later. Volume stays on the TV remote for now. Follow
 [docs/remote/setup.md](docs/remote/setup.md) to run it on the PC and add it to the phone's home
 screen.
 
+Away from home the phone reaches the PC through Tailscale Serve (private, tailnet only, nothing opened
+to the internet): `https://<pc>.<tailnet>.ts.net` for the app (port 443) and `:8920` for Jellyfin, both
+over HTTPS so the home-screen install works. Follow [docs/remote/tailscale.md](docs/remote/tailscale.md).
+
 ```bash
 npm install
 npm run dev -w apps/remote       # desktop browser at http://localhost:5174
@@ -153,4 +157,4 @@ Docker image builds (GHCR) and the other test jobs are added together with the f
 | 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
 | 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done |
 | 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume to the soundbar | in review: remote PWA built (browse, play on TV or on the phone, transport controls); volume to the soundbar not yet |
-| 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | planned |
+| 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve in review; the rest planned |

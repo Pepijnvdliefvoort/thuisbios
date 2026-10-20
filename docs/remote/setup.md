@@ -6,6 +6,8 @@ and press play: the movie starts on the TV. It also works as a remote while the 
 You need: the Windows PC with Jellyfin running, the TV with the Thuisbios app, and your phone, all on
 the same home Wi-Fi.
 
+Want to use it away from home too? See [tailscale.md](tailscale.md) after this guide.
+
 ## 1. Start the remote on the PC
 
 Do this once, and again after every update of the project.
