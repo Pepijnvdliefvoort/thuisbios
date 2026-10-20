@@ -216,6 +216,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .signin label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); }
 .error { color: #ff6b6b; font-size: 15px; }
 .signin .btn { margin-top: 4px; }
+.signin-link { align-self: center; margin-top: 8px; min-height: 44px; padding: 0 16px; background: none; border: 0; color: var(--muted); font-size: 14px; text-decoration: underline; cursor: pointer; }
 .signin-banner { background: var(--surface); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; margin: 12px 0 0; font-weight: 600; }
 
 /* Connect TV */
