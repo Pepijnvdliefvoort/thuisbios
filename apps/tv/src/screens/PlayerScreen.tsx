@@ -20,6 +20,7 @@ import {
 import { formatOffset, shiftVtt } from '../jellyfin/subtitleOffset';
 import { getSubtitleOffset, setSubtitleOffset } from '../storage';
 import { playerTitle } from '../jellyfin/itemInfo';
+import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import type { BaseItem, MediaSource, Session } from '../jellyfin/types';
 import { debugRequested } from '../debug/keyLogState';
 import { setDpadHandler } from '../nav/pointerDpad';
@@ -109,6 +110,42 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
   const { state, dispatch, preview } = usePlayerInput({ video, onExit });
   const controlsVisible = state.mode === 'controls' && !error;
 
+  // Intro markers (Intro Skipper plugin). No plugin, an old server or an error simply means none.
+  const [segments, setSegments] = useState<MediaSegment[]>([]);
+  useEffect(() => {
+    let alive = true;
+    setSegments([]);
+    client
+      .mediaSegments(item.Id)
+      .then((list) => alive && setSegments(list))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [client, item.Id]);
+  const intro = error ? null : activeIntro(segments, position);
+  // Read by the D-pad handler, which is installed once.
+  const skipRef = useRef<() => boolean>(() => false);
+  const skipIntro = () => {
+    const v = video.current;
+    if (!intro || !v) return false;
+    const end = ticksToSeconds(intro.endTicks);
+    v.currentTime = end;
+    setPosition(end);
+    // The pill is about to disappear: do not leave focus on a removed button.
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active.getAttribute && active.getAttribute('data-kind') === 'button' && active.classList.contains('skipintro')) {
+      const play = document.querySelector('[data-play]') as HTMLElement | null;
+      if (play) play.focus();
+    }
+    return true;
+  };
+  // With the controls hidden, OK skips the intro instead of pausing.
+  const okSkips = () => !controlsVisible && skipRef.current();
+  const okSkipsRef = useRef(okSkips);
+  okSkipsRef.current = okSkips;
+  skipRef.current = skipIntro;
+
   // Keep the last bubble around so it can fade out instead of vanishing.
   useEffect(() => {
     if (state.bubble) setBubbleView(state.bubble);
@@ -124,6 +161,7 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
       },
       onClick: () => {
         if (errorRef.current) return false;
+        if (okSkipsRef.current()) return true;
         dispatch({ type: 'ok' });
         return true;
       },
@@ -361,6 +399,7 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
         dispatch({ type: 'dir', dir: key });
         return true;
       case 'enter':
+        if (okSkips()) return true;
         dispatch({ type: 'ok' });
         return true;
       case 'back':
@@ -556,6 +595,15 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
           </div>
         </div>
       </div>
+      )}
+
+      {intro && (
+        <div class={'skipwrap' + (controlsVisible ? ' up' : '')}>
+          <button data-focusable data-kind="button" class="skipintro" onClick={skipIntro}>
+            <span>Skip intro</span>
+            {!controlsVisible && <span class="okhint">OK</span>}
+          </button>
+        </div>
       )}
 
       {notice && <div class="notice">{notice}</div>}

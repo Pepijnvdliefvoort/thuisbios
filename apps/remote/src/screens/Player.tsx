@@ -6,6 +6,7 @@ import { artUrl } from '../jellyfin/art';
 import { getDeviceId } from '../storage';
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
+import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { createThrottle, resolveStreamUrl, selectPlayMethod, type PlaySelection } from '../jellyfin/playback';
 import type { BaseItem, PlaybackReport } from '../jellyfin/types';
 
@@ -34,6 +35,21 @@ export function Player({ item, startTicks, onBack }: { item: BaseItem; startTick
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
+  const [segments, setSegments] = useState<MediaSegment[]>([]);
+  const [now, setNow] = useState(0);
+
+  // Intro markers (empty without the Intro Skipper plugin).
+  useEffect(() => {
+    let alive = true;
+    setSegments([]);
+    client
+      .mediaSegments(item.Id)
+      .then((list) => alive && setSegments(list))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [client, item.Id]);
 
   // Leaving the player (Back, Android back, end of video) also leaves fullscreen and frees the rotation.
   useEffect(() => () => exitLandscapeFullscreen(), []);
@@ -170,6 +186,15 @@ export function Player({ item, startTicks, onBack }: { item: BaseItem; startTick
     };
   }, [client, loaded, item.Id]);
 
+  const intro = activeIntro(segments, now);
+  const skipIntro = () => {
+    const el = video.current;
+    if (!intro || !el) return;
+    const end = ticksToSeconds(intro.endTicks);
+    el.currentTime = end;
+    setNow(end);
+  };
+
   const label = item.Type === 'Episode' ? [item.SeriesName, episodeLabel(item)].filter(Boolean).join(' · ') : '';
   return (
     <div class="player">
@@ -183,7 +208,7 @@ export function Player({ item, startTicks, onBack }: { item: BaseItem; startTick
       {error ? (
         <p class="empty">Couldn't play this video.</p>
       ) : (
-        <>
+        <div class="player-stage">
           <video
             ref={video}
             class="player-video"
@@ -192,9 +217,16 @@ export function Player({ item, startTicks, onBack }: { item: BaseItem; startTick
             autoPlay
             preload="auto"
             poster={artUrl(client.serverUrl, item, 'backdrop', 780, 440) || undefined}
+            onTimeUpdate={(e) => setNow((e.target as HTMLVideoElement).currentTime)}
           />
+          {/* Not shown in iPhone's native fullscreen player, which draws only its own controls. */}
+          {intro && (
+            <button type="button" class="skip-intro-overlay" onClick={skipIntro}>
+              Skip intro
+            </button>
+          )}
           {loaded ? null : <p class="hint">Loading...</p>}
-        </>
+        </div>
       )}
     </div>
   );

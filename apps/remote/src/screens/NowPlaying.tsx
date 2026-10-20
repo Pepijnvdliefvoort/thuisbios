@@ -5,6 +5,7 @@ import { VolumeControls } from '../components/VolumeControls';
 import { Img } from '../components/Img';
 import { useApp } from '../context';
 import { artUrl } from '../jellyfin/art';
+import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { episodeLabel, formatClock, formatTicksClock, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { shouldCloseNowPlaying } from '../nav';
 import { useTick } from '../useTv';
@@ -15,6 +16,23 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
   // Seconds while the thumb is being dragged; null otherwise. Seek is sent on release only.
   const [drag, setDrag] = useState<number | null>(null);
   useTick(!!np && !np.isPaused && drag === null, 500);
+
+  // Intro markers for the playing item (empty without the Intro Skipper plugin).
+  const itemId = np ? np.item.Id : '';
+  const [segments, setSegments] = useState<MediaSegment[]>([]);
+  useEffect(() => {
+    let alive = true;
+    setSegments([]);
+    if (itemId) {
+      client
+        .mediaSegments(itemId)
+        .then((list) => alive && setSegments(list))
+        .catch(() => undefined);
+    }
+    return () => {
+      alive = false;
+    };
+  }, [client, itemId]);
 
   // Leave when playback ends (Stop, or the TV finished/stopped); not while the screen is still settling.
   const wasPlaying = useRef(!!np);
@@ -44,6 +62,7 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
   const posSec = drag !== null ? drag : ticksToSeconds(tv.position());
   const subtitle = isEpisode ? `${item.SeriesName || ''} · ${episodeLabel(item)}`.replace(/^ · /, '') : item.ProductionYear ? String(item.ProductionYear) : '';
   const canSeek = np.canSeek && runtimeSec > 0;
+  const intro = canSeek ? activeIntro(segments, ticksToSeconds(tv.position())) : null;
 
   return (
     <div class="nowplaying">
@@ -77,6 +96,12 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
           <span>-{formatClock(Math.max(0, runtimeSec - posSec))}</span>
         </div>
       </div>
+
+      {intro && (
+        <button type="button" class="btn primary skip-intro" onClick={() => tv.seekTo(intro.endTicks)}>
+          <Icon name="next" size={20} /> Skip intro
+        </button>
+      )}
 
       <div class="transport">
         <button type="button" class="tbtn" disabled={!isEpisode} onClick={tv.previous} aria-label="Previous episode">

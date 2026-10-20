@@ -1,6 +1,7 @@
 import { buildAuthHeader } from './auth';
 import type { Command } from './commands';
 import type { DeviceProfile } from './phoneProfile';
+import { parseSegments, type MediaSegment } from './segments';
 import type {
   AuthenticationResult,
   BaseItem,
@@ -48,6 +49,8 @@ export interface JellyfinClient {
   seasons(userId: string, seriesId: string): Promise<BaseItem[]>;
   episodes(userId: string, seriesId: string, seasonId: string): Promise<BaseItem[]>;
   sessions(userId: string): Promise<RemoteSession[]>;
+  /** Intro, outro and similar markers (Jellyfin 10.10+ with a plugin). Any error means no segments. */
+  mediaSegments(itemId: string): Promise<MediaSegment[]>;
   send(command: Command): Promise<void>;
   /** Approves the Quick Connect code shown on a device (the TV) for the signed-in user. */
   authorizeQuickConnect(code: string, userId?: string): Promise<void>;
@@ -137,6 +140,13 @@ export function createClient(options: ClientOptions): JellyfinClient {
         `/Shows/${enc(seriesId)}/Episodes?SeasonId=${enc(seasonId)}&UserId=${enc(userId)}&Fields=Overview,RunTimeTicks&EnableImageTypes=Primary,Thumb&ImageTypeLimit=1&EnableUserData=true`,
       ),
     sessions: (userId) => req<RemoteSession[]>('GET', `/Sessions?ControllableByUserId=${enc(userId)}&ActiveWithinSeconds=960`),
+    mediaSegments: async (itemId) => {
+      try {
+        return parseSegments(await req<unknown>('GET', `/MediaSegments/${enc(itemId)}`));
+      } catch (e) {
+        return [];
+      }
+    },
     send: async (command) => {
       await req<void>(command.method, command.path, command.body);
     },
