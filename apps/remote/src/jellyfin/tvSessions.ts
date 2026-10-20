@@ -43,3 +43,13 @@ export function pickTv(
   }
   return tvs[0] || null;
 }
+
+/** The TV this phone controls: none while the user has disconnected, otherwise {@link pickTv}. */
+export function activeTv(
+  sessions: RemoteSession[],
+  ownDeviceId: string,
+  preferredDeviceId: string | null | undefined,
+  disconnected: boolean,
+): RemoteSession | null {
+  return disconnected ? null : pickTv(sessions, ownDeviceId, preferredDeviceId);
+}

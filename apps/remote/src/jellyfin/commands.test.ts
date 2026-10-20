@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { playCommand, relativeSeekTicks, seekCommand, transportCommand, viewCommand } from './commands';
+import { DISCONNECT_TEXT, disconnectCommand, playCommand, relativeSeekTicks, seekCommand, transportCommand, viewCommand } from './commands';
 
 describe('command URLs', () => {
   it('builds Play on TV', () => {
@@ -22,6 +22,14 @@ describe('command URLs', () => {
     expect(transportCommand('S1', 'PlayPause').path).toBe('/Sessions/S1/Playing/PlayPause');
     expect(transportCommand('S1', 'NextTrack').path).toBe('/Sessions/S1/Playing/NextTrack');
     expect(transportCommand('S1', 'Stop').method).toBe('POST');
+  });
+  it('builds the disconnect message with a JSON body', () => {
+    expect(disconnectCommand('S 1')).toEqual({
+      method: 'POST',
+      path: '/Sessions/S%201/Message',
+      body: { Header: 'Thuisbios', Text: DISCONNECT_TEXT, TimeoutMs: 1000 },
+    });
+    expect(DISCONNECT_TEXT).toBe('thuisbios:disconnect');
   });
   it('builds seek', () => {
     expect(seekCommand('S1', 600000000).path).toBe('/Sessions/S1/Playing/Seek?seekPositionTicks=600000000');

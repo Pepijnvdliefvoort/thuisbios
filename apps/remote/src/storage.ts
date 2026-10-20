@@ -5,6 +5,7 @@ const SESSION_KEY = 'thuisbios.remote.session';
 const DEVICE_KEY = 'thuisbios.remote.deviceId';
 const SERVER_KEY = 'thuisbios.remote.serverUrl';
 const TV_KEY = 'thuisbios.remote.tvDeviceId';
+const TV_DISCONNECTED_KEY = 'thuisbios.remote.tvDisconnected';
 
 function read(key: string): string | null {
   try {
@@ -49,6 +50,9 @@ export const loadServerUrl = (): string => read(SERVER_KEY) ?? '';
 export const saveServerUrl = (url: string): void => write(SERVER_KEY, url);
 export const loadTvDeviceId = (): string | null => read(TV_KEY);
 export const saveTvDeviceId = (id: string): void => write(TV_KEY, id);
+export const loadTvDisconnected = (): boolean => read(TV_DISCONNECTED_KEY) === '1';
+export const saveTvDisconnected = (disconnected: boolean): void =>
+  write(TV_DISCONNECTED_KEY, disconnected ? '1' : null);
 
 const PENDING_KEY = 'thuisbios.remote.pendingConnect';
 

@@ -81,7 +81,8 @@ committed.
 phone browsers (iOS Safari 15+, Android Chrome), so there is no legacy build. The phone is the main
 screen. It connects the TV: scan the QR code on the TV (the link is
 `http://<pc>:4174/?connect=<code>`) or tap "Connect a TV" and type the 6-digit Quick Connect code
-(the phone approves it with `POST /QuickConnect/Authorize`). It signs in to
+(the phone approves it with `POST /QuickConnect/Authorize`). The Connect a TV screen can also scan the
+TV's QR code with the camera (over plain HTTP it takes a photo; a live viewfinder needs HTTPS). It signs in to
 Jellyfin with username and password, browses the library (Home rows, Search, Library with
 Movies and Shows) and shows a details page with Play on TV, Resume on TV, Play from start and Show
 on TV; series have a season selector and an episode list. While the TV plays, a mini player bar and a
@@ -89,13 +90,16 @@ Now Playing screen offer play/pause, a scrub slider, -10 s / +10 s, previous and
 stop. The remote finds the TV through the Jellyfin sessions API (the TV app registers as
 remote-controllable) and polls `/Sessions` every 2 seconds while the page is visible.
 
+The TV sheet in the header has "Disconnect from TV", which signs the TV out so it shows a new Quick
+Connect code and QR again (the choice survives a reload). Reconnecting needs the code or the QR again.
+
 Without a TV connected, the play buttons play the video on the phone itself: direct play when the
 phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
 no native HLS). The phone reports its progress to Jellyfin, so it counts toward Resume watching.
 
 The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
-remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode and "Show on
-TV".
+remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on
+TV" and Disconnect (sign out).
 
 Every request uses the configured absolute server URL and there is no service worker, so the app can
 be wrapped with Capacitor later. Volume stays on the TV remote for now. Follow

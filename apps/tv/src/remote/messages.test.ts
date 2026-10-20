@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { describeCommand, keepAliveIntervalMs, parseSocketMessage, reconnectDelayMs, socketUrl } from './messages';
+import { DISCONNECT_TEXT, REMOTE_CAPABILITIES, describeCommand, keepAliveIntervalMs, parseSocketMessage, reconnectDelayMs, socketUrl } from './messages';
 
 const msg = (MessageType: string, Data?: unknown): string => JSON.stringify({ MessageType, Data });
 
 describe('parseSocketMessage', () => {
+  it('parses the private disconnect message and ignores other messages', () => {
+    expect(
+      parseSocketMessage(msg('GeneralCommand', { Name: 'DisplayMessage', Arguments: { Header: 'Thuisbios', Text: DISCONNECT_TEXT } })),
+    ).toEqual({ type: 'command', command: { type: 'disconnect' } });
+    expect(parseSocketMessage(msg('GeneralCommand', { Name: 'DisplayMessage', Arguments: { Text: 'hello' } }))).toBeNull();
+    expect(parseSocketMessage(msg('GeneralCommand', { Name: 'DisplayMessage' }))).toBeNull();
+    expect(DISCONNECT_TEXT).toBe('thuisbios:disconnect');
+    expect(REMOTE_CAPABILITIES.SupportedCommands).toContain('DisplayMessage');
+  });
+
   it('parses Play with start position and index', () => {
     expect(parseSocketMessage(msg('Play', { ItemIds: ['a', 'b'], StartPositionTicks: 600000000, PlayCommand: 'PlayNow' }))).toEqual({
       type: 'command',
@@ -93,6 +103,7 @@ describe('describeCommand', () => {
     expect(describeCommand({ type: 'playstate', command: 'Seek', seekPositionTicks: 6000000000 })).toBe('Playstate Seek 600s');
     expect(describeCommand({ type: 'playstate', command: 'Pause', seekPositionTicks: 0 })).toBe('Playstate Pause');
     expect(describeCommand({ type: 'display', itemId: 'x' })).toBe('DisplayContent x');
+    expect(describeCommand({ type: 'disconnect' })).toBe('Disconnect');
     expect(describeCommand({ type: 'play', itemId: 'x', startPositionTicks: 100000000 })).toBe('Play x @10s');
   });
 });

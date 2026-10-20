@@ -238,6 +238,19 @@ input:focus { outline: none; border-color: var(--accent); }
 .code-input:disabled { opacity: 0.6; }
 .connect-error { text-align: left; }
 .connect .btn { min-height: 52px; }
+.connect form .btn { margin-top: 12px; }
+.connect .btn .icon { margin-right: 8px; vertical-align: -5px; }
+.scanner { position: fixed; inset: 0; z-index: 100; background: #000; display: flex; flex-direction: column; }
+.scanner-video { flex: 1; min-height: 0; width: 100%; object-fit: cover; }
+.scanner-frame {
+  position: absolute; top: 50%; left: 50%; width: min(70vw, 280px); aspect-ratio: 1; transform: translate(-50%, -60%);
+  border: 3px solid var(--fg); border-radius: 16px; pointer-events: none;
+}
+.scanner-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 12px;
+  padding: 16px max(var(--gutter), var(--safe-right)) calc(16px + var(--safe-bottom)) max(var(--gutter), var(--safe-left)); background: rgba(0, 0, 0, 0.7);
+}
+.scanner-hint { color: var(--fg); text-align: center; }
 .empty-tv { display: flex; flex-direction: column; gap: 4px; }
 .empty-tv .empty { padding: 8px 0 4px; }
 .connect-card { display: flex; align-items: center; gap: 12px; margin: 8px var(--gutter) 4px; padding: 14px; background: var(--surface); border-radius: 12px; border-left: 4px solid var(--accent); }

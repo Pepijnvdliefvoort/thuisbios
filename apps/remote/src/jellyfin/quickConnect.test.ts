@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createClient, JellyfinError } from './client';
-import { describeQuickConnectError, digitsOnly, normalizeQuickConnectCode, parseConnectParam } from './quickConnect';
+import { codeFromQrText, describeQuickConnectError, digitsOnly, normalizeQuickConnectCode, parseConnectParam } from './quickConnect';
 
 describe('normalizeQuickConnectCode', () => {
   it('strips spaces and dashes', () => {
@@ -30,6 +30,24 @@ describe('parseConnectParam', () => {
   it('leaves other URLs alone', () => {
     expect(parseConnectParam('')).toEqual({ code: null, present: false, search: '' });
     expect(parseConnectParam('?x=1')).toEqual({ code: null, present: false, search: '?x=1' });
+  });
+});
+
+describe('codeFromQrText', () => {
+  it('reads the code from the TV link', () => {
+    expect(codeFromQrText('http://192.168.1.192:4174/?connect=123456')).toBe('123456');
+    expect(codeFromQrText(' https://pc:4174/app/?x=1&connect=123%20456 ')).toBe('123456');
+  });
+  it('accepts a bare code', () => {
+    expect(codeFromQrText('123456')).toBe('123456');
+    expect(codeFromQrText('123 456')).toBe('123456');
+  });
+  it('rejects anything else', () => {
+    expect(codeFromQrText('')).toBeNull();
+    expect(codeFromQrText('https://example.com/')).toBeNull();
+    expect(codeFromQrText('http://pc:4174/?connect=12')).toBeNull();
+    expect(codeFromQrText('not a url?connect=123456')).toBeNull();
+    expect(codeFromQrText('WIFI:S:home;P:secret;;')).toBeNull();
   });
 });
 

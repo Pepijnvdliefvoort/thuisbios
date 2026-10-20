@@ -4,7 +4,7 @@ import { Icon } from './Icon';
 
 /** Header chip showing the connected TV; tap to pick another one. */
 export function TvChip({ onSignOut }: { onSignOut: () => void }) {
-  const { tv, session, openConnectTv } = useApp();
+  const { tv, session, openConnectTv, toast } = useApp();
   const [open, setOpen] = useState(false);
   const connect = () => {
     setOpen(false);
@@ -24,9 +24,9 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
         <div class="sheet-backdrop" onClick={() => setOpen(false)}>
           <div class="sheet" role="dialog" aria-label="Choose a TV" onClick={(e) => e.stopPropagation()}>
             <h2>Your TV</h2>
-            {tv.tvs.length === 0 ? (
+            {!connected ? (
               <div class="empty-tv">
-                <p class="empty">{tv.loaded ? 'No TV yet' : 'Looking for your TV...'}</p>
+                <p class="empty">{tv.loaded ? 'No TV connected' : 'Looking for your TV...'}</p>
                 {tv.loaded ? (
                   <button type="button" class="btn primary" onClick={connect}>
                     <Icon name="tv" size={20} /> Connect a TV
@@ -53,9 +53,17 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
                 ))}
               </ul>
             )}
-            {tv.tvs.length > 0 ? (
-              <button type="button" class="btn secondary" onClick={connect}>
-                <Icon name="tv" size={20} /> Connect a TV
+            {connected ? (
+              <button
+                type="button"
+                class="btn secondary"
+                onClick={() => {
+                  tv.disconnect();
+                  setOpen(false);
+                  toast('Disconnected, the TV is signed out');
+                }}
+              >
+                <Icon name="tv" size={20} /> Disconnect from TV
               </button>
             ) : null}
             <p class="signed-in">Signed in as {session.userName}</p>

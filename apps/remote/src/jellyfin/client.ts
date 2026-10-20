@@ -135,7 +135,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
       ),
     sessions: (userId) => req<RemoteSession[]>('GET', `/Sessions?ControllableByUserId=${enc(userId)}&ActiveWithinSeconds=960`),
     send: async (command) => {
-      await req<void>(command.method, command.path);
+      await req<void>(command.method, command.path, command.body);
     },
     authorizeQuickConnect: async (code, userId) => {
       await req<void>('POST', `/QuickConnect/Authorize?code=${enc(code)}${userId ? `&userId=${enc(userId)}` : ''}`);

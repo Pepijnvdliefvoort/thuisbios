@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { listTvs, pickTv } from './tvSessions';
+import { activeTv, listTvs, pickTv } from './tvSessions';
 import type { RemoteSession } from './types';
 
 const s = (over: Partial<RemoteSession>): RemoteSession => ({
@@ -76,5 +76,17 @@ describe('pickTv', () => {
   });
   it('returns null without candidates', () => {
     expect(pickTv([], 'phone')).toBeNull();
+  });
+});
+
+describe('activeTv', () => {
+  const sessions = [s({ Id: 'tv', DeviceId: 'tv1' })];
+
+  it('picks a TV while connected', () => {
+    expect(activeTv(sessions, 'phone', null, false)?.Id).toBe('tv');
+  });
+
+  it('is null while disconnected, even with a preferred TV present', () => {
+    expect(activeTv(sessions, 'phone', 'tv1', true)).toBeNull();
   });
 });
