@@ -2,7 +2,9 @@
 
 Thuisbios ("home cinema") is a personal, Netflix-like way to stream my own media at home.
 [Jellyfin](https://jellyfin.org) is the backend. Two custom clients are built on top of its API:
-a Samsung Tizen TV app and a phone remote PWA that controls the TV.
+a phone app (PWA) and a Samsung Tizen TV app. The phone app is the main app: you browse, search and
+play with it, on the TV or on the phone itself. The TV app only connects (Quick Connect code and QR),
+shows a screensaver and plays what the phone sends.
 
 Full plan: [docs/plan.md](docs/plan.md).
 
@@ -51,7 +53,7 @@ on Windows, enable NVENC, and set up the network. Helper scripts live in `server
 
 Run the tests with `Invoke-Pester -Path server/tests` (Pester 5).
 
-## TV app (phase 2 spike)
+## TV app
 
 `apps/tv` is an npm workspace package: Preact + TypeScript + Vite, transpiled for Chromium 56
 (Tizen 4.0) with `@vitejs/plugin-legacy`. The TV is no longer where you browse: it only connects
@@ -61,10 +63,11 @@ in and shows a slideshow of the library. You pick and play things on the phone, 
 through the Jellyfin sessions API. The old TV home rows, Movies, Shows and sidebar are removed. The
 player is a Netflix-style HTML5 player (Jellyfin device profile, `?debug` overlay) with text
 subtitles. In the TV browser, Return while in full screen only leaves full screen, so the app asks
-for full screen again, and the "Press OK to continue in full screen" modal is handled with OK. Follow
-[docs/tv/dev-setup.md](docs/tv/dev-setup.md) to install it on the TV and run the test checklist. If
-the TV refuses the install, the same guide explains how to run the app in the TV's web browser
-(`npm run preview -w apps/tv`, served on port 4173).
+for full screen again, and the "Press OK to continue in full screen" modal is handled with OK. Installing
+(sideloading) a packaged app is refused by this TV's firmware, so the app runs in the TV's built-in
+web browser, served from the PC (`npm run preview -w apps/tv`, port 4173).
+[docs/tv/dev-setup.md](docs/tv/dev-setup.md) explains this and has the test checklist;
+[docs/server/autostart.md](docs/server/autostart.md) starts it with Windows.
 
 ```bash
 npm install
@@ -75,11 +78,11 @@ npm run build -w apps/tv      # apps/tv/dist, ready to package for Tizen
 npm run check:dist -w apps/tv # build output must be ES2017 only
 ```
 
-Signing and packaging (`npm run package -w apps/tv`) need the Tizen CLI and a Samsung
+Signing and packaging (`npm run package -w apps/tv`) are kept for TVs that allow sideloading. They need the Tizen CLI and a Samsung
 certificate, so they run on the owner's PC, never in CI. Certificates and `.wgt` files are never
 committed.
 
-## Phone remote (phase 4)
+## Phone app (phase 4)
 
 `apps/remote` is the phone remote: a PWA ("Thuisbios Remote", Preact + TypeScript + Vite) for modern
 phone browsers (iOS Safari 15+, Android Chrome), so there is no legacy build. The phone is the main
@@ -181,6 +184,6 @@ Docker image builds (GHCR) and the other test jobs are added together with the f
 |---|---|---|
 | 1. Server | Jellyfin on the Windows PC with a test library | done |
 | 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
-| 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done |
-| 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | in review: remote PWA built (browse, play on TV or on the phone, transport controls); volume slider built (relay in the remote's server), not yet verified on the real TV; title requests (Requests tab, admin badge) built |
-| 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve in review; the rest planned |
+| 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done; later reshaped: the TV only connects and shows a screensaver, browsing moved to the phone |
+| 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | done: browse, search, play on TV or on the phone, transport controls, volume slider (relay in the remote's server), title requests; volume and title suggestions not yet verified on the real TV/phone |
+| 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve and start with Windows (autostart script, not yet run on the real PC) done; the rest planned |
