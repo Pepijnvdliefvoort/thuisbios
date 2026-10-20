@@ -59,6 +59,24 @@ connect another TV.
   top right): opens a panel from the bottom with a slider for the TV volume, a speaker icon to mute
   or un-mute, and the volume as a number. It only shows after the one-time setup below.
 
+## Requesting a movie or show
+
+When something is not in the library, anyone signed in can ask for it. On **Search**, a search with no
+results offers **Not in the library? Request it** (the form is prefilled with what you typed), and
+**Request a movie or show** is always at the bottom of the Search screen and the Requests screen. The
+form takes a title, and optionally a year, Movie or Show, and a note. Nothing is downloaded: a request
+is only a note for the owner.
+
+The **Requests** tab shows **My requests** with their state (**Waiting**, **Added**, **Not added**),
+and open ones can be withdrawn. When the signed-in Jellyfin user is an administrator, the tab shows
+everyone's requests instead: open ones first, with **Added** and **Dismiss** buttons, and handled ones
+under **Handled** (where **Reopen** undoes a choice). A red number on the Requests tab counts the open
+requests; it is read when the app starts and when you come back to it. Other users get no number.
+
+The requests are stored in `.thuisbios/requests.json` next to `samsung-tv.json`, never in the project.
+Nothing needs setting up. If Jellyfin is not at `http://localhost:8096` as seen from the PC, set
+`THUISBIOS_JELLYFIN_URL` before starting the remote.
+
 ## Volume button
 
 A web page on the phone cannot talk to the TV by itself, so the PC passes the volume on to the TV.

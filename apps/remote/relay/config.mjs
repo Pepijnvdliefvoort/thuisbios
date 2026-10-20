@@ -11,6 +11,16 @@ export function configPath(env = process.env) {
   return env.THUISBIOS_TV_CONFIG || join(homedir(), '.thuisbios', 'samsung-tv.json');
 }
 
+/** Path of the title requests file, next to the TV config; `THUISBIOS_REQUESTS_FILE` overrides it. */
+export function requestsPath(env = process.env) {
+  return env.THUISBIOS_REQUESTS_FILE || join(dirname(configPath(env)), 'requests.json');
+}
+
+/** Base URL of Jellyfin as seen from the PC; `THUISBIOS_JELLYFIN_URL` overrides it. */
+export function jellyfinUrl(env = process.env) {
+  return (env.THUISBIOS_JELLYFIN_URL || 'http://localhost:8096').replace(/\/+$/, '');
+}
+
 /** Port of the TV's secure remote WebSocket; `THUISBIOS_TV_PORT` overrides it (tests). */
 export function tvPort(env = process.env) {
   const port = Number(env.THUISBIOS_TV_PORT);

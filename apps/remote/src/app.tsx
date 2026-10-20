@@ -15,11 +15,13 @@ import { Home } from './screens/Home';
 import { Library } from './screens/Library';
 import { NowPlaying } from './screens/NowPlaying';
 import { Player } from './screens/Player';
+import { Requests } from './screens/Requests';
 import { Search } from './screens/Search';
 import { SignIn } from './screens/SignIn';
 import { enterLandscapeFullscreen } from './fullscreen';
 import { parseConnectParam } from './jellyfin/quickConnect';
 import { clearSession, getDeviceId, loadPendingConnect, loadSession, saveSession, savePendingConnect } from './storage';
+import { useRequests } from './useRequests';
 import { useTv } from './useTv';
 
 /**
@@ -95,6 +97,7 @@ function Shell({
     toastTimer.current = setTimeout(() => setToastText(''), 2600);
   };
   const tv = useTv(client, session.userId, getDeviceId(), toast);
+  const requests = useRequests(session);
 
   // Counts playback endings so Home can refresh its Resume watching row.
   const [playbackEnded, setPlaybackEnded] = useState(0);
@@ -130,6 +133,7 @@ function Shell({
     client,
     session,
     tv,
+    requests,
     playbackEnded,
     toast,
     openItem: (id) => {
@@ -172,6 +176,9 @@ function Shell({
           <main hidden={nav.tab !== 'library'}>
             <Library />
           </main>
+          <main hidden={nav.tab !== 'requests'}>
+            <Requests active={nav.tab === 'requests'} />
+          </main>
         </div>
         {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
         {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
@@ -181,7 +188,7 @@ function Shell({
         ) : null}
         <div class="bottom">
           {top && (top.kind === 'nowPlaying' || top.kind === 'connect' || top.kind === 'player') ? null : <MiniPlayer />}
-          {top && (top.kind === 'connect' || top.kind === 'player') ? null : <TabBar tab={nav.tab} onChange={nav.setTab} />}
+          {top && (top.kind === 'connect' || top.kind === 'player') ? null : <TabBar tab={nav.tab} onChange={nav.setTab} badge={requests.badge} />}
         </div>
         <Toast message={toastText} />
       </div>
