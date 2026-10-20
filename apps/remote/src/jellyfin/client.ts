@@ -25,6 +25,8 @@ export interface ClientOptions {
   token?: string;
   /** Injectable for tests; defaults to the global fetch. */
   fetchFn?: typeof fetch;
+  /** Called when the server rejects the token with 401. */
+  onUnauthorized?: () => void;
 }
 
 const LIST_FIELDS = 'ProductionYear,RunTimeTicks,ChildCount';
@@ -69,7 +71,7 @@ const playbackBody = (r: PlaybackReport) => ({
 });
 
 async function doRequest<T>(
-  { serverUrl, info, token, fetchFn }: ClientOptions,
+  { serverUrl, info, token, fetchFn, onUnauthorized }: ClientOptions,
   method: string,
   path: string,
   body?: unknown,
@@ -83,6 +85,7 @@ async function doRequest<T>(
     body: body === undefined ? undefined : JSON.stringify(body),
     ...(keepalive ? { keepalive: true } : {}),
   });
+  if (response.status === 401 && token && onUnauthorized) onUnauthorized();
   if (!response.ok) throw new JellyfinError(response.status, `${method} ${path} -> HTTP ${response.status}`);
   const text = await response.text();
   return (text ? JSON.parse(text) : undefined) as T;

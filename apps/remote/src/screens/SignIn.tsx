@@ -6,7 +6,15 @@ import { describeSignInError, isServerAddressError } from '../jellyfin/errors';
 import type { Session } from '../jellyfin/types';
 import { loadServerUrl, saveServerUrl } from '../storage';
 
-export function SignIn({ onSignedIn, connecting }: { onSignedIn: (session: Session) => void; connecting?: boolean }) {
+export function SignIn({
+  onSignedIn,
+  connecting,
+  expired,
+}: {
+  onSignedIn: (session: Session) => void;
+  connecting?: boolean;
+  expired?: boolean;
+}) {
   const [server, setServer] = useState(
     () => loadServerUrl() || defaultServerUrl(import.meta.env.VITE_JELLYFIN_URL, window.location),
   );
@@ -42,6 +50,10 @@ export function SignIn({ onSignedIn, connecting }: { onSignedIn: (session: Sessi
       {connecting ? (
         <p class="signin-banner" role="status">
           Sign in to connect your TV
+        </p>
+      ) : expired ? (
+        <p class="signin-banner" role="status">
+          You were signed out. Please sign in again.
         </p>
       ) : null}
       <p class="signin-lead">Sign in to control your TV.</p>
