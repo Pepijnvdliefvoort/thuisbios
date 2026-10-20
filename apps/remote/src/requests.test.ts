@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createRequestsApi, describeRequestsError, parseYear, requestLabel, splitRequests, type TitleRequest, typeLabel } from './requests';
+import { createRequestsApi, describeRequestsError, requestLabel, splitRequests, type TitleRequest, typeLabel } from './requests';
 
 const make = (response: Partial<Response> | Error) => {
   const fetchFn = vi.fn(async (_url: string, _init: RequestInit) => {
@@ -95,12 +95,5 @@ describe('helpers', () => {
     expect(typeLabel('show')).toBe('Show');
     expect(typeLabel(undefined)).toBe('');
     expect(describeRequestsError('duplicate')).toBe('You already requested this.');
-  });
-
-  it('parses the year field', () => {
-    expect(parseYear('')).toBeUndefined();
-    expect(parseYear(' 1995 ')).toBe(1995);
-    expect(parseYear('abc')).toBeNaN();
-    expect(parseYear('1200')).toBeNaN();
   });
 });

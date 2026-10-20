@@ -64,7 +64,7 @@ connect another TV.
 When something is not in the library, anyone signed in can ask for it. On **Search**, a search with no
 results offers **Not in the library? Request it** (the form is prefilled with what you typed), and
 **Request a movie or show** is always at the bottom of the Search screen and the Requests screen. The
-form takes a title, and optionally a year, Movie or Show, and a note. Nothing is downloaded: a request
+form takes just a title. Nothing is downloaded: a request
 is only a note for the owner.
 
 While you type a title, the form shows matching movies and shows with a small poster and the year.
