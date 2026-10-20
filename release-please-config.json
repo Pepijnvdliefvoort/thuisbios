@@ -5,6 +5,7 @@
     ".": {
       "release-type": "node",
       "package-name": "thuisbios",
+      "initial-version": "0.1.0",
       "changelog-sections": [
         {
           "type": "feat",
