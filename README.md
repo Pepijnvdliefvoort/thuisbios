@@ -12,7 +12,7 @@ Full plan: [docs/plan.md](docs/plan.md).
  Phone remote ──HTTP(S) + WebSocket──▶ Jellyfin (Windows PC) ◀──HTTP + WebSocket── TV app
  (PWA)                              NVIDIA RTX 4060 Ti                          (Samsung Tizen 4.0)
       │                             NVENC transcoding                                  ▲
-      └──── optional: relay service ──▶ Samsung TV control API (volume, power, launch) ┘
+      └──── same-origin relay in the remote's server (PC) ──▶ Samsung TV remote API (volume) ┘
 ```
 
 Jellyfin handles users, library, metadata, progress, search, image resizing, transcoding and the
@@ -30,7 +30,7 @@ scripts/                  repo tooling (version checks)
 packages/jellyfin-client/ planned: shared typed Jellyfin API client
 apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite), served to the TV browser
 apps/remote/              phone remote PWA, phase 4 (Preact + TypeScript + Vite)
-services/relay/           planned: optional ASP.NET Core relay for Samsung TV control
+apps/remote/relay/        Samsung TV volume relay (Node, runs inside the remote's vite server); apps/remote/scripts/tv-setup.mjs pairs the TV
 server/                   Jellyfin helper scripts (PowerShell) and Pester tests; device profile planned
 ```
 
@@ -104,9 +104,17 @@ remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous ep
 TV" and Disconnect (sign out).
 
 Every request uses the configured absolute server URL and there is no service worker, so the app can
-be wrapped with Capacitor later. Volume stays on the TV remote for now. Follow
-[docs/remote/setup.md](docs/remote/setup.md) to run it on the PC and add it to the phone's home
-screen.
+be wrapped with Capacitor later. A volume button (Now Playing and the TV sheet) opens a bottom sheet
+with a slider and a mute toggle that control the Samsung TV through a small relay that runs inside
+the remote's own `vite preview` (and `vite dev`) server on the PC, under `/api/tv/`. The phone calls it on the same origin with its
+Jellyfin token, which the relay checks against Jellyfin; it only ever sends `KEY_VOLUP`,
+`KEY_VOLDOWN` and `KEY_MUTE` over the remote API, and reads and sets the exact level through the TV's
+UPnP RenderingControl service (port 9197). When UPnP is not available (for instance sound going to a
+soundbar), or `"volumeMode": "relative"` is set, the slider presses the volume keys toward a remembered
+level instead. The TV address and pairing token live in
+`~/.thuisbios/samsung-tv.json`, outside the repo; `npm run tv:setup -w apps/remote -- <tv-ip>` pairs
+the TV once. Follow [docs/remote/setup.md](docs/remote/setup.md) to run it on the PC and add it to
+the phone's home screen.
 
 Away from home the phone reaches the PC through Tailscale Serve (private, tailnet only, nothing opened
 to the internet): `https://<pc>.<tailnet>.ts.net` for the app (port 443) and `:8920` for Jellyfin, both
@@ -119,6 +127,7 @@ npm test -w apps/remote          # Vitest
 npm run build -w apps/remote     # apps/remote/dist
 npm run preview -w apps/remote   # serves dist on the network, port 4174
 npm run icons -w apps/remote     # regenerate the PWA icons (public/*.png)
+npm run tv:setup -w apps/remote -- 192.168.1.156   # pair the Samsung TV once (volume button)
 ```
 
 ## Branching and releases
@@ -158,5 +167,5 @@ Docker image builds (GHCR) and the other test jobs are added together with the f
 | 1. Server | Jellyfin on the Windows PC with a test library | done |
 | 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
 | 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done |
-| 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume to the soundbar | in review: remote PWA built (browse, play on TV or on the phone, transport controls); volume to the soundbar not yet |
+| 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | in review: remote PWA built (browse, play on TV or on the phone, transport controls); volume slider built (relay in the remote's server), not yet verified on the real TV |
 | 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve in review; the rest planned |

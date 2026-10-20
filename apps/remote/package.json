@@ -11,7 +11,8 @@
     "test": "vitest run",
     "build": "vite build",
     "preview": "vite preview --host --port 4174",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "tv:setup": "node scripts/tv-setup.mjs"
   },
   "dependencies": {
     "hls.js": "^1.7.3",
@@ -20,9 +21,11 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
     "jsdom": "^29.1.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "ws": "^8.22.0"
   }
 }

@@ -55,7 +55,45 @@ connect another TV.
   **-10** and **+10** skip ten seconds, the arrows go to the previous or next episode, and the
   square stops playback.
 
-Volume stays on the TV remote for now: a web page on the phone cannot change the TV's volume.
+- **Volume button** (speaker icon on the Now Playing screen, and **TV volume** in the TV sheet at the
+  top right): opens a panel from the bottom with a slider for the TV volume, a speaker icon to mute
+  or un-mute, and the volume as a number. It only shows after the one-time setup below.
+
+## Volume button
+
+A web page on the phone cannot talk to the TV by itself, so the PC passes the volume on to the TV.
+This is built into the same program that serves the remote (step 1.4), so there is nothing extra to
+keep running. You set it up once.
+
+1. Find the TV's address. On the TV press **Settings**, then go to **General**, **Network**,
+   **Network Status** and **IP Settings**. Write down the **IP Address**, for example `192.168.1.156`.
+2. Switch the TV on. On the PC open a terminal (PowerShell) in the project folder and run
+   `npm run tv:setup -w apps/remote -- 192.168.1.156`, with your own address instead of
+   `192.168.1.156`.
+3. Look at the TV. It asks whether the PC may connect. Press **Allow** with the TV remote. You have
+   one minute.
+4. The terminal says **Paired. The volume button on the phone now works.** During the check the
+   volume goes up one step and then down one step, so you can hear it work. Just before that it says
+   either **The TV reports volume 14** (the slider will show the real volume) or that the volume is
+   not reported (the slider still works, but shows an approximate level).
+5. Reload the remote on the phone. A speaker button appears on the Now Playing screen, and a
+   **TV volume** button in the **Your TV** sheet (tap the chip at the top right) so you can also use
+   it when nothing plays. You do not need to restart anything.
+
+Tap the button and a panel slides up from the bottom. Drag the slider to set the volume; the number
+on the right follows your finger and the TV changes while you drag. Tap the speaker icon on the left
+to mute or un-mute (it shows a crossed-out speaker while muted). Close the panel by tapping outside
+it, dragging it down or pressing **Close**.
+
+If the TV sends its sound to a soundbar, the TV's own volume does not matter and the slider cannot
+read the soundbar. Then the slider works by pressing the TV's volume keys for you, and the panel
+says **Approximate level**: the number is the level the PC remembers, and a big jump takes a few
+seconds because the keys are pressed one by one. If the real volume was changed with another remote,
+the number can be off. See Troubleshooting if the slider moves but the sound does not change.
+
+The address and the pairing are saved in `.thuisbios/samsung-tv.json` in your user folder on the PC,
+never in the project. Only phones that are signed in to Jellyfin can use the button, and they can
+only change the volume.
 
 ## Troubleshooting
 
@@ -74,4 +112,35 @@ Volume stays on the TV remote for now: a web page on the phone cannot change the
   address the preview command prints.
 - **"TV did not respond."** The TV went to sleep or lost its connection. Wake it, reload the
   Thuisbios page on the TV and try again.
+- **The volume button is missing.** Run the setup from the Volume button section, then reload the
+  remote. They also stay hidden when the remote is opened from something other than the PC program
+  from step 1.4.
+- **"Can't reach the TV. Is it on?"** Switch the TV on (standby is not enough on some TVs) and try
+  again. If the TV's address changed, run the setup again with the new address.
+- **"The TV blocked the volume control."** Probably Deny was pressed, or Allow was missed. On the TV
+  go to **Settings**, **General**, **External Device Manager**, **Device Connection Manager**,
+  **Device List**. Set **Thuisbios Remote** to **Allow**, or remove it, and run the setup again.
+- **"Volume control isn't set up on the PC yet."** Run the setup from the Volume button section.
+- **The slider moves but the sound doesn't change.** The TV is probably sending its sound to a
+  soundbar, and the TV's own volume is not what you hear. Tell the PC to use the TV's volume keys
+  instead, which the soundbar follows:
+  1. On the PC open File Explorer, type `%USERPROFILE%\.thuisbios` in the address bar and press
+     Enter. This is the folder `C:\Users\<you>\.thuisbios`, where `<you>` is your Windows user name.
+  2. Right-click `samsung-tv.json`, choose **Open with** and then **Notepad**.
+  3. The file looks like `{ "host": "192.168.1.156", "token": "..." }` spread over a few lines. Add
+     a line `"volumeMode": "relative",` right after the opening `{`, so it becomes:
+
+     ```json
+     {
+       "volumeMode": "relative",
+       "host": "192.168.1.156",
+       "token": "..."
+     }
+     ```
+
+  4. Save the file (Ctrl+S) and close Notepad. No restart is needed: open the volume panel again and
+     it says **Approximate level**. To go back, delete that line.
+- **The number on the slider is wrong ("Approximate level").** The PC only remembers the level it set
+  last, so changing the volume with the TV remote makes it drift. Drag the slider once to the level
+  you hear; from then on it is right again.
 - **After an update the phone shows the old version.** Close the remote completely and open it again.

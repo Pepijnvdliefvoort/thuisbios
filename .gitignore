@@ -33,3 +33,6 @@ Desktop.ini
 media/
 *.mkv
 *.mp4
+
+# Local Samsung TV pairing (normally lives in ~/.thuisbios)
+samsung-tv.json
