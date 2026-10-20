@@ -4,6 +4,7 @@ import {
   playCommand,
   relativeSeekTicks,
   seekCommand,
+  subtitleOffsetCommand,
   transportCommand,
   viewCommand,
   type Command,
@@ -47,6 +48,8 @@ export interface TvApi {
   previous(): void;
   seekTo(ticks: number): void;
   skip(deltaSeconds: number): void;
+  /** Sets the subtitle timing of an item on the TV to an absolute offset in ms (positive = later). */
+  setSubtitleOffset(itemId: string, ms: number): void;
 }
 
 export function useTv(
@@ -208,6 +211,7 @@ export function useTv(
       optimistic({ positionTicks: target });
       void run((s) => seekCommand(s, target));
     },
+    setSubtitleOffset: (itemId, ms) => void run((s) => subtitleOffsetCommand(s, itemId, ms)),
   };
 }
 

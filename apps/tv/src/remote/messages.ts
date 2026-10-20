@@ -1,4 +1,5 @@
 import { ticksToSeconds } from '../jellyfin/playback';
+import { formatOffset } from '../jellyfin/subtitleOffset';
 
 /** Commands a phone sends through the Jellyfin sessions API; Jellyfin forwards them over the TV's WebSocket. */
 export type PlaystateCommand =
@@ -16,6 +17,7 @@ export type RemoteCommand =
   | { type: 'play'; itemId: string; startPositionTicks: number }
   | { type: 'playstate'; command: PlaystateCommand; seekPositionTicks: number }
   | { type: 'display'; itemId: string }
+  | { type: 'subtitleOffset'; itemId: string; ms: number }
   | { type: 'disconnect' };
 
 /** A parsed socket message: a keep-alive request or a command for the screens. */
@@ -26,6 +28,30 @@ export type SocketMessage = { type: 'keepAlive'; seconds: number } | { type: 'co
  * Keep in sync with DISCONNECT_TEXT in apps/remote/src/jellyfin/commands.ts (apps never import each other).
  */
 export const DISCONNECT_TEXT = 'thuisbios:disconnect';
+
+/**
+ * Private subtitle timing signal: `thuisbios:subtitle-offset:<itemId>:<ms>`, sent as a display message.
+ * ms is the absolute offset for that item (positive = subtitles later), not a delta.
+ * Keep in sync with SUBTITLE_OFFSET_PREFIX in apps/remote/src/jellyfin/commands.ts (apps never import each other).
+ */
+export const SUBTITLE_OFFSET_PREFIX = 'thuisbios:subtitle-offset:';
+
+/** Largest subtitle offset either way, in ms. */
+export const MAX_SUBTITLE_OFFSET_MS = 60000;
+
+/** Parses the subtitle offset text; null when it does not match or carries a bad value. */
+function parseSubtitleOffset(text: unknown): RemoteCommand | null {
+  if (typeof text !== 'string' || text.indexOf(SUBTITLE_OFFSET_PREFIX) !== 0) return null;
+  const rest = text.slice(SUBTITLE_OFFSET_PREFIX.length);
+  const cut = rest.lastIndexOf(':');
+  if (cut <= 0) return null;
+  const itemId = rest.slice(0, cut);
+  const raw = rest.slice(cut + 1);
+  if (!/^-?\d+$/.test(raw)) return null;
+  const ms = Number(raw);
+  if (!isFinite(ms)) return null;
+  return { type: 'subtitleOffset', itemId, ms: Math.max(-MAX_SUBTITLE_OFFSET_MS, Math.min(MAX_SUBTITLE_OFFSET_MS, ms)) };
+}
 
 /** Capabilities posted to `/Sessions/Capabilities/Full` so the phone lists this TV as controllable. */
 export const REMOTE_CAPABILITIES = {
@@ -86,7 +112,9 @@ export function parseSocketMessage(raw: string): SocketMessage | null {
     case 'GeneralCommand': {
       if (!data || !isObject(data.Arguments)) return null;
       if (data.Name === 'DisplayMessage') {
-        return data.Arguments.Text === DISCONNECT_TEXT ? { type: 'command', command: { type: 'disconnect' } } : null;
+        if (data.Arguments.Text === DISCONNECT_TEXT) return { type: 'command', command: { type: 'disconnect' } };
+        const offset = parseSubtitleOffset(data.Arguments.Text);
+        return offset ? { type: 'command', command: offset } : null;
       }
       if (data.Name !== 'DisplayContent') return null;
       const id = data.Arguments.ItemId;
@@ -120,6 +148,8 @@ export function describeCommand(c: RemoteCommand): string {
       return c.command === 'Seek' ? `Playstate Seek ${Math.round(ticksToSeconds(c.seekPositionTicks))}s` : `Playstate ${c.command}`;
     case 'disconnect':
       return 'Disconnect';
+    case 'subtitleOffset':
+      return `Subtitles ${formatOffset(c.ms)}`;
     default:
       return `DisplayContent ${c.itemId}`;
   }

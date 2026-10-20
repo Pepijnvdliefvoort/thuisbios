@@ -73,3 +73,14 @@ export function savePendingConnect(code: string | null): void {
     // Storage unavailable: the code only lives in memory.
   }
 }
+
+const subOffsetKey = (itemId: string): string => `thuisbios.remote.subOffset.${itemId}`;
+
+/** The subtitle timing offset (ms) last sent for an item; 0 when none. */
+export function loadSubtitleOffset(itemId: string): number {
+  const n = parseInt(read(subOffsetKey(itemId)) || '', 10);
+  return isFinite(n) ? n : 0;
+}
+
+export const saveSubtitleOffset = (itemId: string, ms: number): void =>
+  write(subOffsetKey(itemId), ms === 0 ? null : String(Math.round(ms)));

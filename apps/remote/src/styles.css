@@ -242,6 +242,9 @@ input:focus { outline: none; border-color: var(--accent); }
 .vol-step:disabled { opacity: 0.3; }
 .vol-step:active:not(:disabled) { transform: scale(0.96); }
 .vol-value { min-width: 3ch; text-align: right; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sub-value { margin: 0; text-align: center; font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sub-steps { margin-top: 0; }
+.sub-steps .vol-step { font-size: 16px; font-weight: 600; }
 .vol-hint { margin: 0; text-align: center; color: var(--muted); font-size: 13px; }
 .vol-slider {
   --fill: 0%;
