@@ -123,6 +123,11 @@ level instead. The TV address and pairing token live in
 the TV once. Follow [docs/remote/setup.md](docs/remote/setup.md) to run it on the PC and add it to
 the phone's home screen.
 
+Now Playing also has a "Subtitles" button that opens a sheet to shift the subtitle timing in steps of
+0.1 s or 0.5 s (positive is later). The phone sends the absolute offset for the playing item as a private
+Jellyfin display message (`thuisbios:subtitle-offset:<itemId>:<ms>`), the TV shifts the WebVTT cues and
+remembers the offset per item. It only works for text subtitles.
+
 The same relay serves title requests under `/api/requests`: when a search finds nothing, anyone signed
 in can request a movie or show (just a title; picking a suggestion adds year, type and poster), and the Requests tab shows their
 own requests with a status (Waiting, Added, Not added), where open ones can be withdrawn. The owner

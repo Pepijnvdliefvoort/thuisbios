@@ -17,6 +17,8 @@ import {
   subtitleButtonLabel,
   subtitleVttUrl,
 } from '../jellyfin/subtitles';
+import { formatOffset, shiftVtt } from '../jellyfin/subtitleOffset';
+import { getSubtitleOffset, setSubtitleOffset } from '../storage';
 import { playerTitle } from '../jellyfin/itemInfo';
 import type { BaseItem, MediaSource, Session } from '../jellyfin/types';
 import { debugRequested } from '../debug/keyLogState';
@@ -159,42 +161,26 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
     };
   }, [client, session, item.Id, forceTranscode]);
 
-  // Subtitles: fetch the WebVTT text and attach it as a blob URL (avoids cross-origin <track> issues).
+  // Subtitles: fetch the WebVTT text once per track, then attach it as a blob URL (avoids cross-origin
+  // <track> issues). The timing offset is applied to the text, so changing it needs no refetch.
   const subs = loaded ? listSubtitles(loaded.source) : [];
   const imageOnly = loaded ? hasOnlyImageSubtitles(loaded.source) : false;
+  const [vttText, setVttText] = useState<string | null>(null);
+  const [subOffset, setSubOffset] = useState(() => getSubtitleOffset(item.Id));
+  useEffect(() => setSubOffset(getSubtitleOffset(item.Id)), [item.Id]);
   useEffect(() => {
-    const v = video.current;
-    if (!loaded || !v) return;
-    const old = v.querySelectorAll('track');
-    for (let i = 0; i < old.length; i++) {
-      const src = old[i].getAttribute('src');
-      if (src) URL.revokeObjectURL(src);
-      v.removeChild(old[i]);
-    }
+    setVttText(null);
     setNotice('');
-    const track = subs[subSel];
-    if (!track) return;
+    const track = loaded ? subs[subSel] : undefined;
+    if (!loaded || !track) return;
     let alive = true;
-    let blobUrl = '';
     fetch(subtitleVttUrl(session.serverUrl, item.Id, loaded.source.Id, track.index, session.token))
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.text();
       })
       .then((text) => {
-        if (!alive) return;
-        blobUrl = URL.createObjectURL(new Blob([text], { type: 'text/vtt' }));
-        const el = document.createElement('track');
-        el.kind = 'subtitles';
-        el.label = track.label;
-        el.srclang = track.lang || 'und';
-        el.default = true;
-        el.src = blobUrl;
-        el.addEventListener('load', () => {
-          if (el.track) el.track.mode = 'showing';
-        });
-        v.appendChild(el);
-        if (el.track) el.track.mode = 'showing';
+        if (alive) setVttText(text);
       })
       .catch((e: Error) => {
         if (!alive) return;
@@ -203,10 +189,38 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
       });
     return () => {
       alive = false;
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, subSel]);
+  useEffect(() => {
+    // Captured here: Preact 11 runs cleanups after paint, when the ref is already null.
+    const v = video.current;
+    if (!v) return;
+    const old = v.querySelectorAll('track');
+    for (let i = 0; i < old.length; i++) {
+      const src = old[i].getAttribute('src');
+      if (src) URL.revokeObjectURL(src);
+      v.removeChild(old[i]);
+    }
+    const track = subs[subSel];
+    if (vttText === null || !track) return;
+    const blobUrl = URL.createObjectURL(new Blob([shiftVtt(vttText, subOffset)], { type: 'text/vtt' }));
+    const el = document.createElement('track');
+    el.kind = 'subtitles';
+    el.label = track.label;
+    el.srclang = track.lang || 'und';
+    el.default = true;
+    el.src = blobUrl;
+    el.addEventListener('load', () => {
+      if (el.track) el.track.mode = 'showing';
+    });
+    v.appendChild(el);
+    if (el.track) el.track.mode = 'showing';
+    return () => {
+      URL.revokeObjectURL(blobUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vttText, subOffset]);
 
   // Progress reporting: start, every 10 s, stop.
   useEffect(() => {
@@ -262,8 +276,15 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
   const noteTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(noteTimer.current), []);
 
-  /** Playstate commands from the phone (Play and DisplayContent are handled by the App). */
+  /** Playstate and subtitle timing commands from the phone (Play and DisplayContent are handled by the App). */
   const onRemote = (command: RemoteCommand) => {
+    if (command.type === 'subtitleOffset') {
+      if (command.itemId !== item.Id) return;
+      setSubOffset(command.ms);
+      setSubtitleOffset(item.Id, command.ms);
+      showRemoteNote(command.ms === 0 ? 'Subtitles in sync' : `Subtitles ${formatOffset(command.ms)}`);
+      return;
+    }
     if (command.type !== 'playstate') return;
     const v = video.current;
     const play = () => {

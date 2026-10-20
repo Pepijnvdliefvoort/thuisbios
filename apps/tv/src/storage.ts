@@ -43,3 +43,14 @@ export function loadSession(): Session | null {
 
 export const saveSession = (session: Session): void => write(SESSION_KEY, JSON.stringify(session));
 export const clearSession = (): void => write(SESSION_KEY, null);
+
+const subOffsetKey = (itemId: string): string => `thuisbios.subOffset.${itemId}`;
+
+/** Subtitle timing offset in ms for an item (0 when none was set). */
+export function getSubtitleOffset(itemId: string): number {
+  const n = parseInt(read(subOffsetKey(itemId)) || '', 10);
+  return isFinite(n) ? n : 0;
+}
+
+export const setSubtitleOffset = (itemId: string, ms: number): void =>
+  write(subOffsetKey(itemId), ms === 0 ? null : String(Math.round(ms)));
