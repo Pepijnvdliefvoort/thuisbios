@@ -2,9 +2,9 @@ import type { MediaSegment } from './segments';
 
 const TICKS_PER_SECOND = 10000000;
 /** With credits markers: how long the card counts down once the position enters the card zone. */
-export const OUTRO_COUNTDOWN_SECONDS = 10;
+export const OUTRO_COUNTDOWN_SECONDS = 5;
 /** Without credits markers: the card shows this long before the end of the video. */
-export const FALLBACK_LEAD_SECONDS = 30;
+export const FALLBACK_LEAD_SECONDS = 5;
 /** A position change bigger than this inside the card zone is a seek and restarts the countdown. */
 export const JUMP_SECONDS = 2;
 
@@ -22,7 +22,7 @@ export interface NextEpisodePlan {
 
 /**
  * Plans the card for a video of `runtimeSeconds`. Uses the 'Outro' (credits) segment that starts last, as long
- * as it starts in the second half of the video; otherwise the card shows 30 s before the end.
+ * as it starts in the second half of the video; otherwise the card shows 5 s before the end.
  * Null when the runtime is unknown.
  */
 export function planNextEpisode(segments: MediaSegment[], runtimeSeconds: number): NextEpisodePlan | null {
