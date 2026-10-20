@@ -8,6 +8,7 @@ import { Ctx, type AppContext } from './context';
 import { createClient } from './jellyfin/client';
 import type { Session } from './jellyfin/types';
 import { useNav } from './nav';
+import { playbackJustEnded, type PlaybackState } from './playbackEnd';
 import { ConnectTv } from './screens/ConnectTv';
 import { Details } from './screens/Details';
 import { Home } from './screens/Home';
@@ -95,6 +96,18 @@ function Shell({
   };
   const tv = useTv(client, session.userId, getDeviceId(), toast);
 
+  // Counts playback endings so Home can refresh its Resume watching row.
+  const [playbackEnded, setPlaybackEnded] = useState(0);
+  const playing: PlaybackState = {
+    tv: !!tv.nowPlaying,
+    phone: nav.stack.length > 0 && nav.stack[nav.stack.length - 1].kind === 'player',
+  };
+  const prevPlaying = useRef(playing);
+  useEffect(() => {
+    if (playbackJustEnded(prevPlaying.current, playing)) setPlaybackEnded((n) => n + 1);
+    prevPlaying.current = playing;
+  }, [playing.tv, playing.phone]);
+
   // Keep the tab's scroll position while a screen is open on top of it.
   const savedScroll = useRef(0);
   const open = nav.stack.length > 0;
@@ -117,6 +130,7 @@ function Shell({
     client,
     session,
     tv,
+    playbackEnded,
     toast,
     openItem: (id) => {
       remember();

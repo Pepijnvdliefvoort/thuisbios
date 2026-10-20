@@ -8,6 +8,8 @@ export interface AppContext {
   client: JellyfinClient;
   session: Session;
   tv: TvApi;
+  /** Increments each time playback ends (TV stopped or phone Player closed), so screens can refresh. */
+  playbackEnded: number;
   openItem(id: string): void;
   openNowPlaying(): void;
   /** Plays an item on the phone itself (used when no TV is connected). */
