@@ -105,7 +105,7 @@ TV" and Disconnect (sign out).
 
 Every request uses the configured absolute server URL and there is no service worker, so the app can
 be wrapped with Capacitor later. A volume button (Now Playing and the TV sheet) opens a bottom sheet
-with a slider and a mute toggle that control the Samsung TV through a small relay that runs inside
+with a slider, a mute toggle and −/+ buttons (one step per tap) that control the Samsung TV through a small relay that runs inside
 the remote's own `vite preview` (and `vite dev`) server on the PC, under `/api/tv/`. The phone calls it on the same origin with its
 Jellyfin token, which the relay checks against Jellyfin; it only ever sends `KEY_VOLUP`,
 `KEY_VOLDOWN` and `KEY_MUTE` over the remote API, and reads and sets the exact level through the TV's

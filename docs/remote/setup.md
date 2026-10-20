@@ -57,7 +57,7 @@ connect another TV.
 
 - **Volume button** (speaker icon on the Now Playing screen, and **TV volume** in the TV sheet at the
   top right): opens a panel from the bottom with a slider for the TV volume, a speaker icon to mute
-  or un-mute, and the volume as a number. It only shows after the one-time setup below.
+  or un-mute, the volume as a number, and **−** and **+** buttons that change it by one. It only shows after the one-time setup below.
 
 ## Volume button
 
@@ -82,7 +82,8 @@ keep running. You set it up once.
 
 Tap the button and a panel slides up from the bottom. Drag the slider to set the volume; the number
 on the right follows your finger and the TV changes while you drag. Tap the speaker icon on the left
-to mute or un-mute (it shows a crossed-out speaker while muted). Close the panel by tapping outside
+to mute or un-mute (it shows a crossed-out speaker while muted). For a precise change, tap the **−**
+or **+** button below the slider: each tap lowers or raises the volume by one. Close the panel by tapping outside
 it, dragging it down or pressing **Close**.
 
 If the TV sends its sound to a soundbar, the TV's own volume does not matter and the slider cannot

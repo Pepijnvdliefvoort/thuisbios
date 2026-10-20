@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { clientInfo } from '../clientInfo';
 import { useApp } from '../context';
 import { buildAuthHeader } from '../jellyfin/auth';
-import { createLevelSender, createTvVolume, describeVolumeError, type VolumeStateResult } from '../tvVolume';
+import { createLevelSender, createTvVolume, describeVolumeError, stepLevel, type VolumeStateResult } from '../tvVolume';
 import { Icon, type IconName } from './Icon';
 
 // The relay's status is checked once per sign-in and shared by every VolumeControls on screen.
@@ -71,6 +71,12 @@ function VolumeSheet({ volume, toast, onClose }: { volume: ReturnType<typeof cre
   const dragging = useRef(false);
   const dragStart = useRef(0);
   const sliderActive = useRef(false);
+  // The latest level, so quick taps on - and + build on each other instead of on a stale render.
+  const levelRef = useRef(0);
+  const applyLevel = (next: number) => {
+    levelRef.current = next;
+    setLevel(next);
+  };
 
   const fail = (r: VolumeStateResult) => {
     if (!r.ok) toast(describeVolumeError(r.error));
@@ -102,7 +108,7 @@ function VolumeSheet({ volume, toast, onClose }: { volume: ReturnType<typeof cre
         onClose();
         return;
       }
-      setLevel(r.state.level);
+      applyLevel(r.state.level);
       setMuted(r.state.muted ?? false);
       setMode(r.state.mode);
       setReady(true);
@@ -118,9 +124,17 @@ function VolumeSheet({ volume, toast, onClose }: { volume: ReturnType<typeof cre
       setMode(r.state.mode);
       // Relative mode cannot read the mute state, so the tap is the best guess.
       setMuted(r.state.muted ?? !muted);
-      if (!sliderActive.current) setLevel((l) => (r.state.mode === 'absolute' ? r.state.level : l));
+      if (!sliderActive.current && r.state.mode === 'absolute') applyLevel(r.state.level);
     });
     if (mode === 'relative') setMuted(!muted);
+  };
+
+  const step = (delta: number) => {
+    const next = stepLevel(levelRef.current, delta);
+    if (next === levelRef.current) return;
+    applyLevel(next);
+    if (mode === 'relative') setMuted(false);
+    sender.update(next);
   };
 
   const onGrabDown = (e: PointerEvent) => {
@@ -169,7 +183,7 @@ function VolumeSheet({ volume, toast, onClose }: { volume: ReturnType<typeof cre
             onPointerDown={() => (sliderActive.current = true)}
             onInput={(e) => {
               const next = Number((e.currentTarget as HTMLInputElement).value);
-              setLevel(next);
+              applyLevel(next);
               if (mode === 'relative') setMuted(false);
               sender.update(next);
             }}
@@ -181,6 +195,14 @@ function VolumeSheet({ volume, toast, onClose }: { volume: ReturnType<typeof cre
           <span class="vol-value" aria-live="off">
             {ready ? level : '--'}
           </span>
+        </div>
+        <div class="vol-steps">
+          <button type="button" class="vol-step" aria-label="Volume down" disabled={!ready || level <= 0} onClick={() => step(-1)}>
+            <Icon name="minus" size={28} />
+          </button>
+          <button type="button" class="vol-step" aria-label="Volume up" disabled={!ready || level >= 100} onClick={() => step(1)}>
+            <Icon name="plus" size={28} />
+          </button>
         </div>
         <p class="vol-hint">{ready && mode === 'relative' ? 'Approximate level' : ' '}</p>
         <button type="button" class="btn ghost" onClick={close}>
