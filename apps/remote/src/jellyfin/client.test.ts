@@ -16,6 +16,22 @@ describe('client', () => {
     expect((init.headers as Record<string, string>).Authorization).toContain('Token="tok"');
   });
 
+  it('reads media segments and treats errors as none', async () => {
+    const body = { Items: [{ Id: 'a', ItemId: 'e1', Type: 'Intro', StartTicks: 100, EndTicks: 900 }], TotalRecordCount: 1, StartIndex: 0 };
+    const fetchFn = vi.fn(async () => ok(body));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    expect(await client.mediaSegments('e1')).toEqual([{ type: 'Intro', startTicks: 100, endTicks: 900 }]);
+    expect((fetchFn.mock.calls[0] as unknown as [string])[0]).toBe('http://pc/MediaSegments/e1');
+    const missing = vi.fn(async () => ({ ok: false, status: 404, text: async () => '' }) as Response);
+    const c2 = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: missing as unknown as typeof fetch });
+    expect(await c2.mediaSegments('e1')).toEqual([]);
+    const boom = vi.fn(async () => {
+      throw new TypeError('offline');
+    });
+    const c3 = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: boom as unknown as typeof fetch });
+    expect(await c3.mediaSegments('e1')).toEqual([]);
+  });
+
   it('sends commands as POST and tolerates empty responses', async () => {
     const fetchFn = vi.fn(async () => ok(undefined));
     const client = createClient({ serverUrl: 'http://pc:8096', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });

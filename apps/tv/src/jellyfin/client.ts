@@ -1,6 +1,7 @@
 import { buildAuthHeader } from './auth';
 import { buildDeviceProfile } from './deviceProfile';
 import type { ImageKind } from './art';
+import { parseSegments, type MediaSegment } from './segments';
 import { REMOTE_CAPABILITIES } from '../remote/messages';
 import type {
   AuthenticationResult,
@@ -58,6 +59,8 @@ export interface JellyfinClient {
   screensaverItems(userId: string, limit: number): Promise<BaseItem[]>;
   /** Tells the server this TV can be controlled from a phone (posted again after each socket connect). */
   reportCapabilities(): Promise<void>;
+  /** Intro, outro and similar markers (Jellyfin 10.10+ with a plugin). Any error means no segments. */
+  mediaSegments(itemId: string): Promise<MediaSegment[]>;
   /** Ends this device's session on the server (the token stops working). */
   logout(): Promise<void>;
   imageUrl(itemId: string, tag: string | undefined, maxHeight: number): string;
@@ -146,6 +149,13 @@ export function createClient(options: ClientOptions): JellyfinClient {
       ].join('&');
       const result = await request<ItemsResult>('GET', `/Users/${encodeURIComponent(userId)}/Items?${query}`);
       return result.Items;
+    },
+    mediaSegments: async (itemId) => {
+      try {
+        return parseSegments(await request<unknown>('GET', `/MediaSegments/${encodeURIComponent(itemId)}`));
+      } catch (e) {
+        return [];
+      }
     },
     logout: () => request<void>('POST', '/Sessions/Logout'),
     reportCapabilities: () => request<void>('POST', '/Sessions/Capabilities/Full', REMOTE_CAPABILITIES),
