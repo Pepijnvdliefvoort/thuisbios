@@ -1,0 +1,287 @@
+:root {
+  --bg: #0b0b10;
+  --fg: #f2f2f5;
+  --muted: #9a9aa8;
+  --accent: #e50914;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: sans-serif; overflow: hidden; }
+h1 { margin: 0; }
+p { font-size: 26px; }
+.muted { color: var(--muted); }
+.error { color: #ff6b6b; font-size: 24px; }
+.btn {
+  font-size: 28px; padding: 16px 32px; margin: 0 16px 16px 0; color: var(--fg);
+  background: #26263a; border: 3px solid transparent; cursor: pointer;
+}
+.btn:focus, .btn:hover { border-color: var(--accent); outline: none; }
+/* Details. Fixed 1920x1080 layout in px (the TV browser renders at 1920x1080); only transform and opacity are animated. */
+.details { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; background: var(--bg); }
+/* Generic background, also what shows when an item has no backdrop art. */
+.backdrop {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; background:
+    radial-gradient(ellipse at 75% 20%, rgba(229, 9, 20, 0.12) 0%, rgba(229, 9, 20, 0) 55%),
+    linear-gradient(135deg, #1b1b26 0%, #0b0b10 100%);
+}
+.backdrop-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 300ms; }
+.backdrop-img.on { opacity: 1; }
+.info { margin-bottom: 20px; }
+.info-title { margin: 0 0 8px; font-size: 64px; line-height: 1.1; }
+.logo { display: block; max-width: 520px; max-height: 140px; margin-bottom: 12px; }
+.info-sub { font-size: 30px; margin-bottom: 8px; }
+.info-meta { font-size: 24px; color: rgba(255, 255, 255, 0.8); margin-bottom: 8px; }
+.info-genres { font-size: 22px; color: var(--muted); margin-bottom: 8px; }
+.info-overview {
+  margin: 8px 0 0; font-size: 24px; line-height: 32px; max-height: 96px; color: rgba(255, 255, 255, 0.9);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+.info-compact { margin-bottom: 12px; }
+.info-compact .info-title { margin: 0 0 4px; font-size: 56px; }
+.info-compact .logo { max-width: 400px; max-height: 90px; margin-bottom: 6px; }
+.info-compact .info-sub { font-size: 24px; margin-bottom: 4px; }
+.info-compact .info-meta { font-size: 22px; margin-bottom: 4px; }
+.info-compact .info-overview { margin: 4px 0 0; font-size: 22px; line-height: 30px; max-height: 60px; max-width: 800px; -webkit-line-clamp: 2; }
+.hero-buttons { display: flex; align-items: center; }
+.hbtn {
+  font-size: 22px; line-height: 28px; padding: 6px 28px; margin: 0 20px 0 0; color: var(--fg);
+  background: rgba(255, 255, 255, 0.18); border: 3px solid transparent; cursor: pointer; outline: none;
+}
+.hbtn.primary { background: #fff; color: #111; }
+.hbtn:focus { border-color: var(--accent); transform: scale(1.06); }
+.hbtn:disabled { opacity: 0.5; cursor: default; }
+
+.tile {
+  position: absolute; top: 0; margin: 0; padding: 0; color: var(--fg); text-align: left; font-family: inherit;
+  background: #14141c; border: 3px solid transparent; cursor: pointer; outline: none; transition: transform 150ms;
+}
+.tile:focus { transform: scale(1.08); border-color: var(--accent); z-index: 2; }
+.tile .art { display: block; position: relative; overflow: hidden; background: #1c1c26; }
+.tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tile .noimg {
+  display: block; width: 100%; height: 100%; padding: 16px; font-size: 24px; color: var(--muted); overflow: hidden;
+  background: linear-gradient(135deg, #26263a, #14141c);
+}
+.tile .progress { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255, 255, 255, 0.3); }
+.tile .progress i { display: block; width: 100%; height: 100%; background: var(--accent); transform-origin: left center; }
+.tile .cap { display: block; padding: 6px 8px 0; overflow: hidden; }
+.tile .cap-title, .tile .cap-sub { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .cap-title { font-size: 24px; line-height: 30px; }
+.tile .cap-sub { font-size: 20px; line-height: 26px; color: var(--muted); }
+
+.details-shade {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  background:
+    linear-gradient(to right, rgba(11, 11, 16, 0.95) 0%, rgba(11, 11, 16, 0.75) 40%, rgba(11, 11, 16, 0.1) 80%),
+    linear-gradient(to top, #0b0b10 0%, rgba(11, 11, 16, 0) 50%);
+}
+.details-main { position: absolute; top: 0; right: 0; bottom: 0; left: 64px; width: 1792px; padding: 60px 0; display: flex; flex-direction: column; justify-content: flex-end; }
+.details-main .info { width: 900px; }
+.details .info-overview { max-height: 128px; -webkit-line-clamp: 4; }
+.seasons { height: 92px; margin: 16px 0 0 -12px; padding: 12px 0 0 12px; overflow: hidden; }
+.seasons-track { display: flex; transition: transform 200ms; }
+.pill {
+  flex: 0 0 auto; width: 150px; margin: 0 20px 0 0; padding: 10px 0; font-size: 24px; color: var(--fg);
+  background: rgba(255, 255, 255, 0.12); border: 3px solid transparent; cursor: pointer; outline: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.pill.on { background: rgba(255, 255, 255, 0.35); }
+.pill:focus { border-color: var(--accent); transform: scale(1.06); }
+.episodes { position: relative; height: 286px; margin: 0 0 0 -12px; padding: 12px 0 0 12px; overflow: hidden; }
+.episodes .track { margin-left: 0; }
+.buttons { margin: 24px 0; }
+.player { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: #000; overflow: hidden; }
+.player video { width: 100%; height: 100%; }
+.debug {
+  position: absolute; left: 32px; top: 32px; max-width: 1500px; padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.75); font-size: 22px; line-height: 1.5;
+}
+[data-focusable] { cursor: pointer; }
+.keylog {
+  position: fixed; top: 8px; right: 8px; z-index: 9999; width: 640px; padding: 12px 16px;
+  background: #000; color: #fff; border: 3px solid #ffd400; font: 22px/1.4 monospace; pointer-events: none;
+}
+.keylog-head { color: #ffd400; font-weight: bold; }
+
+/* Player. Sizes in vh/vw for a 1080p TV; only transform and opacity are animated. */
+video::cue {
+  color: #fff; background: rgba(0, 0, 0, 0.7); font-size: 4.5vh; line-height: 1.3;
+  text-shadow: none; font-family: sans-serif;
+}
+.player svg { display: block; width: 100%; height: 100%; }
+.player .dim { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0, 0, 0, 0.35); opacity: 0; transition: opacity 200ms; pointer-events: none; }
+.player .dim.on { opacity: 1; }
+
+.chrome { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; flex-direction: column; justify-content: space-between; transition: opacity 200ms; }
+.chrome.hidden { opacity: 0; pointer-events: none; }
+.top {
+  display: flex; align-items: center; padding: 3.5vh 3vw 8vh;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+}
+.heading { margin-left: 2vw; }
+.heading .title { font-size: 3.4vh; font-weight: bold; line-height: 1.2; }
+.heading .year { font-size: 2.4vh; color: rgba(255, 255, 255, 0.7); margin-top: 0.4vh; }
+.heading .paused.chrome.paused .heading .title { font-size: 5vh; }
+.bottom {
+  padding: 10vh 4vw 4vh;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0));
+}
+
+.ctl {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  width: 7vh; height: 7vh; margin: 0; padding: 0; border: 0; border-radius: 50%;
+  color: #fff; background: transparent; cursor: pointer; outline: none;
+}
+.ctl svg { width: 62%; height: 62%; }
+.ctl.back { width: 6vh; height: 6vh; }
+.ctl.big { width: 10vh; height: 10vh; margin: 0 2.5vw; }
+.ctl.big svg { width: 70%; height: 70%; }
+.ctl:focus { background: #fff; color: #111; transform: scale(1.1); }
+.ctl.pill { width: auto; padding: 0 2.2vh; border-radius: 7vh; font-size: 2.4vh; }
+.ctl.pill svg { width: 4vh; height: 4vh; margin-right: 1vh; }
+.ctl.off { opacity: 0.4; cursor: default; }
+
+.seekbar { position: relative; padding: 1.6vh 0; outline: none; }
+.seekbar .track { position: relative; height: 0.6vh; background: rgba(255, 255, 255, 0.3); margin: 0.2vh 0; transform-origin: center; transition: transform 150ms; }
+.seekbar:focus .track { transform: scaleY(1.7); }
+.seekbar .buffered, .seekbar .played { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: left center; }
+.seekbar .buffered { background: rgba(255, 255, 255, 0.4); }
+.seekbar .played { background: var(--accent); }
+.seekbar .thumbwrap { position: absolute; top: 50%; left: 0; width: 100%; height: 0; }
+.seekbar .thumb {
+  position: absolute; top: -1.2vh; left: -1.2vh; width: 2.4vh; height: 2.4vh; border-radius: 50%;
+  background: var(--accent); opacity: 0; transform: scale(0.4); transition: opacity 150ms, transform 150ms;
+}
+.seekbar:focus .thumb, .seekbar.scrubbing .thumb { opacity: 1; transform: scale(1); }
+.seekbar .tip {
+  position: absolute; bottom: 2.6vh; left: 0; transform: translateX(-50%); padding: 0.5vh 1.2vh;
+  font-size: 2.4vh; background: rgba(0, 0, 0, 0.8); border-radius: 0.6vh; white-space: nowrap;
+}
+.times { display: flex; justify-content: space-between; font-size: 2.4vh; color: rgba(255, 255, 255, 0.85); margin-top: 0.4vh; }
+
+.ctlrow { position: relative; display: flex; align-items: center; justify-content: center; margin-top: 1.5vh; }
+.main-group { display: flex; align-items: center; }
+.ctlrow .cc { position: absolute; right: 0; top: 50%; margin-top: -3.5vh; }
+
+.bubble {
+  position: absolute; top: 50%; margin-top: -8vh; width: 16vh; height: 16vh; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55); color: #fff; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; opacity: 0; transition: opacity 200ms; pointer-events: none;
+}
+.bubble.left { left: 14vw; }
+.bubble.right { right: 14vw; }
+.bubble.on { opacity: 1; }
+.bubble svg { width: 6vh; height: 6vh; }
+.bubble span { font-size: 3vh; font-weight: bold; margin-top: -0.4vh; }
+
+.spinwrap { position: absolute; top: 50%; left: 50%; width: 10vh; height: 10vh; margin: -5vh 0 0 -5vh; pointer-events: none; }
+.spinner { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.pausedcard { position: absolute; left: 5vw; bottom: 12vh; opacity: 0; transition: opacity 200ms; pointer-events: none; }
+.pausedcard.on { opacity: 1; }
+.pausedcard .paused.pausedcard .pausedtitle { font-size: 5vh; font-weight: bold; margin-top: 0.8vh; }
+
+.remotenote { position: absolute; left: 50%; bottom: 6vh; transform: translateX(-50%); padding: 1vh 2vh; font-size: 2.2vh; background: rgba(0, 0, 0, 0.8); border-radius: 0.8vh; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+.remotenote.on { opacity: 1; }
+.notice { position: absolute; left: 50%; top: 4vh; transform: translateX(-50%); padding: 1vh 2vh; font-size: 2.2vh; background: rgba(0, 0, 0, 0.8); border-radius: 0.8vh; }
+
+.errorwrap { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.85); }
+.errorcard { width: 60vw; padding: 5vh 4vw; background: #1c1c26; border-radius: 1.2vh; text-align: center; }
+.errorcard h2 { margin: 0 0 2vh; font-size: 4vh; }
+.errorcard p { font-size: 2.6vh; color: #ff8a8a; margin: 0 0 4vh; }
+.errorbtns .btn { margin: 0 1vw; }
+
+/* D-pad mode (TV browser): the arrows move the focus highlight, the real pointer is hidden. */
+body.dpad, body.dpad * { cursor: none; }
+
+.fs-gate {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 5000; display: flex;
+  align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.75);
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.3s, visibility 0s linear 0.3s;
+}
+.fs-gate-on { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 0.3s; }
+.fs-gate-card {
+  display: flex; flex-direction: column; align-items: center; padding: 48px 72px; border-radius: 24px;
+  background: #1c1c22; color: #fff; text-align: center; transform: scale(0.96); transition: transform 0.3s;
+}
+.fs-gate-on .fs-gate-card { transform: scale(1); }
+.fs-gate-icon { margin-bottom: 24px; }
+.fs-gate-title { font-size: 40px; font-weight: 700; margin-bottom: 16px; }
+.fs-gate-text { font-size: 28px; line-height: 1.4; }
+.fs-gate-key {
+  display: inline-block; margin: 0 6px; padding: 2px 14px; border: 2px solid #fff; border-radius: 8px;
+  font-weight: 700; font-size: 24px;
+}
+
+/* Calm background: big radial-gradient blobs that fade to transparent (no blur filter), drifting slowly. */
+.calm { position: absolute; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; background: linear-gradient(160deg, #10101a 0%, #0b0b10 55%, #0d0b12 100%); }
+.calm-blob { position: absolute; width: 1500px; height: 1500px; border-radius: 50%; will-change: transform, opacity; }
+.calm-a {
+  left: -500px; top: -650px; opacity: 0.55;
+  background: radial-gradient(circle at center, rgba(229, 9, 20, 0.34) 0%, rgba(229, 9, 20, 0.14) 32%, rgba(229, 9, 20, 0) 66%);
+  animation: calm-drift-a 46s ease-in-out infinite alternate;
+}
+.calm-b {
+  right: -600px; bottom: -800px; opacity: 0.6;
+  background: radial-gradient(circle at center, rgba(70, 90, 210, 0.38) 0%, rgba(70, 90, 210, 0.15) 34%, rgba(70, 90, 210, 0) 68%);
+  animation: calm-drift-b 58s ease-in-out infinite alternate;
+}
+.calm-c {
+  left: 560px; top: 120px; width: 1100px; height: 1100px; opacity: 0.35;
+  background: radial-gradient(circle at center, rgba(150, 70, 190, 0.3) 0%, rgba(150, 70, 190, 0.1) 36%, rgba(150, 70, 190, 0) 68%);
+  animation: calm-drift-c 38s ease-in-out infinite alternate;
+}
+@keyframes calm-drift-a { from { transform: translate(0, 0) scale(1); opacity: 0.45; } to { transform: translate(380px, 260px) scale(1.18); opacity: 0.7; } }
+@keyframes calm-drift-b { from { transform: translate(0, 0) scale(1.1); opacity: 0.5; } to { transform: translate(-420px, -240px) scale(0.92); opacity: 0.75; } }
+@keyframes calm-drift-c { from { transform: translate(-200px, 80px) scale(0.9); opacity: 0.25; } to { transform: translate(260px, -120px) scale(1.15); opacity: 0.5; } }
+
+/* Connect screen. */
+.connect { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; background: var(--bg); }
+.wordmark { position: absolute; top: 56px; left: 0; width: 100%; text-align: center; font-size: 26px; font-weight: bold; letter-spacing: 12px; text-transform: uppercase; color: rgba(255, 255, 255, 0.55); }
+.connect-body { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; padding: 100px 120px 0; }
+.connect-text { width: 880px; margin-right: 120px; }
+.connect-text.connect-wait { margin-right: 0; text-align: center; }
+.connect h1 { font-size: 72px; line-height: 80px; font-weight: bold; margin-bottom: 24px; }
+.connect p { margin: 0; font-size: 32px; line-height: 46px; color: rgba(255, 255, 255, 0.72); }
+.connect p.error { color: #ff9a9a; }
+.code { margin: 56px 0 0 -6px; font-size: 170px; line-height: 170px; font-weight: bold; letter-spacing: 20px; font-variant-numeric: tabular-nums; color: #fff; }
+.code-group { display: inline-block; }
+/* Each group ends in 20px of letter-spacing, so 40px of margin gives a ~0.35em (60px) visual gap. */
+.code-group + .code-group { margin-left: 40px; }
+.qr-card { flex: 0 0 auto; padding: 36px; border-radius: 36px; background: #fff; line-height: 0; }
+.qr-card svg { display: block; }
+
+/* Screensaver. Two stacked image layers cross-fade (opacity); the image drifts (transform). */
+.ss { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; background: var(--bg); }
+.ss-layer { position: absolute; top: 0; right: 0; bottom: 0; left: 0; opacity: 0; transition: opacity 2s ease-in-out; }
+.ss-layer.on { opacity: 1; }
+.ss-img { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; object-fit: cover; transform-origin: 50% 50%; will-change: transform; }
+.ss-kb-a { animation: ss-kb-a 16s linear forwards; }
+.ss-kb-b { animation: ss-kb-b 16s linear forwards; }
+@keyframes ss-kb-a { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-28px, -14px); } }
+@keyframes ss-kb-b { from { transform: scale(1.08) translate(24px, 12px); } to { transform: scale(1) translate(0, 0); } }
+.ss-shade {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  background:
+    linear-gradient(to top, rgba(8, 8, 12, 0.92) 0%, rgba(8, 8, 12, 0.55) 26%, rgba(8, 8, 12, 0) 52%),
+    linear-gradient(to right, rgba(8, 8, 12, 0.7) 0%, rgba(8, 8, 12, 0) 55%),
+    linear-gradient(to bottom, rgba(8, 8, 12, 0.5) 0%, rgba(8, 8, 12, 0) 16%);
+}
+.ss-info { position: absolute; left: 110px; bottom: 120px; width: 960px; opacity: 0; animation: ss-info-in 1.4s ease-out 1.6s forwards; }
+@keyframes ss-info-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+.ss-logo { display: block; max-width: 640px; max-height: 180px; margin-bottom: 18px; }
+.ss-title { margin: 0 0 14px; font-size: 76px; line-height: 84px; font-weight: bold; }
+.ss-year { font-size: 30px; line-height: 36px; color: rgba(255, 255, 255, 0.78); letter-spacing: 2px; }
+.ss-overview {
+  margin: 14px 0 0; font-size: 26px; line-height: 36px; max-width: 900px; color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ss-clock { position: absolute; top: 56px; right: 96px; font-size: 44px; font-weight: bold; letter-spacing: 2px; color: rgba(255, 255, 255, 0.85); }
+.ss-hint { position: absolute; right: 96px; bottom: 64px; display: flex; align-items: center; font-size: 26px; color: rgba(255, 255, 255, 0.6); }
+.ss-hint svg { margin-right: 14px; }
+.ss-menu {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.55); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.25s, visibility 0s linear 0.25s;
+}
+.ss-menu.on { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 0.25s; }
+.ss-menu-card { padding: 48px 56px 32px; border-radius: 24px; background: #15151f; }
+.ss-menu .btn { margin: 0 16px 16px; }

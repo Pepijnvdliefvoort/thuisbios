@@ -1,0 +1,32 @@
+{
+  "name": "@thuisbios/remote",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Thuisbios phone remote (PWA) that browses the library and controls the TV app",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "vite build",
+    "preview": "vite preview --host --port 4174",
+    "icons": "node scripts/make-icons.mjs",
+    "tv:setup": "node scripts/tv-setup.mjs",
+    "jellyfin:setup": "node scripts/jellyfin-setup.mjs"
+  },
+  "dependencies": {
+    "hls.js": "^1.7.3",
+    "jsqr": "^1.4.0",
+    "preact": "^11.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
+    "jsdom": "^29.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5",
+    "ws": "^8.22.0"
+  }
+}
