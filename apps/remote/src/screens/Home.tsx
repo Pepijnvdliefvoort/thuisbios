@@ -1,4 +1,4 @@
-import { useRef } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { PullSpinner } from '../components/PullSpinner';
 import { Row } from '../components/Row';
@@ -7,14 +7,30 @@ import { useApp } from '../context';
 import { useAsync } from '../useAsync';
 import { usePullToRefresh } from '../usePullToRefresh';
 
+/** Delay before refreshing after playback ends: the player's final Stopped report must reach Jellyfin first. */
+const REFRESH_AFTER_PLAYBACK_MS = 2000;
+
 export function Home() {
-  const { client, session, tv, openConnectTv } = useApp();
+  const { client, session, tv, playbackEnded, openConnectTv } = useApp();
   const u = session.userId;
   const resume = useAsync(() => client.resume(u, 40).then((items) => recentResumes(items, Date.now())), [client, u]);
   const nextUp = useAsync(() => client.nextUp(u, 12), [client, u]);
   const movies = useAsync(() => client.latest(u, 'Movie', 16), [client, u]);
   const shows = useAsync(() => client.latest(u, 'Series', 16), [client, u]);
   const library = useAsync(() => client.library(u, 'Movie', 30), [client, u]);
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      void resume.reload();
+      void nextUp.reload();
+    }, REFRESH_AFTER_PLAYBACK_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playbackEnded]);
   const all = [resume, nextUp, movies, shows, library];
   const allDone = all.every((r) => !r.loading);
   const pageRef = useRef<HTMLDivElement>(null);
