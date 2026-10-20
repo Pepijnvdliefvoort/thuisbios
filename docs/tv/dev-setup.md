@@ -152,7 +152,8 @@ rejected by this 2018 TV (install error 118012), so the app runs in the TV's bui
 instead. Nothing is installed on the TV.
 
 1. On the PC, in the project folder, run `npm run build -w apps/tv` and then
-   `npm run preview -w apps/tv`. Leave this window open while you watch.
+   `npm run preview -w apps/tv`. Leave this window open while you watch. To skip this step, the PC can start it
+   automatically with Windows, see [autostart](../server/autostart.md).
 2. Open the TV's **Internet** app. It may not be pinned on the Home bar: find it via **Home** →
    **Apps**, or from the PC with `tizen run -p org.tizen.browser -t <device name>`.
 3. In the TV's browser go to `http://<PC IP>:4173`. Use the PC's Wi-Fi or LAN IP address (see

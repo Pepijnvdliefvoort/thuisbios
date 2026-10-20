@@ -23,7 +23,7 @@ sessions (remote control) API. The phone sends commands to the TV session throug
 ```text
 .github/                  CI, release and dependency automation, PR template
 docs/plan.md              project plan
-docs/server/              Jellyfin setup guide for Windows (windows-setup.md)
+docs/server/              Jellyfin setup guide for Windows (windows-setup.md) and autostart guide (autostart.md)
 docs/tv/                  TV app: Tizen setup, install and test guide (dev-setup.md)
 docs/remote/              phone remote: setup guide (setup.md), away from home via Tailscale (tailscale.md)
 scripts/                  repo tooling (version checks)
@@ -44,6 +44,10 @@ on Windows, enable NVENC, and set up the network. Helper scripts live in `server
 - `Get-TestMedia.ps1`: download Blender open movies and build a Jellyfin test library (needs ffmpeg).
 - `Set-JellyfinFirewall.ps1`: allow TCP 8096 and UDP 7359 on the private network (administrator).
 - `Test-JellyfinServer.ps1`: check that the server answers.
+- `Install-ThuisbiosAutostart.ps1`: build the TV page and phone app and start them automatically
+  with Windows (administrator; run again after an update). `Uninstall-ThuisbiosAutostart.ps1`
+  turns it off again, and `Start-ThuisbiosServer.ps1` is what the scheduled tasks run. See
+  [docs/server/autostart.md](docs/server/autostart.md).
 
 Run the tests with `Invoke-Pester -Path server/tests` (Pester 5).
 

@@ -16,7 +16,8 @@ Do this once, and again after every update of the project.
 2. Run `npm ci` and wait until it finishes.
 3. Run `npm run build -w apps/remote`.
 4. Run `npm run preview -w apps/remote`. It prints the addresses it serves on. Leave this window
-   open: if you close it, the remote stops working.
+   open: if you close it, the remote stops working. To skip this window, the PC can start it
+   automatically with Windows, see [autostart](../server/autostart.md).
 5. Windows may ask whether Node.js may use the network. Choose **Private networks** and press
    **Allow access**. Without this, the phone cannot reach the PC.
 
@@ -141,7 +142,8 @@ only change the volume.
 - **"Can't reach the server."** Check that the PC is on, that Jellyfin is running, and that the phone
   is on the same Wi-Fi (not mobile data). Try opening `http://192.168.1.192:8096` in the phone's
   browser: you should see the Jellyfin page.
-- **The page does not open at all.** Check that the window from step 1.4 is still open and that you
+- **The page does not open at all.** Check that the window from step 1.4 is still open (or that the PC has finished starting, if you
+  use [autostart](../server/autostart.md)) and that you
   allowed Node.js on private networks. If the PC's address is no longer `192.168.1.192`, use the
   address the preview command prints.
 - **"TV did not respond."** The TV went to sleep or lost its connection. Wake it, reload the

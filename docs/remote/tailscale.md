@@ -53,7 +53,8 @@ If the PC sleeps, the remote cannot reach it.
 3. Set **When plugged in, put my device to sleep after** to **Never**. The screen may still turn
    off, that is fine.
 
-Jellyfin runs on its own. The window with `npm run preview -w apps/remote` must stay open, as before.
+Jellyfin runs on its own. The window with `npm run preview -w apps/remote` must stay open, as before, unless you let the PC
+start it automatically, see [autostart](../server/autostart.md).
 
 ## 5. Open the remote on the phone
 
