@@ -109,6 +109,34 @@ describe('client', () => {
     const bad = vi.fn(async () => ({ ok: false, status: 401, text: async () => '' }) as Response);
     await expect(authenticateByName({ serverUrl: 'http://pc', info, fetchFn: bad as unknown as typeof fetch }, 'n', 'x')).rejects.toBeInstanceOf(JellyfinError);
   });
+
+  it('calls onUnauthorized on each 401 with a token and still rejects', async () => {
+    const onUnauthorized = vi.fn();
+    const fetchFn = vi.fn(async () => ({ ok: false, status: 401, text: async () => '' }) as Response);
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch, onUnauthorized });
+    await expect(client.sessions('u1')).rejects.toMatchObject({ status: 401 });
+    await expect(client.sessions('u1')).rejects.toBeInstanceOf(JellyfinError);
+    expect(onUnauthorized).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not call onUnauthorized on other errors', async () => {
+    const onUnauthorized = vi.fn();
+    for (const status of [403, 404, 500]) {
+      const fetchFn = vi.fn(async () => ({ ok: false, status, text: async () => '' }) as Response);
+      const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch, onUnauthorized });
+      await expect(client.sessions('u1')).rejects.toMatchObject({ status });
+    }
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it('does not call onUnauthorized when sign-in gets 401 (no token)', async () => {
+    const onUnauthorized = vi.fn();
+    const bad = vi.fn(async () => ({ ok: false, status: 401, text: async () => '' }) as Response);
+    await expect(
+      authenticateByName({ serverUrl: 'http://pc', info, fetchFn: bad as unknown as typeof fetch, onUnauthorized }, 'n', 'x'),
+    ).rejects.toBeInstanceOf(JellyfinError);
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
 });
 
 describe('error messages', () => {

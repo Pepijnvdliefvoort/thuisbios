@@ -43,6 +43,8 @@ function takeConnectCode(): string | null {
 
 export function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
+  // True when the server rejected the token, so SignIn can say why.
+  const [expired, setExpired] = useState(false);
   // A ref, not state: clearing it must not re-render the app while the Connect TV screen opens.
   const pending = useRef<string | null | undefined>(undefined);
   if (pending.current === undefined) pending.current = takeConnectCode();
@@ -50,8 +52,10 @@ export function App() {
     return (
       <SignIn
         connecting={!!pending.current}
+        expired={expired}
         onSignedIn={(s) => {
           saveSession(s);
+          setExpired(false);
           setSession(s);
         }}
       />
@@ -65,8 +69,9 @@ export function App() {
         savePendingConnect(null);
         pending.current = null;
       }}
-      onSignOut={() => {
+      onSignOut={(wasExpired) => {
         clearSession();
+        setExpired(!!wasExpired);
         setSession(null);
       }}
     />
@@ -82,10 +87,20 @@ function Shell({
   session: Session;
   connectCode: string | null;
   onConnectTaken: () => void;
-  onSignOut: () => void;
+  onSignOut: (expired?: boolean) => void;
 }) {
+  // The client is memoized on the session, so it reaches the latest callback through a ref.
+  const onSignOutRef = useRef(onSignOut);
+  onSignOutRef.current = onSignOut;
   const client = useMemo(
-    () => createClient({ serverUrl: session.serverUrl, info: clientInfo(), token: session.token }),
+    () =>
+      createClient({
+        serverUrl: session.serverUrl,
+        info: clientInfo(),
+        token: session.token,
+        // Token revoked server-side: skip logout() and return to sign-in (may fire for several parallel requests).
+        onUnauthorized: () => onSignOutRef.current(true),
+      }),
     [session],
   );
   const nav = useNav();
