@@ -53,6 +53,9 @@ export function useNav() {
     setStack(next);
   };
 
+  /** Swaps the top screen without a new history entry (next episode on the phone: Back still leaves the player). */
+  const replace = (screen: Screen) => setStack((s) => replaceTop(s, screen));
+
   const back = () => {
     if (stackRef.current.length === 0) return;
     // popstate does the actual pop; fall back to a direct pop when history cannot go back.
@@ -70,8 +73,12 @@ export function useNav() {
     }
   };
 
-  return { stack, tab, setTab, push, back };
+  return { stack, tab, setTab, push, replace, back };
 }
+
+/** The stack with its top screen swapped for `screen` (a pushed screen when the stack is empty). */
+export const replaceTop = (stack: Screen[], screen: Screen): Screen[] =>
+  stack.length === 0 ? [screen] : [...stack.slice(0, -1), screen];
 
 /**
  * Whether the Now Playing screen should close: nothing plays anymore after it did (the TV stopped or

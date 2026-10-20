@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DISCONNECT_TEXT, SUBTITLE_OFFSET_PREFIX, disconnectCommand, playCommand, relativeSeekTicks, seekCommand, subtitleOffsetCommand, transportCommand, viewCommand } from './commands';
+import { AUTOPLAY_CANCEL_PREFIX, DISCONNECT_TEXT, autoplayCancelCommand, SUBTITLE_OFFSET_PREFIX, disconnectCommand, playCommand, relativeSeekTicks, seekCommand, subtitleOffsetCommand, transportCommand, viewCommand } from './commands';
 
 describe('command URLs', () => {
   it('builds Play on TV', () => {
@@ -38,6 +38,14 @@ describe('command URLs', () => {
       body: { Header: 'Thuisbios', Text: 'thuisbios:subtitle-offset:abc:-1200', TimeoutMs: 1000 },
     });
     expect(SUBTITLE_OFFSET_PREFIX).toBe('thuisbios:subtitle-offset:');
+  });
+  it('builds the autoplay cancel message', () => {
+    expect(autoplayCancelCommand('S 1', 'abc')).toEqual({
+      method: 'POST',
+      path: '/Sessions/S%201/Message',
+      body: { Header: 'Thuisbios', Text: 'thuisbios:autoplay-cancel:abc', TimeoutMs: 1000 },
+    });
+    expect(AUTOPLAY_CANCEL_PREFIX).toBe('thuisbios:autoplay-cancel:');
   });
   it('builds seek', () => {
     expect(seekCommand('S1', 600000000).path).toBe('/Sessions/S1/Playing/Seek?seekPositionTicks=600000000');

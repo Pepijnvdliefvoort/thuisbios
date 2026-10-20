@@ -202,7 +202,13 @@ function Shell({
           {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
           {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
           {top && top.kind === 'player' ? (
-            <Player key={`${nav.stack.length}:player`} item={top.item} startTicks={top.startTicks} onBack={nav.back} />
+            <Player
+              key={`${nav.stack.length}:player:${top.item.Id}`}
+              item={top.item}
+              startTicks={top.startTicks}
+              onBack={nav.back}
+              onNext={(next) => nav.replace({ kind: 'player', item: next, startTicks: 0 })}
+            />
           ) : null}
         </div>
         <div class="bottom">

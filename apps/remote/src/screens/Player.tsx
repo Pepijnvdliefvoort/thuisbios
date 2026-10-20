@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
+import { NextEpisodeCard } from '../components/NextEpisodeCard';
 import { useApp } from '../context';
 import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscreen';
 import { artUrl } from '../jellyfin/art';
 import { getDeviceId } from '../storage';
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
+import { nextArmedAt, nextEpisodeCard, planNextEpisode } from '../jellyfin/nextEpisode';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { createThrottle, resolveStreamUrl, selectPlayMethod, type PlaySelection } from '../jellyfin/playback';
 import type { BaseItem, PlaybackReport } from '../jellyfin/types';
+import { useNextEpisode } from '../useNextEpisode';
 
 const PROGRESS_MS = 10000;
 /** Pause, play and seek reports go out at once, but never more often than this. */
@@ -30,13 +33,29 @@ interface Loaded {
  * currentTime is the position in the whole item and reports need no offset. Every method therefore
  * seeks to the start position itself once the metadata is known (hls.js through `startPosition`).
  */
-export function Player({ item, startTicks, onBack }: { item: BaseItem; startTicks: number; onBack: () => void }) {
+export function Player({
+  item,
+  startTicks,
+  onBack,
+  onNext,
+}: {
+  item: BaseItem;
+  startTicks: number;
+  onBack: () => void;
+  /** Plays the next episode in place of this one (from its start). */
+  onNext: (next: BaseItem) => void;
+}) {
   const { client, session } = useApp();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   const [segments, setSegments] = useState<MediaSegment[]>([]);
   const [now, setNow] = useState(0);
+  // Next episode autoplay: the card, and the hooks into the reporting effect below.
+  const next = useNextEpisode(client, session.userId, item);
+  const [cancelled, setCancelled] = useState(false);
+  const stopRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const advancing = useRef(false);
 
   // Intro markers (empty without the Intro Skipper plugin).
   useEffect(() => {
@@ -52,7 +71,13 @@ export function Player({ item, startTicks, onBack }: { item: BaseItem; startTick
   }, [client, item.Id]);
 
   // Leaving the player (Back, Android back, end of video) also leaves fullscreen and frees the rotation.
-  useEffect(() => () => exitLandscapeFullscreen(), []);
+  // Not when the next episode takes over: it stays fullscreen (autoplay has no tap to enter it again).
+  useEffect(
+    () => () => {
+      if (!advancing.current) exitLandscapeFullscreen();
+    },
+    [],
+  );
 
   // iPhone Safari cannot fullscreen the page. A video without `playsInline` opens in iOS's own fullscreen
   // player instead, which follows the phone's rotation. Everywhere else keep it inline in our fullscreen page.
@@ -151,19 +176,21 @@ export function Player({ item, startTicks, onBack }: { item: BaseItem; startTick
       if (started && !stopped) client.reportProgress(report()).catch(() => undefined);
     };
     const throttle = createThrottle(send, EVENT_REPORT_MS);
-    const stop = () => {
-      if (!started || stopped) return;
+    const stop = (): Promise<void> => {
+      if (!started || stopped) return Promise.resolve();
       stopped = true;
       // keepalive: the page may be closing.
-      client.reportStopped(report(), true).catch(() => undefined);
+      return client.reportStopped(report(), true).catch(() => undefined);
     };
+    stopRef.current = stop;
     const onPlaying = () => {
       if (started) return;
       started = true;
       client.reportStart(report()).catch(() => undefined);
     };
     const onEnded = () => {
-      stop();
+      if (advanceRef.current(false)) return;
+      void stop();
       onBack();
     };
     el.addEventListener('playing', onPlaying);
@@ -182,11 +209,38 @@ export function Player({ item, startTicks, onBack }: { item: BaseItem; startTick
       el.removeEventListener('seeked', throttle.call);
       el.removeEventListener('ended', onEnded);
       window.removeEventListener('pagehide', stop);
-      stop();
+      stopRef.current = () => Promise.resolve();
+      void stop();
     };
   }, [client, loaded, item.Id]);
 
-  const intro = activeIntro(segments, now);
+  /**
+   * Starts the next episode: reports Stopped for this one first, and marks it played when it is cut off
+   * before the natural end (the server only does that itself near the end). False when there is no next
+   * episode or autoplay was cancelled, so the caller does what it did before.
+   */
+  const advance = (early: boolean): boolean => {
+    if (advancing.current) return true;
+    if (!next || cancelled) return false;
+    advancing.current = true;
+    const done = stopRef.current();
+    if (early) void done.then(() => client.markPlayed(session.userId, item.Id)).catch(() => undefined);
+    onNext(next);
+    return true;
+  };
+  const advanceRef = useRef(advance);
+  advanceRef.current = advance;
+
+  const plan = planNextEpisode(segments, ticksToSeconds(item.RunTimeTicks || 0));
+  // Where the countdown started: when the position entered the card zone (playing, seeking or resuming).
+  const armed = useRef<{ at: number | null; last: number | null }>({ at: null, last: null });
+  armed.current = { at: nextArmedAt(plan, armed.current.at, armed.current.last, now), last: now };
+  const card = next && !cancelled && !error ? nextEpisodeCard(plan, now, armed.current.at) : null;
+  useEffect(() => {
+    if (card && card.due) advanceRef.current(true);
+  }, [card && card.due]);
+
+  const intro = card && card.show ? null : activeIntro(segments, now);
   const skipIntro = () => {
     const el = video.current;
     if (!intro || !el) return;
@@ -224,6 +278,17 @@ export function Player({ item, startTicks, onBack }: { item: BaseItem; startTick
             <button type="button" class="skip-intro-overlay" onClick={skipIntro}>
               Skip intro
             </button>
+          )}
+          {/* Same as the intro button: iPhone's native fullscreen player hides it, but the autoplay at `ended` still works. */}
+          {next && card && card.show && (
+            <NextEpisodeCard
+              serverUrl={client.serverUrl}
+              next={next}
+              remaining={card.remaining}
+              target="phone"
+              onPlayNow={() => advance(true)}
+              onCancel={() => setCancelled(true)}
+            />
           )}
           {loaded ? null : <p class="hint">Loading...</p>}
         </div>
