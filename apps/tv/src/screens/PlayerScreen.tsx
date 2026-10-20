@@ -41,6 +41,7 @@ import type { RemoteCommand } from '../remote/messages';
 import { createThrottle } from '../remote/throttle';
 import { SEEK_STEP, type Bubble, type MediaKey } from '../player/playerInput';
 import { usePlayerInput } from '../player/usePlayerInput';
+import { pickPlayback, type PlaybackSnapshot } from '../player/lastPlayback';
 
 interface Props {
   client: JellyfinClient;
@@ -94,6 +95,11 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
   errorRef.current = error;
   // Where to seek once metadata is loaded: the resume point, or the current spot after a transcode switch.
   const startRef = useRef(startSeconds || 0);
+  /** Last position/paused state seen on the video, for the Stopped report after it is gone. */
+  const lastPlayback = useRef<PlaybackSnapshot>({ seconds: startSeconds || 0, paused: false });
+  const remember = (v: HTMLVideoElement) => {
+    lastPlayback.current = { seconds: v.currentTime, paused: v.paused };
+  };
   const startedRef = useRef(false);
   /** Sends a progress report soon (throttled); set while the progress effect runs. */
   const pushProgress = useRef<() => void>(() => undefined);
@@ -205,14 +211,20 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
   // Progress reporting: start, every 10 s, stop.
   useEffect(() => {
     if (!loaded) return;
-    const report = (): PlaybackReport => ({
-      itemId: item.Id,
-      mediaSourceId: loaded.source.Id,
-      playSessionId: loaded.playSessionId,
-      positionTicks: secondsToTicks(video.current ? video.current.currentTime : 0),
-      playMethod: loaded.debug.method,
-      isPaused: video.current ? video.current.paused : false,
-    });
+    // Preact 11 runs effect cleanups after paint, when the ref is already null. Without the
+    // captured element / last known state the Stopped report would send position 0 and wipe the resume point.
+    const el = video.current;
+    const report = (): PlaybackReport => {
+      const now = pickPlayback(video.current || el, lastPlayback.current);
+      return {
+        itemId: item.Id,
+        mediaSourceId: loaded.source.Id,
+        playSessionId: loaded.playSessionId,
+        positionTicks: secondsToTicks(now.seconds),
+        playMethod: loaded.debug.method,
+        isPaused: now.paused,
+      };
+    };
     client.reportStart(report()).catch(() => undefined);
     const send = () => client.reportProgress(report()).catch(() => undefined);
     const timer = window.setInterval(send, PROGRESS_MS);
@@ -379,11 +391,13 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
             dispatch({ type: 'playState', playing: true });
             pushProgress.current();
           }}
-          onPlaying={() => {
+          onPlaying={(e) => {
+            remember(e.target as HTMLVideoElement);
             setStatus('playing');
             setBuffering(false);
           }}
-          onPause={() => {
+          onPause={(e) => {
+            remember(e.target as HTMLVideoElement);
             setStatus('paused');
             setPaused(true);
             dispatch({ type: 'playState', playing: false });
@@ -404,13 +418,15 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
           }}
           onStalled={() => setBuffering(true)}
           onCanPlay={() => setBuffering(false)}
-          onSeeked={() => {
+          onSeeked={(e) => {
+            remember(e.target as HTMLVideoElement);
             setBuffering(false);
             pushProgress.current();
           }}
           onProgress={(e) => updateBuffered(e.target as HTMLVideoElement)}
           onTimeUpdate={(e) => {
             const v = e.target as HTMLVideoElement;
+            remember(v);
             setPosition(v.currentTime);
             updateBuffered(v);
           }}
