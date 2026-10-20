@@ -11,6 +11,9 @@ Describe 'Script parameter contracts' {
         @{ Script = 'Set-JellyfinFirewall.ps1'; Expected = $true }
         @{ Script = 'Get-TestMedia.ps1'; Expected = $true }
         @{ Script = 'Test-JellyfinServer.ps1'; Expected = $false }
+        @{ Script = 'Install-ThuisbiosAutostart.ps1'; Expected = $true }
+        @{ Script = 'Uninstall-ThuisbiosAutostart.ps1'; Expected = $true }
+        @{ Script = 'Start-ThuisbiosServer.ps1'; Expected = $false }
     ) {
         $cmd = Get-Command (Join-Path $script:ScriptDir $Script)
         [bool]($cmd.Parameters.ContainsKey('WhatIf')) | Should -Be $Expected
@@ -23,6 +26,11 @@ Describe 'Script parameter contracts' {
     }
     It 'Get-TestMedia requires MediaRoot' {
         (Get-Param 'Get-TestMedia.ps1' 'MediaRoot').Attributes |
+            Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
+            ForEach-Object { $_.Mandatory } | Should -Contain $true
+    }
+    It 'Start-ThuisbiosServer requires App' {
+        (Get-Param 'Start-ThuisbiosServer.ps1' 'App').Attributes |
             Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
             ForEach-Object { $_.Mandatory } | Should -Contain $true
     }
@@ -86,5 +94,12 @@ Describe 'Set-JellyfinFirewall.ps1 parameter validation' {
         $s = [System.IO.Path]::Combine($PSScriptRoot, '..', 'scripts', 'Set-JellyfinFirewall.ps1')
         { & $s -HttpPort 0 } | Should -Throw
         { & $s -DiscoveryPort 99999 } | Should -Throw
+    }
+}
+
+Describe 'Start-ThuisbiosServer.ps1 parameter validation' {
+    It 'rejects an unknown app' {
+        $s = [System.IO.Path]::Combine($PSScriptRoot, '..', 'scripts', 'Start-ThuisbiosServer.ps1')
+        { & $s -App foo } | Should -Throw
     }
 }
