@@ -1,5 +1,11 @@
 import { JellyfinError } from './client';
 
+/** True when a failed sign-in points at the server address (unreachable or not Jellyfin), not the credentials. */
+export function isServerAddressError(e: unknown): boolean {
+  if (e instanceof JellyfinError) return e.status === 404;
+  return true;
+}
+
 /** Plain-words message for a failed sign-in. */
 export function describeSignInError(e: unknown): string {
   if (e instanceof JellyfinError) {

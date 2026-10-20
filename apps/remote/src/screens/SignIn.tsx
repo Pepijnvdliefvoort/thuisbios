@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { clientInfo } from '../clientInfo';
 import { defaultServerUrl, normalizeServerUrl } from '../jellyfin/auth';
 import { authenticateByName } from '../jellyfin/client';
-import { describeSignInError } from '../jellyfin/errors';
+import { describeSignInError, isServerAddressError } from '../jellyfin/errors';
 import type { Session } from '../jellyfin/types';
 import { loadServerUrl, saveServerUrl } from '../storage';
 
@@ -10,6 +10,7 @@ export function SignIn({ onSignedIn, connecting }: { onSignedIn: (session: Sessi
   const [server, setServer] = useState(
     () => loadServerUrl() || defaultServerUrl(import.meta.env.VITE_JELLYFIN_URL, window.location),
   );
+  const [showServer, setShowServer] = useState(() => !server);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,7 +20,7 @@ export function SignIn({ onSignedIn, connecting }: { onSignedIn: (session: Sessi
     event.preventDefault();
     const serverUrl = normalizeServerUrl(server);
     if (!serverUrl || !username.trim()) {
-      setError('Fill in the server address and your username.');
+      setError(showServer ? 'Fill in the server address and your username.' : 'Fill in your username.');
       return;
     }
     setBusy(true);
@@ -30,6 +31,7 @@ export function SignIn({ onSignedIn, connecting }: { onSignedIn: (session: Sessi
       onSignedIn({ serverUrl, token: result.AccessToken, userId: result.User.Id, userName: result.User.Name });
     } catch (e) {
       setError(describeSignInError(e));
+      if (isServerAddressError(e)) setShowServer(true);
       setBusy(false);
     }
   };
@@ -44,19 +46,21 @@ export function SignIn({ onSignedIn, connecting }: { onSignedIn: (session: Sessi
       ) : null}
       <p class="signin-lead">Sign in to control your TV.</p>
       <form onSubmit={submit}>
-        <label>
-          Server
-          <input
-            type="url"
-            inputMode="url"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellcheck={false}
-            value={server}
-            onInput={(e) => setServer((e.target as HTMLInputElement).value)}
-            placeholder="http://192.168.1.50:8096"
-          />
-        </label>
+        {showServer ? (
+          <label>
+            Server
+            <input
+              type="url"
+              inputMode="url"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellcheck={false}
+              value={server}
+              onInput={(e) => setServer((e.target as HTMLInputElement).value)}
+              placeholder="http://192.168.1.50:8096"
+            />
+          </label>
+        ) : null}
         <label>
           Username
           <input
@@ -86,6 +90,11 @@ export function SignIn({ onSignedIn, connecting }: { onSignedIn: (session: Sessi
           {busy ? 'Signing in...' : 'Sign in'}
         </button>
       </form>
+      {showServer ? null : (
+        <button type="button" class="signin-link" onClick={() => setShowServer(true)}>
+          Change server
+        </button>
+      )}
     </main>
   );
 }

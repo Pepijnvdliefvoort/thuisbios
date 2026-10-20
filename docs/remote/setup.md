@@ -29,9 +29,9 @@ and you pick everything on the phone.
 2. On the phone, scan the QR code with the camera and open the link. If you rather type it: open
    `http://192.168.1.192:4174` in the phone's browser (Safari on iPhone, Chrome on Android), tap
    **Connect a TV** and type the code.
-3. If the phone asks you to sign in, do that once with your Jellyfin username and password. The
-   server address is filled in for you; if it is wrong, type the address of your Jellyfin server, for
-   example `http://192.168.1.192:8096`.
+3. If the phone asks you to sign in, do that once with just your Jellyfin username and password. The
+   server is found automatically. Only if it says it can't reach the server, tap **Change server** and
+   type the address of your Jellyfin server, for example `http://192.168.1.192:8096`.
 4. The phone says **TV connected** and the TV starts its slideshow. Done.
 5. Add the remote to the home screen so it opens like an app:
    - iPhone: tap the **Share** button in Safari, then **Add to Home Screen**.
