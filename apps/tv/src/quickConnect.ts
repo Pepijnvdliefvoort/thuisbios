@@ -12,3 +12,10 @@ export function codeExpired(error: unknown): boolean {
 
 /** True once a code issued at `issuedAt` is old enough to replace. */
 export const codeStale = (issuedAt: number, now: number): boolean => now - issuedAt >= CODE_LIFETIME_MS;
+
+/** Splits a code into groups of three for display ("123456" -> ["123", "456"]); the code itself is never changed. */
+export function formatCodeForDisplay(code: string): string[] {
+  const groups: string[] = [];
+  for (let i = 0; i < code.length; i += 3) groups.push(code.slice(i, i + 3));
+  return groups;
+}

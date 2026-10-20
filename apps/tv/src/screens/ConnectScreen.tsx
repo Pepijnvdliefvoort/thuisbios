@@ -6,7 +6,7 @@ import { currentConnectUrl, currentJellyfinUrl } from '../config';
 import { createClient } from '../jellyfin/client';
 import type { Session } from '../jellyfin/types';
 import { useRemote } from '../nav/useRemote';
-import { POLL_MS, RETRY_MS, codeExpired, codeStale } from '../quickConnect';
+import { POLL_MS, RETRY_MS, codeExpired, codeStale, formatCodeForDisplay } from '../quickConnect';
 
 interface Props {
   onConnected(session: Session): void;
@@ -97,7 +97,11 @@ export function ConnectScreen({ onConnected }: Props) {
             <div class="connect-text">
               <h1>Connect your phone</h1>
               <p>Scan the code with your phone, or open the Thuisbios app on your phone and enter this code.</p>
-              <div class="code" aria-label={code.split('').join(' ')}>{code}</div>
+              <div class="code" aria-label={code.split('').join(' ')}>
+                {formatCodeForDisplay(code).map((group, i) => (
+                  <span class="code-group" key={i}>{group}</span>
+                ))}
+              </div>
             </div>
             {qrUrl && (
               <div class="qr-card">
