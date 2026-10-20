@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { useApp } from '../context';
+import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscreen';
 import { artUrl } from '../jellyfin/art';
 import { getDeviceId } from '../storage';
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
@@ -33,6 +34,13 @@ export function Player({ item, startTicks, onBack }: { item: BaseItem; startTick
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
+
+  // Leaving the player (Back, Android back, end of video) also leaves fullscreen and frees the rotation.
+  useEffect(() => () => exitLandscapeFullscreen(), []);
+
+  // iPhone Safari cannot fullscreen the page. A video without `playsInline` opens in iOS's own fullscreen
+  // player instead, which follows the phone's rotation. Everywhere else keep it inline in our fullscreen page.
+  const inline = supportsElementFullscreen();
 
   // Ask the server how to play this item on this phone.
   useEffect(() => {
@@ -180,7 +188,7 @@ export function Player({ item, startTicks, onBack }: { item: BaseItem; startTick
             ref={video}
             class="player-video"
             controls
-            playsInline
+            playsInline={inline}
             autoPlay
             preload="auto"
             poster={artUrl(client.serverUrl, item, 'backdrop', 780, 440) || undefined}

@@ -16,6 +16,7 @@ import { NowPlaying } from './screens/NowPlaying';
 import { Player } from './screens/Player';
 import { Search } from './screens/Search';
 import { SignIn } from './screens/SignIn';
+import { enterLandscapeFullscreen } from './fullscreen';
 import { parseConnectParam } from './jellyfin/quickConnect';
 import { clearSession, getDeviceId, loadPendingConnect, loadSession, saveSession, savePendingConnect } from './storage';
 import { useTv } from './useTv';
@@ -130,6 +131,8 @@ function Shell({
       nav.push({ kind: 'nowPlaying' });
     },
     playOnPhone: (item, startTicks) => {
+      // Inside the tap that started playback, so the browser allows fullscreen and the orientation lock.
+      enterLandscapeFullscreen();
       remember();
       nav.push({ kind: 'player', item, startTicks });
     },
