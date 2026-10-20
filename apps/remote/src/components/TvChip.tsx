@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { useApp } from '../context';
 import { Icon } from './Icon';
+import { VolumeControls } from './VolumeControls';
 
 /** Header chip showing the connected TV; tap to pick another one. */
 export function TvChip({ onSignOut }: { onSignOut: () => void }) {
@@ -66,6 +67,7 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
                 <Icon name="tv" size={20} /> Disconnect from TV
               </button>
             ) : null}
+            <VolumeControls />
             <p class="signed-in">Signed in as {session.userName}</p>
             <button
               type="button"

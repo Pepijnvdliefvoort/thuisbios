@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
+import { VolumeControls } from '../components/VolumeControls';
 import { Img } from '../components/Img';
 import { useApp } from '../context';
 import { artUrl } from '../jellyfin/art';
@@ -93,6 +94,7 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
           <Icon name="next" size={30} />
         </button>
       </div>
+      <VolumeControls />
       <button type="button" class="btn secondary stop" onClick={() => {
           stopRequested.current = true;
           tv.stop();

@@ -211,6 +211,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .tbtn:active:not(:disabled) { background: var(--surface-2); }
 .tbtn.big { width: 72px; height: 72px; background: var(--fg); color: #111; }
 .stop { margin-top: 8px; }
+.volume { display: flex; align-items: center; justify-content: center; gap: 32px; }
 
 /* Sign in */
 .signin { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; max-width: 420px; margin: 0 auto; padding: calc(var(--safe-top) + 24px) calc(var(--gutter) + var(--safe-right)) calc(var(--safe-bottom) + 24px) calc(var(--gutter) + var(--safe-left)); }
