@@ -34,7 +34,7 @@ h1, h2, p { margin: 0; }
 /* App shell: a fixed-height frame; only .scroller scrolls, the tab bar stays put. --app-h (viewport.ts) fixes iOS standalone's short 100dvh. */
 .shell { position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); overflow: hidden; display: flex; flex-direction: column; }
 .scroller {
-  flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: none; -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: none;
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
   padding-bottom: 16px;
@@ -94,15 +94,16 @@ html.scroll-locked .scroller { overflow-y: hidden; }
 /* Rows and grid */
 .row { margin: 12px 0 20px; }
 .row h2 { font-size: 18px; padding: 0 var(--gutter); margin-bottom: 8px; }
+/* No scroll-snap: on iOS it makes a row grab vertical swipes that should scroll the page. */
 .row-scroll {
-  display: flex; gap: 10px; overflow-x: auto; padding: 0 var(--gutter);
-  scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; padding: 0 var(--gutter);
+  touch-action: pan-x pan-y; overscroll-behavior-x: contain; scrollbar-width: none;
 }
 .row-scroll::-webkit-scrollbar { display: none; }
 .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; padding: 8px var(--gutter) 0; }
 @media (min-width: 560px) { .grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
-.card { display: block; text-align: left; flex: none; min-width: 0; scroll-snap-align: start; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.card { display: block; text-align: left; flex: none; min-width: 0; touch-action: pan-x pan-y; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .card-poster { width: 120px; }
 .card-thumb { width: 240px; }
 .grid .card { width: auto; }
@@ -261,7 +262,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .vol-slider:disabled { opacity: 0.4; }
 
 /* Sign in */
-.signin { height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); overflow-y: auto; overscroll-behavior: none; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; max-width: 420px; margin: 0 auto; padding: calc(var(--safe-top) + 24px) calc(var(--gutter) + var(--safe-right)) calc(var(--safe-bottom) + 24px) calc(var(--gutter) + var(--safe-left)); }
+.signin { height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); overflow-y: auto; overscroll-behavior: none; display: flex; flex-direction: column; max-width: 420px; margin: 0 auto; padding: calc(var(--safe-top) + 24px) calc(var(--gutter) + var(--safe-right)) calc(var(--safe-bottom) + 24px) calc(var(--gutter) + var(--safe-left)); }
 .signin::before, .signin::after { content: ''; flex: 1 0 0; }
 .signin-logo { font-size: 38px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
 .signin-lead { color: var(--muted); margin: 4px 0 24px; }
@@ -377,7 +378,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .rs-form { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
 .rs-title { flex: none; }
 .rs-input { flex: none; }
-.rs-results { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 8px; }
+.rs-results { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; }
 .rs-note { color: var(--muted); font-size: 14px; padding: 4px 2px; }
 .rs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .rs-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px; border-radius: var(--radius); text-align: left; }
