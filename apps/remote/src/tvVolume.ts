@@ -56,6 +56,11 @@ async function readState(response: Response): Promise<VolumeStateResult> {
   return { ok: true, state: { level: body.level, muted: typeof body.muted === 'boolean' ? body.muted : null, mode: body.mode } };
 }
 
+/** The level one step (or `delta` steps) away from `level`, kept within 0-100. */
+export function stepLevel(level: number, delta: number): number {
+  return Math.min(100, Math.max(0, Math.round(level) + delta));
+}
+
 /**
  * Sends the level while a slider is dragged: at most one request at a time and at most one per
  * `intervalMs`, always with the latest value. `flush` sends the final value as soon as it can.

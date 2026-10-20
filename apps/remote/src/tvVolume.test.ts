@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { afterEach, beforeEach } from 'vitest';
-import { createLevelSender, createTvVolume, describeVolumeError } from './tvVolume';
+import { createLevelSender, createTvVolume, describeVolumeError, stepLevel } from './tvVolume';
 
 const reply = (status: number, body?: unknown) =>
   ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
@@ -148,5 +148,15 @@ describe('createLevelSender', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(send).toHaveBeenCalledTimes(2);
     expect(send.mock.calls[1]).toEqual([9]);
+  });
+});
+
+describe('stepLevel', () => {
+  it('moves by the step and stays within 0-100', () => {
+    expect(stepLevel(20, 1)).toBe(21);
+    expect(stepLevel(20, -1)).toBe(19);
+    expect(stepLevel(0, -1)).toBe(0);
+    expect(stepLevel(100, 1)).toBe(100);
+    expect(stepLevel(99.6, 1)).toBe(100);
   });
 });

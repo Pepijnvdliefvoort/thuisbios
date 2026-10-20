@@ -228,6 +228,10 @@ input:focus { outline: none; border-color: var(--accent); }
 .vol-grab { display: flex; justify-content: center; padding: 4px 0 8px; margin-top: -8px; touch-action: none; }
 .vol-grabber { width: 40px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.25); }
 .vol-row { display: flex; align-items: center; gap: 8px; }
+.vol-steps { display: flex; gap: 12px; margin-top: 4px; }
+.vol-step { flex: 1; min-height: 56px; border-radius: var(--radius); background: var(--surface-2); color: var(--fg); display: flex; align-items: center; justify-content: center; }
+.vol-step:disabled { opacity: 0.3; }
+.vol-step:active:not(:disabled) { transform: scale(0.96); }
 .vol-value { min-width: 3ch; text-align: right; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .vol-hint { margin: 0; text-align: center; color: var(--muted); font-size: 13px; }
 .vol-slider {
