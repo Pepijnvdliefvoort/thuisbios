@@ -15,9 +15,8 @@ switches are on.
 1. Open <https://login.tailscale.com/admin/dns> and sign in.
 2. Check that **MagicDNS** is on. Switch it on if it is not.
 3. Under **HTTPS Certificates**, press **Enable HTTPS** and confirm.
-4. Open the **Machines** page and find your PC. Your network is `tail0c4ac1.ts.net`, so the PC's
-   full name is `<pc-name>.tail0c4ac1.ts.net`, where `<pc-name>` is the PC's name as shown on the
-   Machines page (for example `desktop-abc123`). Write it down: this guide uses that full name.
+4. Open the **Machines** page and check that your PC is listed as `pepijn-pc`. Its full name is
+   `pepijn-pc.tail0c4ac1.ts.net`, which this guide uses everywhere.
 
 ## 2. Set up the phone
 
@@ -58,9 +57,9 @@ Jellyfin runs on its own. The window with `npm run preview -w apps/remote` must 
 
 ## 5. Open the remote on the phone
 
-1. On the phone, with Tailscale on, open `https://<pc-name>.tail0c4ac1.ts.net`.
+1. On the phone, with Tailscale on, open `https://pepijn-pc.tail0c4ac1.ts.net`.
 2. Sign in once with your Jellyfin username and password. The server address is filled in for you
-   (`https://<pc-name>.tail0c4ac1.ts.net:8920`).
+   (`https://pepijn-pc.tail0c4ac1.ts.net:8920`).
 3. Add it to the home screen (iPhone: **Share > Add to Home Screen**; Android: menu > **Install
    app**).
 
@@ -73,7 +72,7 @@ its own sign-in; you can stop using it.
 Why: the QR code on the TV should open the app you installed, not the old copy.
 
 1. On the TV, open the TV page with the remote address added:
-   `http://192.168.1.192:4173/?remote=https://<pc-name>.tail0c4ac1.ts.net`
+   `http://192.168.1.192:4173/?remote=https://pepijn-pc.tail0c4ac1.ts.net`
 2. Scan the QR code as usual. It now opens the Tailscale address.
 
 The TV itself keeps using the home address; it does not need Tailscale.
