@@ -95,7 +95,9 @@ Connect code and QR again (the choice survives a reload). Reconnecting needs the
 
 Without a TV connected, the play buttons play the video on the phone itself: direct play when the
 phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
-no native HLS). The phone reports its progress to Jellyfin, so it counts toward Resume watching.
+no native HLS). Playback goes fullscreen in landscape: on Android the app goes fullscreen and turns
+sideways, on iPhone the video opens in the iPhone's own fullscreen player. The phone reports its
+progress to Jellyfin, so it counts toward Resume watching.
 
 The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
 remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on

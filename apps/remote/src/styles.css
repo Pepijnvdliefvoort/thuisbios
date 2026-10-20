@@ -281,4 +281,9 @@ input:focus { outline: none; border-color: var(--accent); }
 .player-head { padding: 0 var(--gutter) 12px; }
 .player-head h1 { font-size: 18px; line-height: 1.2; }
 .player-video { display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 70vh; background: #000; }
-@media (orientation: landscape) { .player-video { max-height: calc(100vh - 120px); } }
+/* Full video player mode: in landscape the video fills the screen, with only the Back button on top. */
+@media (orientation: landscape) {
+  .player { padding: 0; overflow: hidden; }
+  .player-head { display: none; }
+  .player-video { position: absolute; inset: 0; width: 100%; height: 100%; max-height: none; aspect-ratio: auto; object-fit: contain; }
+}
