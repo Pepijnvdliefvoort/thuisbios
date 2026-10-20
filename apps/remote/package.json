@@ -12,7 +12,8 @@
     "build": "vite build",
     "preview": "vite preview --host --port 4174",
     "icons": "node scripts/make-icons.mjs",
-    "tv:setup": "node scripts/tv-setup.mjs"
+    "tv:setup": "node scripts/tv-setup.mjs",
+    "jellyfin:setup": "node scripts/jellyfin-setup.mjs"
   },
   "dependencies": {
     "hls.js": "^1.7.3",

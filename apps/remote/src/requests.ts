@@ -7,6 +7,9 @@ export interface TitleRequest {
   year?: number;
   note?: string;
   type?: RequestType;
+  tmdbId?: string;
+  imdbId?: string;
+  posterUrl?: string;
   userId: string;
   userName: string;
   createdAt: string;
@@ -19,10 +22,27 @@ export interface NewRequest {
   year?: number;
   note?: string;
   type?: RequestType;
+  tmdbId?: string;
+  imdbId?: string;
+  posterUrl?: string;
 }
 
-/** `unavailable`: no relay on this server (404) or it cannot be reached. */
-export type RequestsError = 'unavailable' | 'unauthorized' | 'forbidden' | 'invalid' | 'too-many' | 'failed';
+/** A title found by the relay's lookup (Jellyfin's TMDB search). */
+export interface Suggestion {
+  title: string;
+  year?: number;
+  type: RequestType;
+  posterUrl?: string;
+  tmdbId?: string;
+  imdbId?: string;
+  overview?: string;
+}
+
+/**
+ * `unavailable`: no relay on this server (404) or it cannot be reached.
+ * `not-set-up`: the relay has no Jellyfin API key for lookups. `duplicate`: this user already requested the title.
+ */
+export type RequestsError = 'unavailable' | 'unauthorized' | 'forbidden' | 'invalid' | 'too-many' | 'duplicate' | 'not-set-up' | 'failed';
 
 export type RequestsResult<T> = { ok: true; value: T } | { ok: false; error: RequestsError };
 
@@ -45,6 +65,8 @@ export interface RequestsApiOptions {
 export interface RequestsApi {
   list(): Promise<RequestsResult<RequestsList>>;
   create(input: NewRequest): Promise<RequestsResult<TitleRequest>>;
+  /** Matching titles with poster and year; `any` searches movies and shows. */
+  lookup(query: string, type: RequestType | 'any'): Promise<RequestsResult<Suggestion[]>>;
   /** Admin only. */
   setStatus(id: string, status: RequestStatus): Promise<RequestsResult<TitleRequest>>;
   /** The requester withdraws an open request; an admin deletes any. */
@@ -59,6 +81,8 @@ function errorFor(status: number): RequestsError {
   if (status === 403) return 'forbidden';
   if (status === 400) return 'invalid';
   if (status === 429) return 'too-many';
+  if (status === 409) return 'duplicate';
+  if (status === 503) return 'not-set-up';
   if (status === 404 || status === 502 || status === 504) return 'unavailable';
   return 'failed';
 }
@@ -89,6 +113,12 @@ export function createRequestsApi({ baseUrl, authHeader, fetchFn }: RequestsApiO
         if (!body || !Array.isArray(body.requests) || typeof body.isAdmin !== 'boolean') return null;
         return { requests: body.requests, isAdmin: body.isAdmin, openCount: typeof body.openCount === 'number' ? body.openCount : 0 };
       }),
+    lookup: (query, type) =>
+      call(`api/requests/lookup?${new URLSearchParams({ q: query, type })}`, { method: 'GET' }, async (response) => {
+        const body = (await response.json().catch(() => null)) as { results?: unknown } | null;
+        if (!body || !Array.isArray(body.results)) return null;
+        return (body.results as Suggestion[]).filter((r) => r && typeof r.title === 'string' && (r.type === 'movie' || r.type === 'show'));
+      }),
     create: (input) => call('api/requests', { method: 'POST', headers: json, body: JSON.stringify(input) }, readRequest),
     setStatus: (id, status) =>
       call(`api/requests/${encodeURIComponent(id)}`, { method: 'PATCH', headers: json, body: JSON.stringify({ status }) }, readRequest),
@@ -108,6 +138,8 @@ export function describeRequestsError(error: RequestsError): string {
       return 'Check the title, year and note.';
     case 'too-many':
       return 'You have too many open requests. Withdraw one first.';
+    case 'duplicate':
+      return 'You already requested this.';
     default:
       return 'That did not work. Try again.';
   }
@@ -122,6 +154,9 @@ export function splitRequests(list: TitleRequest[]): { open: TitleRequest[]; han
 
 /** "Heat (1995)" or just the title. */
 export const requestLabel = (r: Pick<TitleRequest, 'title' | 'year'>): string => (r.year ? `${r.title} (${r.year})` : r.title);
+
+/** The year line under a suggestion or request: "2024 · Movie". */
+export const typeLabel = (type: RequestType | undefined): string => (type === 'movie' ? 'Movie' : type === 'show' ? 'Show' : '');
 
 /** Reads the optional year field of the form: empty = none, otherwise a plausible year or NaN. */
 export function parseYear(text: string): number | undefined {

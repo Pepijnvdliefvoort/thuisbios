@@ -30,7 +30,7 @@ scripts/                  repo tooling (version checks)
 packages/jellyfin-client/ planned: shared typed Jellyfin API client
 apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite), served to the TV browser
 apps/remote/              phone remote PWA, phase 4 (Preact + TypeScript + Vite)
-apps/remote/relay/        Samsung TV volume relay and title requests (Node, runs inside the remote's vite server); apps/remote/scripts/tv-setup.mjs pairs the TV
+apps/remote/relay/        Samsung TV volume relay and title requests (Node, runs inside the remote's vite server); apps/remote/scripts/tv-setup.mjs pairs the TV and jellyfin-setup.mjs saves the Jellyfin API key for title suggestions
 server/                   Jellyfin helper scripts (PowerShell) and Pester tests; device profile planned
 ```
 
@@ -122,7 +122,10 @@ own requests with a status (Waiting, Added, Not added), where open ones can be w
 (a Jellyfin administrator, checked by the relay through `GET /Users/Me`, never taken from the client)
 sees all requests in that tab, marks them Added or Dismiss, and gets a badge with the open count on
 the tab. Requests are stored in `~/.thuisbios/requests.json`, outside the repo; nothing is downloaded
-automatically.
+automatically. While typing a title, the form suggests matches with a poster and year; the relay gets
+them from Jellyfin's built-in metadata search (`GET /api/requests/lookup`) using a Jellyfin API key that
+`npm run jellyfin:setup -w apps/remote` saves in `~/.thuisbios/jellyfin.json`. Without the key, requests
+still work as plain text.
 
 Away from home the phone reaches the PC through Tailscale Serve (private, tailnet only, nothing opened
 to the internet): `https://<pc>.<tailnet>.ts.net` for the app (port 443) and `:8920` for Jellyfin, both

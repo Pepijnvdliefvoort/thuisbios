@@ -16,6 +16,11 @@ export function requestsPath(env = process.env) {
   return env.THUISBIOS_REQUESTS_FILE || join(dirname(configPath(env)), 'requests.json');
 }
 
+/** Path of the Jellyfin API key file, next to the TV config; `THUISBIOS_JELLYFIN_CONFIG` overrides it. */
+export function jellyfinConfigPath(env = process.env) {
+  return env.THUISBIOS_JELLYFIN_CONFIG || join(dirname(configPath(env)), 'jellyfin.json');
+}
+
 /** Base URL of Jellyfin as seen from the PC; `THUISBIOS_JELLYFIN_URL` overrides it. */
 export function jellyfinUrl(env = process.env) {
   return (env.THUISBIOS_JELLYFIN_URL || 'http://localhost:8096').replace(/\/+$/, '');
@@ -72,4 +77,23 @@ export function saveConfig(config, env = process.env) {
   if (config.token) clean.token = config.token;
   if (config.volumeMode) clean.volumeMode = config.volumeMode;
   writeFileSync(file, `${JSON.stringify(clean, null, 2)}\n`, { mode: 0o600 });
+}
+
+/** The Jellyfin API key for title lookups: `THUISBIOS_JELLYFIN_API_KEY`, else the key file (missing or broken = none). */
+export function loadJellyfinApiKey(env = process.env) {
+  const fromEnv = (env.THUISBIOS_JELLYFIN_API_KEY || '').trim();
+  if (fromEnv) return fromEnv;
+  try {
+    const raw = JSON.parse(readFileSync(jellyfinConfigPath(env), 'utf8'));
+    return raw && typeof raw.apiKey === 'string' ? raw.apiKey.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+/** Writes the key file (creating its folder), private to the user where the OS allows. */
+export function saveJellyfinApiKey(/** @type {string} */ apiKey, env = process.env) {
+  const file = jellyfinConfigPath(env);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, `${JSON.stringify({ apiKey }, null, 2)}\n`, { mode: 0o600 });
 }

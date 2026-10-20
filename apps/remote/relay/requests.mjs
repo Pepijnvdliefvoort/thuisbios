@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { jellyfinUrl as defaultJellyfinUrl, requestsPath } from './config.mjs';
+import { createLookup } from './lookup.mjs';
 
 export const MAX_TITLE = 200;
 export const MAX_NOTE = 500;
+export const MAX_POSTER = 300;
 /** Open requests one user can have at a time (keeps the file small if a phone misbehaves). */
 export const MAX_OPEN_PER_USER = 20;
 const MAX_BODY = 4096;
@@ -18,6 +20,9 @@ const TYPES = ['movie', 'show'];
  * @property {number} [year]
  * @property {string} [note]
  * @property {'movie' | 'show'} [type]
+ * @property {string} [tmdbId]
+ * @property {string} [imdbId]
+ * @property {string} [posterUrl] only an image.tmdb.org address
  * @property {string} userId
  * @property {string} userName
  * @property {string} createdAt ISO time
@@ -33,6 +38,7 @@ const TYPES = ['movie', 'show'];
  * @property {string} [jellyfinUrl]
  * @property {() => number} [now]
  * @property {() => string} [newId]
+ * @property {() => string} [getApiKey] Jellyfin API key for title lookups (see lookup.mjs)
  */
 
 /** Asks Jellyfin who owns this `Authorization` header. The name and admin flag come from Jellyfin only. */
@@ -70,15 +76,15 @@ export function saveRequests(list, filePath = requestsPath()) {
 /**
  * Validates a create body. Returns the cleaned fields, or `ok: false` when anything is out of range.
  * @param {unknown} body
- * @returns {{ ok: true, value: { title: string, year?: number, note?: string, type?: 'movie' | 'show' } } | { ok: false }}
+ * @returns {{ ok: true, value: { title: string, year?: number, note?: string, type?: 'movie' | 'show', tmdbId?: string, imdbId?: string, posterUrl?: string } } | { ok: false }}
  */
 export function parseCreate(body) {
   if (!body || typeof body !== 'object') return { ok: false };
-  const { title, year, note, type } = /** @type {Record<string, unknown>} */ (body);
+  const { title, year, note, type, tmdbId, imdbId, posterUrl } = /** @type {Record<string, unknown>} */ (body);
   if (typeof title !== 'string') return { ok: false };
   const cleanTitle = title.trim();
   if (!cleanTitle || cleanTitle.length > MAX_TITLE) return { ok: false };
-  /** @type {{ title: string, year?: number, note?: string, type?: 'movie' | 'show' }} */
+  /** @type {{ title: string, year?: number, note?: string, type?: 'movie' | 'show', tmdbId?: string, imdbId?: string, posterUrl?: string }} */
   const value = { title: cleanTitle };
   if (year !== undefined && year !== null) {
     if (!Number.isInteger(year) || /** @type {number} */ (year) < 1888 || /** @type {number} */ (year) > 2100) return { ok: false };
@@ -92,7 +98,25 @@ export function parseCreate(body) {
     if (typeof type !== 'string' || !TYPES.includes(type)) return { ok: false };
     value.type = /** @type {'movie' | 'show'} */ (type);
   }
+  if (tmdbId !== undefined && tmdbId !== null) {
+    if (typeof tmdbId !== 'string' || !/^\d{1,20}$/.test(tmdbId)) return { ok: false };
+    value.tmdbId = tmdbId;
+  }
+  if (imdbId !== undefined && imdbId !== null) {
+    if (typeof imdbId !== 'string' || !/^tt\d{1,10}$/.test(imdbId)) return { ok: false };
+    value.imdbId = imdbId;
+  }
+  if (posterUrl !== undefined && posterUrl !== null) {
+    if (typeof posterUrl !== 'string' || posterUrl.length > MAX_POSTER || !posterUrl.startsWith('https://image.tmdb.org/')) return { ok: false };
+    value.posterUrl = posterUrl;
+  }
   return { ok: true, value };
+}
+
+/** True when `a` and `b` ask for the same title: same TMDB id and type, or (without an id) same title and year. */
+function sameTitle(/** @type {Partial<TitleRequest>} */ a, /** @type {Partial<TitleRequest>} */ b) {
+  if (a.tmdbId) return a.tmdbId === b.tmdbId && (a.type || '') === (b.type || '');
+  return !b.tmdbId && a.title?.toLowerCase() === b.title?.toLowerCase() && a.year === b.year;
 }
 
 /** Connect middleware for `/api/requests`; the file and the Jellyfin lookup can be replaced in tests. */
@@ -101,6 +125,7 @@ export function createRequestsHandler(/** @type {RequestsDeps} */ deps = {}) {
   const whoami = deps.whoami || createWhoami({ jellyfinUrl: deps.jellyfinUrl, fetchFn: deps.fetchFn });
   const now = deps.now || Date.now;
   const newId = deps.newId || randomUUID;
+  const lookup = createLookup({ jellyfinUrl: deps.jellyfinUrl, fetchFn: deps.fetchFn, getApiKey: deps.getApiKey });
 
   /**
    * @param {import('node:http').IncomingMessage} req
@@ -117,7 +142,9 @@ export function createRequestsHandler(/** @type {RequestsDeps} */ deps = {}) {
     }
     const id = match[1] ? decodeURIComponent(match[1]) : null;
     try {
-      const methods = id ? ['PATCH', 'DELETE'] : ['GET', 'POST'];
+      // `lookup` is a fixed path, not a request id; it must be answered before the id routes.
+      const isLookup = id === 'lookup';
+      const methods = isLookup ? ['GET'] : id ? ['PATCH', 'DELETE'] : ['GET', 'POST'];
       if (!methods.includes(req.method || '')) {
         res.setHeader('Allow', methods.join(', '));
         return send(res, 405, { error: 'method-not-allowed' });
@@ -130,6 +157,10 @@ export function createRequestsHandler(/** @type {RequestsDeps} */ deps = {}) {
         return send(res, 502, { error: 'jellyfin-unreachable' });
       }
       if (!who) return send(res, 401, { error: 'unauthorized' });
+      if (isLookup) {
+        const found = await lookup(who, String(req.headers.authorization || ''), url.searchParams.get('q'), url.searchParams.get('type'));
+        return send(res, found.status, found.body);
+      }
       const admin = who.isAdministrator;
       const list = loadRequests(filePath);
 
@@ -141,7 +172,9 @@ export function createRequestsHandler(/** @type {RequestsDeps} */ deps = {}) {
       if (req.method === 'POST') {
         const parsed = parseCreate(await readJson(req));
         if (!parsed.ok) return send(res, 400, { error: 'bad-request' });
-        if (list.filter((r) => r.userId === who.id && r.status === 'open').length >= MAX_OPEN_PER_USER) {
+        const mine = list.filter((r) => r.userId === who.id && r.status === 'open');
+        if (mine.some((r) => sameTitle(parsed.value, r))) return send(res, 409, { error: 'already-requested' });
+        if (mine.length >= MAX_OPEN_PER_USER) {
           return send(res, 429, { error: 'too-many-open' });
         }
         /** @type {TitleRequest} */
