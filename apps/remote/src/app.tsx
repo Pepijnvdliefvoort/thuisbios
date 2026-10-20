@@ -23,6 +23,7 @@ import { parseConnectParam } from './jellyfin/quickConnect';
 import { clearSession, getDeviceId, loadPendingConnect, loadSession, saveSession, savePendingConnect } from './storage';
 import { SCROLLER_ID, scrollOffset, scrollToOffset } from './scroller';
 import { useRequests } from './useRequests';
+import { useScrollerRefresh } from './useScrollerRefresh';
 import { useTv } from './useTv';
 
 /**
@@ -90,6 +91,7 @@ function Shell({
   onConnectTaken: () => void;
   onSignOut: (expired?: boolean) => void;
 }) {
+  useScrollerRefresh();
   // The client is memoized on the session, so it reaches the latest callback through a ref.
   const onSignOutRef = useRef(onSignOut);
   onSignOutRef.current = onSignOut;
