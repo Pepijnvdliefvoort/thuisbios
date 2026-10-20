@@ -243,7 +243,10 @@ body.dpad, body.dpad * { cursor: none; }
 .connect h1 { font-size: 72px; line-height: 80px; font-weight: bold; margin-bottom: 24px; }
 .connect p { margin: 0; font-size: 32px; line-height: 46px; color: rgba(255, 255, 255, 0.72); }
 .connect p.error { color: #ff9a9a; }
-.code { margin: 56px 0 0 -6px; font-size: 200px; line-height: 200px; font-weight: bold; letter-spacing: 26px; font-variant-numeric: tabular-nums; color: #fff; }
+.code { margin: 56px 0 0 -6px; font-size: 170px; line-height: 170px; font-weight: bold; letter-spacing: 20px; font-variant-numeric: tabular-nums; color: #fff; }
+.code-group { display: inline-block; }
+/* Each group ends in 20px of letter-spacing, so 40px of margin gives a ~0.35em (60px) visual gap. */
+.code-group + .code-group { margin-left: 40px; }
 .qr-card { flex: 0 0 auto; padding: 36px; border-radius: 36px; background: #fff; line-height: 0; }
 .qr-card svg { display: block; }
 
