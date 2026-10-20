@@ -180,7 +180,7 @@ function Shell({
   return (
     <Ctx.Provider value={ctx}>
       <div class="shell">
-        <div class="scroller" id={SCROLLER_ID}>
+        <div class={top && top.kind === 'nowPlaying' ? 'scroller fixed' : 'scroller'} id={SCROLLER_ID}>
           <div hidden={open}>
             <TvChip onSignOut={signOut} />
             <main hidden={nav.tab !== 'home'}>
