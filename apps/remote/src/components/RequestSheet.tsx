@@ -64,6 +64,7 @@ export function RequestSheet({ initialTitle, onClose }: { initialTitle: string; 
   }, [title, picked, typedOnly]);
 
   const pick = (s: Suggestion) => {
+    input.current?.blur(); // closes the iOS keyboard so Send request is visible
     setPicked(s);
     setTitle(s.title);
     setError('');

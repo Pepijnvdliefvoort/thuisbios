@@ -31,12 +31,12 @@ h1, h2, p { margin: 0; }
 .icon { display: block; flex: none; }
 
 /* App shell: a fixed-height frame; only .scroller scrolls, the tab bar stays put. */
-.shell { height: 100vh; height: 100dvh; overflow: hidden; position: relative; }
+.shell { height: 100vh; height: 100dvh; overflow: hidden; position: relative; display: flex; flex-direction: column; }
 .scroller {
-  height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: none; -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: none; -webkit-overflow-scrolling: touch;
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
-  padding-bottom: calc(var(--tabbar-h) + var(--mini-h) + var(--safe-bottom) + 16px);
+  padding-bottom: 16px;
 }
 /* A sheet is open: freeze the page behind it (the offset is kept). */
 html.scroll-locked .scroller { overflow-y: hidden; }
@@ -129,7 +129,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .segmented button.active { background: var(--surface-2); color: var(--fg); }
 
 /* Bottom bars */
-.bottom { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--bg); padding-bottom: var(--safe-bottom); }
+.bottom { flex: none; background: var(--bg); padding-bottom: var(--safe-bottom); }
 .tabbar { display: flex; height: var(--tabbar-h); border-top: 1px solid var(--surface-2); padding: 0 var(--safe-left) 0 var(--safe-right); }
 .tabbar button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; color: var(--muted); }
 .tabbar button.active { color: var(--fg); }
