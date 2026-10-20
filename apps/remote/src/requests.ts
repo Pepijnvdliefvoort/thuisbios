@@ -74,7 +74,6 @@ export interface RequestsApi {
 }
 
 export const MAX_TITLE = 200;
-export const MAX_NOTE = 500;
 
 function errorFor(status: number): RequestsError {
   if (status === 401) return 'unauthorized';
@@ -135,7 +134,7 @@ export function describeRequestsError(error: RequestsError): string {
     case 'forbidden':
       return "You can't do that.";
     case 'invalid':
-      return 'Check the title, year and note.';
+      return 'Check the title.';
     case 'too-many':
       return 'You have too many open requests. Withdraw one first.';
     case 'duplicate':
@@ -157,11 +156,3 @@ export const requestLabel = (r: Pick<TitleRequest, 'title' | 'year'>): string =>
 
 /** The year line under a suggestion or request: "2024 · Movie". */
 export const typeLabel = (type: RequestType | undefined): string => (type === 'movie' ? 'Movie' : type === 'show' ? 'Show' : '');
-
-/** Reads the optional year field of the form: empty = none, otherwise a plausible year or NaN. */
-export function parseYear(text: string): number | undefined {
-  const t = text.trim();
-  if (!t) return undefined;
-  const year = Number(t);
-  return Number.isInteger(year) && year >= 1888 && year <= 2100 ? year : NaN;
-}

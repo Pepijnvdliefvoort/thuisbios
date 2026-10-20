@@ -21,6 +21,7 @@ import { SignIn } from './screens/SignIn';
 import { enterLandscapeFullscreen } from './fullscreen';
 import { parseConnectParam } from './jellyfin/quickConnect';
 import { clearSession, getDeviceId, loadPendingConnect, loadSession, saveSession, savePendingConnect } from './storage';
+import { SCROLLER_ID, scrollOffset, scrollToOffset } from './scroller';
 import { useRequests } from './useRequests';
 import { useTv } from './useTv';
 
@@ -130,11 +131,10 @@ function Shell({
   const savedScroll = useRef(0);
   const open = nav.stack.length > 0;
   useEffect(() => {
-    if (!open) window.scrollTo(0, savedScroll.current);
-    else window.scrollTo(0, 0);
+    scrollToOffset(open ? 0 : savedScroll.current);
   }, [open]);
   const remember = () => {
-    if (nav.stack.length === 0) savedScroll.current = window.scrollY;
+    if (nav.stack.length === 0) savedScroll.current = scrollOffset();
   };
 
   // A QR-code link: open the Connect TV screen, which authorizes the code straight away.
@@ -180,27 +180,29 @@ function Shell({
   return (
     <Ctx.Provider value={ctx}>
       <div class="shell">
-        <div hidden={open}>
-          <TvChip onSignOut={signOut} />
-          <main hidden={nav.tab !== 'home'}>
-            <Home />
-          </main>
-          <main hidden={nav.tab !== 'search'}>
-            <Search />
-          </main>
-          <main hidden={nav.tab !== 'library'}>
-            <Library />
-          </main>
-          <main hidden={nav.tab !== 'requests'}>
-            <Requests active={nav.tab === 'requests'} />
-          </main>
+        <div class="scroller" id={SCROLLER_ID}>
+          <div hidden={open}>
+            <TvChip onSignOut={signOut} />
+            <main hidden={nav.tab !== 'home'}>
+              <Home />
+            </main>
+            <main hidden={nav.tab !== 'search'}>
+              <Search />
+            </main>
+            <main hidden={nav.tab !== 'library'}>
+              <Library />
+            </main>
+            <main hidden={nav.tab !== 'requests'}>
+              <Requests active={nav.tab === 'requests'} />
+            </main>
+          </div>
+          {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
+          {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
+          {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
+          {top && top.kind === 'player' ? (
+            <Player key={`${nav.stack.length}:player`} item={top.item} startTicks={top.startTicks} onBack={nav.back} />
+          ) : null}
         </div>
-        {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
-        {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
-        {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
-        {top && top.kind === 'player' ? (
-          <Player key={`${nav.stack.length}:player`} item={top.item} startTicks={top.startTicks} onBack={nav.back} />
-        ) : null}
         <div class="bottom">
           {top && (top.kind === 'nowPlaying' || top.kind === 'connect' || top.kind === 'player') ? null : <MiniPlayer />}
           {top && (top.kind === 'connect' || top.kind === 'player') ? null : <TabBar tab={nav.tab} onChange={nav.setTab} badge={requests.badge} />}

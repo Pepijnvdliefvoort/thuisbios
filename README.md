@@ -117,7 +117,7 @@ the TV once. Follow [docs/remote/setup.md](docs/remote/setup.md) to run it on th
 the phone's home screen.
 
 The same relay serves title requests under `/api/requests`: when a search finds nothing, anyone signed
-in can request a movie or show (title, optional year, type and note), and the Requests tab shows their
+in can request a movie or show (just a title; picking a suggestion adds year, type and poster), and the Requests tab shows their
 own requests with a status (Waiting, Added, Not added), where open ones can be withdrawn. The owner
 (a Jellyfin administrator, checked by the relay through `GET /Users/Me`, never taken from the client)
 sees all requests in that tab, marks them Added or Dismiss, and gets a badge with the open count on

@@ -3,7 +3,7 @@ import { PullSpinner } from '../components/PullSpinner';
 import { RequestPoster } from '../components/RequestPoster';
 import { RequestSheet } from '../components/RequestSheet';
 import { useApp } from '../context';
-import { describeRequestsError, requestLabel, splitRequests, STATUS_LABEL, typeLabel, type RequestsResult, type RequestStatus, type TitleRequest } from '../requests';
+import { describeRequestsError, splitRequests, STATUS_LABEL, typeLabel, type RequestsResult, type RequestStatus, type TitleRequest } from '../requests';
 import { useAsync } from '../useAsync';
 import { usePullToRefresh } from '../usePullToRefresh';
 
@@ -46,49 +46,49 @@ export function Requests({ active }: { active: boolean }) {
   const isAdmin = !!data?.isAdmin;
   const { open, handled } = splitRequests(data?.requests ?? []);
 
-  const card = (r: TitleRequest) => (
-    <li key={r.id} class="request">
-      <div class="request-row">
+  const card = (r: TitleRequest) => {
+    const meta = [r.year ? String(r.year) : '', typeLabel(r.type), isAdmin && r.userName ? `requested by ${r.userName}` : '', formatDate(r.createdAt)]
+      .filter(Boolean)
+      .join(' · ');
+    const disabled = busyId === r.id;
+    return (
+      <li key={r.id} class="request">
         <RequestPoster url={r.posterUrl} />
         <div class="request-body">
           <div class="request-head">
-            <span class="request-title">{requestLabel(r)}</span>
+            <span class="request-title">{r.title}</span>
             <span class={`request-status ${r.status}`}>{STATUS_LABEL[r.status]}</span>
           </div>
-          <p class="request-meta">
-            {[isAdmin ? r.userName : '', typeLabel(r.type), formatDate(r.createdAt)]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
+          <p class="request-meta">{meta}</p>
           {r.note ? <p class="request-note">{r.note}</p> : null}
+          {isAdmin && r.status === 'open' ? (
+            <div class="request-actions">
+              <button type="button" class="req-btn primary" disabled={disabled} onClick={() => setStatus(r, 'added', 'Marked as added')}>
+                Added
+              </button>
+              <button type="button" class="req-btn" disabled={disabled} onClick={() => setStatus(r, 'dismissed', 'Dismissed')}>
+                Dismiss
+              </button>
+            </div>
+          ) : null}
+          {isAdmin && r.status !== 'open' ? (
+            <div class="request-actions">
+              <button type="button" class="req-btn" disabled={disabled} onClick={() => setStatus(r, 'open', 'Reopened')}>
+                Reopen
+              </button>
+            </div>
+          ) : null}
+          {!isAdmin && r.status === 'open' ? (
+            <div class="request-actions">
+              <button type="button" class="req-btn" disabled={disabled} onClick={() => act(r.id, () => requests.api.remove(r.id), 'Request withdrawn')}>
+                Withdraw
+              </button>
+            </div>
+          ) : null}
         </div>
-      </div>
-      {isAdmin && r.status === 'open' ? (
-        <div class="request-actions">
-          <button type="button" class="btn primary" disabled={busyId === r.id} onClick={() => setStatus(r, 'added', 'Marked as added')}>
-            Added
-          </button>
-          <button type="button" class="btn secondary" disabled={busyId === r.id} onClick={() => setStatus(r, 'dismissed', 'Dismissed')}>
-            Dismiss
-          </button>
-        </div>
-      ) : null}
-      {isAdmin && r.status !== 'open' ? (
-        <div class="request-actions">
-          <button type="button" class="btn secondary" disabled={busyId === r.id} onClick={() => setStatus(r, 'open', 'Reopened')}>
-            Reopen
-          </button>
-        </div>
-      ) : null}
-      {!isAdmin && r.status === 'open' ? (
-        <div class="request-actions">
-          <button type="button" class="btn secondary" disabled={busyId === r.id} onClick={() => act(r.id, () => requests.api.remove(r.id), 'Request withdrawn')}>
-            Withdraw
-          </button>
-        </div>
-      ) : null}
-    </li>
-  );
+      </li>
+    );
+  };
 
   return (
     <div class="page" ref={pageRef}>
