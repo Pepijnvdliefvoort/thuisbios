@@ -19,7 +19,8 @@ import {
 } from '../jellyfin/subtitles';
 import { formatOffset, shiftVtt } from '../jellyfin/subtitleOffset';
 import { getSubtitleOffset, setSubtitleOffset } from '../storage';
-import { playerTitle } from '../jellyfin/itemInfo';
+import { artFor, artUrl } from '../jellyfin/art';
+import { episodeSubtitle, playerTitle } from '../jellyfin/itemInfo';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import type { BaseItem, MediaSource, Session } from '../jellyfin/types';
 import { debugRequested } from '../debug/keyLogState';
@@ -45,6 +46,7 @@ import { createThrottle } from '../remote/throttle';
 import { SEEK_STEP, type Bubble, type MediaKey } from '../player/playerInput';
 import { usePlayerInput } from '../player/usePlayerInput';
 import { pickPlayback, type PlaybackSnapshot } from '../player/lastPlayback';
+import { nextArmedAt, nextEpisodeCard, planNextEpisode } from '../player/nextEpisode';
 
 interface Props {
   client: JellyfinClient;
@@ -123,7 +125,61 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
       alive = false;
     };
   }, [client, item.Id]);
-  const intro = error ? null : activeIntro(segments, position);
+
+  // Next episode autoplay: prefetched once the item loads. Movies and the last episode have none.
+  const [nextItem, setNextItem] = useState<BaseItem | null>(null);
+  const [cancelled, setCancelled] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setNextItem(null);
+    if (item.Type === 'Episode' && item.SeriesId) {
+      client
+        .adjacentEpisodes(session.userId, item.SeriesId, item.Id)
+        .then((list) => alive && setNextItem(pickAdjacent(list, item.Id, 'next')))
+        .catch(() => undefined);
+    }
+    return () => {
+      alive = false;
+    };
+  }, [client, session, item.Id]);
+  const runtime = duration > 0 ? duration : ticksToSeconds(item.RunTimeTicks || 0);
+  const plan = planNextEpisode(segments, runtime);
+  // Where the countdown started: when the position entered the card zone (playing, seeking or resuming).
+  const armed = useRef<{ at: number | null; last: number | null }>({ at: null, last: null });
+  armed.current = { at: nextArmedAt(plan, armed.current.at, armed.current.last, position), last: position };
+  const card = nextItem && !cancelled && !error ? nextEpisodeCard(plan, position, armed.current.at) : null;
+  const cardShown = !!(card && card.show);
+  /** Sends the Stopped report for this item once; set while the progress effect runs. */
+  const stopRef = useRef<() => Promise<unknown>>(() => Promise.resolve());
+  const advancing = useRef(false);
+  /**
+   * Plays the next episode. `early` (before the natural end): the Stopped report goes out first, with the
+   * real position (the cleanup after the swap would find the video gone), then the item is marked played so it
+   * does not linger in Resume. False when there is no next episode or it was cancelled.
+   */
+  const advance = (early: boolean): boolean => {
+    if (advancing.current) return true;
+    if (!nextItem || cancelled || error) return false;
+    advancing.current = true;
+    const done = stopRef.current();
+    if (early) done.then(() => client.markPlayed(session.userId, item.Id)).catch(() => undefined);
+    onReplace(nextItem);
+    return true;
+  };
+  const cancelCard = () => {
+    setCancelled(true);
+    // The card is about to disappear: do not leave focus on a removed button.
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active.closest && active.closest('.nextcard')) {
+      const play = document.querySelector('[data-play]') as HTMLElement | null;
+      if (play) play.focus();
+    }
+  };
+  useEffect(() => {
+    if (card && card.due) advance(true);
+  }, [card && card.due]);
+
+  const intro = error || cardShown ? null : activeIntro(segments, position);
   // Read by the D-pad handler, which is installed once.
   const skipRef = useRef<() => boolean>(() => false);
   const skipIntro = () => {
@@ -140,8 +196,8 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
     }
     return true;
   };
-  // With the controls hidden, OK skips the intro instead of pausing.
-  const okSkips = () => !controlsVisible && skipRef.current();
+  // With the controls hidden, OK plays the next episode now, or skips the intro, instead of pausing.
+  const okSkips = () => !controlsVisible && (cardShown ? advance(true) : skipRef.current());
   const okSkipsRef = useRef(okSkips);
   okSkipsRef.current = okSkips;
   skipRef.current = skipIntro;
@@ -266,6 +322,7 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
     // Preact 11 runs effect cleanups after paint, when the ref is already null. Without the
     // captured element / last known state the Stopped report would send position 0 and wipe the resume point.
     const el = video.current;
+    let stopped = false;
     const report = (): PlaybackReport => {
       const now = pickPlayback(video.current || el, lastPlayback.current);
       return {
@@ -283,11 +340,18 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
     // The phone shows a live bar, so pause, play and seek report right away.
     const throttle = createThrottle(send, EVENT_REPORT_MS);
     pushProgress.current = throttle.call;
+    const stop = (): Promise<unknown> => {
+      if (stopped) return Promise.resolve();
+      stopped = true;
+      return client.reportStopped(report()).catch(() => undefined);
+    };
+    stopRef.current = stop;
     return () => {
       window.clearInterval(timer);
       throttle.cancel();
       pushProgress.current = () => undefined;
-      client.reportStopped(report()).catch(() => undefined);
+      stopRef.current = () => Promise.resolve();
+      void stop();
     };
   }, [client, loaded, item.Id]);
 
@@ -316,6 +380,10 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
 
   /** Playstate and subtitle timing commands from the phone (Play and DisplayContent are handled by the App). */
   const onRemote = (command: RemoteCommand) => {
+    if (command.type === 'autoplayCancel') {
+      if (command.itemId === item.Id) cancelCard();
+      return;
+    }
     if (command.type === 'subtitleOffset') {
       if (command.itemId !== item.Id) return;
       setSubOffset(command.ms);
@@ -403,6 +471,11 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
         dispatch({ type: 'ok' });
         return true;
       case 'back':
+        // The Next episode card is up with the controls hidden: Back cancels it.
+        if (cardShown && !controlsVisible) {
+          cancelCard();
+          return true;
+        }
         dispatch({ type: 'back' });
         return true;
       default:
@@ -490,7 +563,9 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
             setPosition(v.currentTime);
             updateBuffered(v);
           }}
-          onEnded={onExit}
+          onEnded={() => {
+            if (!advance(false)) onExit();
+          }}
           onError={(e) => {
             const code = (e.target as HTMLVideoElement).error;
             setError(`Video error ${code ? code.code : '?'}${code && code.message ? `: ${code.message}` : ''}`);
@@ -595,6 +670,30 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
           </div>
         </div>
       </div>
+      )}
+
+      {card && card.show && nextItem && (
+        <div class={'skipwrap' + (controlsVisible ? ' up' : '')}>
+          <div class="nextcard">
+            <div class="nextthumb">
+              <img src={artUrl(client, artFor(nextItem, 'thumb'), 320, 180)} width="320" height="180" alt="" />
+            </div>
+            <div class="nextbody">
+              <div class="nextlabel">Next episode</div>
+              <div class="nextname">{episodeSubtitle(nextItem) || nextItem.Name}</div>
+              <div class="nextcount">Plays in {card.remaining}</div>
+              <div class="nextbtns">
+                <button data-focusable data-kind="button" class="skipintro" onClick={() => advance(true)}>
+                  <span>Play now</span>
+                  {!controlsVisible && <span class="okhint">OK</span>}
+                </button>
+                <button data-focusable data-kind="button" class="skipintro" onClick={cancelCard}>
+                  <span>Cancel</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {intro && (

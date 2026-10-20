@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DISCONNECT_TEXT, SUBTITLE_OFFSET_PREFIX, REMOTE_CAPABILITIES, describeCommand, keepAliveIntervalMs, parseSocketMessage, reconnectDelayMs, socketUrl } from './messages';
+import { AUTOPLAY_CANCEL_PREFIX, DISCONNECT_TEXT, SUBTITLE_OFFSET_PREFIX, REMOTE_CAPABILITIES, describeCommand, keepAliveIntervalMs, parseSocketMessage, reconnectDelayMs, socketUrl } from './messages';
 
 const msg = (MessageType: string, Data?: unknown): string => JSON.stringify({ MessageType, Data });
 
@@ -125,6 +125,26 @@ describe('subtitle offset message', () => {
 
   it('is described for the debug overlay', () => {
     expect(describeCommand({ type: 'subtitleOffset', itemId: 'x', ms: 500 })).toBe('Subtitles +0.5 s');
+  });
+});
+
+describe('autoplay cancel message', () => {
+  const display = (text: string) =>
+    JSON.stringify({ MessageType: 'GeneralCommand', Data: { Name: 'DisplayMessage', Arguments: { Text: text } } });
+
+  it('parses the item id', () => {
+    expect(AUTOPLAY_CANCEL_PREFIX).toBe('thuisbios:autoplay-cancel:');
+    expect(parseSocketMessage(display('thuisbios:autoplay-cancel:abc123'))).toEqual({
+      type: 'command',
+      command: { type: 'autoplayCancel', itemId: 'abc123' },
+    });
+  });
+  it('rejects a missing item id and other text', () => {
+    expect(parseSocketMessage(display('thuisbios:autoplay-cancel:'))).toBeNull();
+    expect(parseSocketMessage(display('thuisbios:autoplay'))).toBeNull();
+  });
+  it('is described for the debug overlay', () => {
+    expect(describeCommand({ type: 'autoplayCancel', itemId: 'x' })).toBe('Cancel autoplay');
   });
 });
 

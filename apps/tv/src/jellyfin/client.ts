@@ -61,6 +61,8 @@ export interface JellyfinClient {
   reportCapabilities(): Promise<void>;
   /** Intro, outro and similar markers (Jellyfin 10.10+ with a plugin). Any error means no segments. */
   mediaSegments(itemId: string): Promise<MediaSegment[]>;
+  /** Marks an item as watched, so it leaves Resume watching. */
+  markPlayed(userId: string, itemId: string): Promise<void>;
   /** Ends this device's session on the server (the token stops working). */
   logout(): Promise<void>;
   imageUrl(itemId: string, tag: string | undefined, maxHeight: number): string;
@@ -157,6 +159,8 @@ export function createClient(options: ClientOptions): JellyfinClient {
         return [];
       }
     },
+    markPlayed: (userId, itemId) =>
+      request<void>('POST', `/Users/${encodeURIComponent(userId)}/PlayedItems/${encodeURIComponent(itemId)}`),
     logout: () => request<void>('POST', '/Sessions/Logout'),
     reportCapabilities: () => request<void>('POST', '/Sessions/Capabilities/Full', REMOTE_CAPABILITIES),
     imageUrlSized: (itemId, type, tag, width, height) => {

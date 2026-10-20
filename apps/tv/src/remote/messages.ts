@@ -18,6 +18,7 @@ export type RemoteCommand =
   | { type: 'playstate'; command: PlaystateCommand; seekPositionTicks: number }
   | { type: 'display'; itemId: string }
   | { type: 'subtitleOffset'; itemId: string; ms: number }
+  | { type: 'autoplayCancel'; itemId: string }
   | { type: 'disconnect' };
 
 /** A parsed socket message: a keep-alive request or a command for the screens. */
@@ -36,6 +37,12 @@ export const DISCONNECT_TEXT = 'thuisbios:disconnect';
  */
 export const SUBTITLE_OFFSET_PREFIX = 'thuisbios:subtitle-offset:';
 
+/**
+ * Private signal to cancel the next episode autoplay: `thuisbios:autoplay-cancel:<itemId>`, sent as a display message.
+ * Keep in sync with AUTOPLAY_CANCEL_PREFIX in apps/remote/src/jellyfin/commands.ts (apps never import each other).
+ */
+export const AUTOPLAY_CANCEL_PREFIX = 'thuisbios:autoplay-cancel:';
+
 /** Largest subtitle offset either way, in ms. */
 export const MAX_SUBTITLE_OFFSET_MS = 60000;
 
@@ -51,6 +58,13 @@ function parseSubtitleOffset(text: unknown): RemoteCommand | null {
   const ms = Number(raw);
   if (!isFinite(ms)) return null;
   return { type: 'subtitleOffset', itemId, ms: Math.max(-MAX_SUBTITLE_OFFSET_MS, Math.min(MAX_SUBTITLE_OFFSET_MS, ms)) };
+}
+
+/** Parses the autoplay cancel text; null when it does not match or has no item id. */
+function parseAutoplayCancel(text: unknown): RemoteCommand | null {
+  if (typeof text !== 'string' || text.indexOf(AUTOPLAY_CANCEL_PREFIX) !== 0) return null;
+  const itemId = text.slice(AUTOPLAY_CANCEL_PREFIX.length);
+  return itemId ? { type: 'autoplayCancel', itemId } : null;
 }
 
 /** Capabilities posted to `/Sessions/Capabilities/Full` so the phone lists this TV as controllable. */
@@ -113,8 +127,8 @@ export function parseSocketMessage(raw: string): SocketMessage | null {
       if (!data || !isObject(data.Arguments)) return null;
       if (data.Name === 'DisplayMessage') {
         if (data.Arguments.Text === DISCONNECT_TEXT) return { type: 'command', command: { type: 'disconnect' } };
-        const offset = parseSubtitleOffset(data.Arguments.Text);
-        return offset ? { type: 'command', command: offset } : null;
+        const parsed = parseSubtitleOffset(data.Arguments.Text) || parseAutoplayCancel(data.Arguments.Text);
+        return parsed ? { type: 'command', command: parsed } : null;
       }
       if (data.Name !== 'DisplayContent') return null;
       const id = data.Arguments.ItemId;
@@ -150,6 +164,8 @@ export function describeCommand(c: RemoteCommand): string {
       return 'Disconnect';
     case 'subtitleOffset':
       return `Subtitles ${formatOffset(c.ms)}`;
+    case 'autoplayCancel':
+      return 'Cancel autoplay';
     default:
       return `DisplayContent ${c.itemId}`;
   }

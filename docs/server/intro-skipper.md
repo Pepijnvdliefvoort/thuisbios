@@ -14,6 +14,13 @@ is usually the theme song. So:
 - Very short test clips may not get markers, because there is not enough audio to compare.
 - It is not perfect. Sometimes an intro is missed or starts a few seconds early or late.
 
+## Next episode card
+
+The same markers drive the "Next episode" card at the end of an episode. The plugin can also detect
+the credits. When it has, the card appears when the credits start and counts down 10 seconds before
+the next episode plays. Without credits markers the card shows 30 seconds before the end of the
+video. Either way you can press Cancel on the TV or the phone.
+
 ## One-time setup
 
 You do this on the Windows PC, in the Jellyfin web page (`http://localhost:8096`), signed in as
