@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 /**
- * @typedef {{ host?: string, token?: string }} TvConfig
+ * @typedef {{ host?: string, token?: string, volumeMode?: 'relative' }} TvConfig
  */
 
 /** Path of the config file; `THUISBIOS_TV_CONFIG` overrides it. Never inside the repo. */
@@ -15,6 +15,12 @@ export function configPath(env = process.env) {
 export function tvPort(env = process.env) {
   const port = Number(env.THUISBIOS_TV_PORT);
   return Number.isInteger(port) && port > 0 ? port : 8002;
+}
+
+/** Port of the TV's UPnP media renderer (volume reading); `THUISBIOS_TV_UPNP_PORT` overrides it (tests). */
+export function upnpPort(env = process.env) {
+  const port = Number(env.THUISBIOS_TV_UPNP_PORT);
+  return Number.isInteger(port) && port > 0 ? port : 9197;
 }
 
 /**
@@ -29,6 +35,7 @@ export function loadConfig(env = process.env) {
     if (raw && typeof raw === 'object') {
       if (typeof raw.host === 'string' && raw.host.trim()) config.host = raw.host.trim();
       if (typeof raw.token === 'string' && raw.token) config.token = raw.token;
+      if (raw.volumeMode === 'relative') config.volumeMode = 'relative';
     }
   } catch {
     config = {};
@@ -53,5 +60,6 @@ export function saveConfig(config, env = process.env) {
   const clean = {};
   if (config.host) clean.host = config.host;
   if (config.token) clean.token = config.token;
+  if (config.volumeMode) clean.volumeMode = config.volumeMode;
   writeFileSync(file, `${JSON.stringify(clean, null, 2)}\n`, { mode: 0o600 });
 }

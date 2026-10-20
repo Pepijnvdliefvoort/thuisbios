@@ -1,7 +1,11 @@
-import { loadConfig, saveConfig, tvPort } from './config.mjs';
-import { ALLOWED_KEYS, SamsungRemote } from './samsung.mjs';
+import { loadConfig, saveConfig, tvPort, upnpPort } from './config.mjs';
+import { ALLOWED_KEYS, SamsungRemote, TvError } from './samsung.mjs';
+import { createUpnp } from './upnp.mjs';
+import { createVolumeBurst } from './volume.mjs';
 
 export const TOKEN_CACHE_MS = 10 * 60 * 1000;
+/** After a failed UPnP call, use key presses for this long before trying UPnP again. */
+export const UPNP_RETRY_MS = 30 * 1000;
 const MAX_BODY = 1024;
 
 /**
@@ -9,6 +13,8 @@ const MAX_BODY = 1024;
  * @property {() => { host?: string, token?: string }} [getConfig] read per request, so setup needs no restart
  * @property {(config: { host?: string, token?: string }) => void} [persist]
  * @property {(options: any) => { sendKey(key: string): Promise<void>, close(): void }} [createRemote]
+ * @property {(options: { host: string }) => { getVolume(): Promise<number>, setVolume(level: number): Promise<void>, getMute(): Promise<boolean> }} [createUpnp]
+ * @property {number} [pressDelayMs] pause between key presses in relative mode
  * @property {string} [jellyfinUrl]
  * @property {typeof fetch} [fetchFn]
  * @property {() => number} [now]
@@ -22,6 +28,7 @@ export function createTvHandler(deps = {}) {
   const jellyfinUrl = (deps.jellyfinUrl || process.env.THUISBIOS_JELLYFIN_URL || 'http://localhost:8096').replace(/\/+$/, '');
   const fetchFn = deps.fetchFn || fetch;
   const now = deps.now || Date.now;
+  const upnpFor = deps.createUpnp || ((o) => createUpnp({ host: o.host, port: upnpPort() }));
 
   /** @type {Map<string, number>} Authorization header -> expiry */
   const validTokens = new Map();
@@ -44,6 +51,30 @@ export function createTvHandler(deps = {}) {
     } catch {
       return 'unreachable';
     }
+  }
+
+  /** Remembered level for TVs whose volume cannot be read. */
+  const burst = createVolumeBurst({
+    delayMs: deps.pressDelayMs,
+    press: (key) => {
+      const config = getConfig();
+      if (!config.host) return Promise.reject(new TvError('tv-unreachable', 'no host'));
+      return remoteFor(config).sendKey(key);
+    },
+  });
+  let upnpDownUntil = 0;
+  /** @type {{ host: string, upnp: ReturnType<NonNullable<HandlerDeps['createUpnp']>> } | null} */
+  let upnpCache = null;
+
+  /** @param {string} host */
+  function upnpClient(host) {
+    if (!upnpCache || upnpCache.host !== host) upnpCache = { host, upnp: upnpFor({ host }) };
+    return upnpCache.upnp;
+  }
+
+  /** @param {{ host?: string, volumeMode?: string }} config */
+  function useUpnp(config) {
+    return config.volumeMode !== 'relative' && now() >= upnpDownUntil;
   }
 
   /** @param {{ host?: string, token?: string }} config */
@@ -71,6 +102,29 @@ export function createTvHandler(deps = {}) {
   }
 
   /**
+   * Current volume, after setting `level` first when given. Absolute through UPnP; when that is not
+   * available (or forced off), relative through key presses and a remembered estimate.
+   * @param {{ host?: string, volumeMode?: string }} config
+   * @param {number} [level]
+   */
+  async function volumeState(config, level) {
+    if (useUpnp(config)) {
+      const upnp = upnpClient(/** @type {string} */ (config.host));
+      try {
+        if (level !== undefined) await upnp.setVolume(level);
+        const current = level !== undefined ? level : await upnp.getVolume();
+        const muted = await upnp.getMute().catch(() => null);
+        burst.remember(current);
+        return { level: current, muted, mode: 'absolute' };
+      } catch {
+        upnpDownUntil = now() + UPNP_RETRY_MS;
+      }
+    }
+    const estimate = level !== undefined ? await burst.setTarget(level) : burst.level;
+    return { level: estimate, muted: null, mode: 'relative' };
+  }
+
+  /**
    * @param {import('node:http').IncomingMessage} req
    * @param {import('node:http').ServerResponse} res
    * @param {() => void} [next]
@@ -78,15 +132,15 @@ export function createTvHandler(deps = {}) {
   return async function handler(req, res, next) {
     const url = new URL(req.url || '/', 'http://localhost');
     const path = url.pathname;
-    if (path !== '/api/tv/status' && path !== '/api/tv/key') {
+    if (path !== '/api/tv/status' && path !== '/api/tv/key' && path !== '/api/tv/volume') {
       if (next) next();
       else send(res, 404, { error: 'not-found' });
       return;
     }
     try {
-      const wantsPost = path === '/api/tv/key';
-      if (req.method !== (wantsPost ? 'POST' : 'GET')) {
-        res.setHeader('Allow', wantsPost ? 'POST' : 'GET');
+      const methods = path === '/api/tv/key' ? ['POST'] : path === '/api/tv/volume' ? ['GET', 'POST'] : ['GET'];
+      if (!methods.includes(req.method || '')) {
+        res.setHeader('Allow', methods.join(', '));
         send(res, 405, { error: 'method-not-allowed' });
         return;
       }
@@ -95,7 +149,22 @@ export function createTvHandler(deps = {}) {
       if (auth === 'unreachable') return send(res, 502, { error: 'jellyfin-unreachable' });
 
       const config = getConfig();
-      if (!wantsPost) return send(res, 200, { configured: !!config.host, paired: !!config.token });
+      if (path === '/api/tv/status') return send(res, 200, { configured: !!config.host, paired: !!config.token });
+
+      if (path === '/api/tv/volume') {
+        if (!config.host) return send(res, 503, { error: 'not-configured' });
+        let level;
+        if (req.method === 'POST') {
+          const parsed = /** @type {any} */ (await readJson(req));
+          level = parsed && typeof parsed === 'object' ? parsed.level : undefined;
+          if (!Number.isInteger(level) || level < 0 || level > 100) return send(res, 400, { error: 'bad-level' });
+        }
+        try {
+          return send(res, 200, await volumeState(config, level));
+        } catch (e) {
+          return sendTvError(res, e);
+        }
+      }
 
       const body = await readJson(req);
       const key = body && typeof body === 'object' ? /** @type {any} */ (body).key : undefined;
@@ -104,20 +173,24 @@ export function createTvHandler(deps = {}) {
       try {
         await remoteFor(config).sendKey(key);
       } catch (e) {
-        const code = /** @type {any} */ (e)?.code;
-        if (code === 'not-allowed') return send(res, 403, { error: 'not-allowed' });
-        return send(res, 504, { error: 'tv-unreachable' });
+        return sendTvError(res, e);
       }
       res.statusCode = 204;
       res.end();
     } catch (e) {
-      if (e instanceof BadBody) return send(res, 400, { error: 'bad-key' });
+      if (e instanceof BadBody) return send(res, 400, { error: path === '/api/tv/volume' ? 'bad-level' : 'bad-key' });
       send(res, 500, { error: 'internal' });
     }
   };
 }
 
 class BadBody extends Error {}
+
+/** @param {import('node:http').ServerResponse} res @param {unknown} e */
+function sendTvError(res, e) {
+  if (/** @type {any} */ (e)?.code === 'not-allowed') return send(res, 403, { error: 'not-allowed' });
+  return send(res, 504, { error: 'tv-unreachable' });
+}
 
 /** @param {import('node:http').IncomingMessage} req */
 function readJson(req) {

@@ -49,6 +49,11 @@ function setup(overrides: Record<string, unknown> = {}) {
     const ok = (init.headers as Record<string, string>).Authorization.includes('"good"');
     return { ok, status: ok ? 200 : 401 } as Response;
   });
+  const upnp = {
+    getVolume: vi.fn(async () => 14),
+    setVolume: vi.fn(async (_level: number) => undefined),
+    getMute: vi.fn(async () => false),
+  };
   let nowMs = 1000;
   const deps = {
     getConfig: () => ({ host: '192.168.1.156', token: 'tvtok' }),
@@ -57,9 +62,11 @@ function setup(overrides: Record<string, unknown> = {}) {
     fetchFn: fetchFn as unknown as typeof fetch,
     jellyfinUrl: 'http://jf:8096',
     now: () => nowMs,
+    pressDelayMs: 0,
+    createUpnp: () => upnp,
     ...overrides,
   };
-  return { handler: createTvHandler(deps as never), sendKey, createRemote, fetchFn, deps, advance: (ms: number) => (nowMs += ms) };
+  return { handler: createTvHandler(deps as never), upnp, sendKey, createRemote, fetchFn, deps, advance: (ms: number) => (nowMs += ms) };
 }
 
 describe('tv relay handler', () => {
@@ -151,5 +158,94 @@ describe('tv relay handler', () => {
     config = { host: '10.0.0.2', token: 'x' };
     await call(handler, 'POST', '/api/tv/key', AUTH, { key: 'KEY_VOLUP' });
     expect(createRemote).toHaveBeenCalledTimes(2);
+  });
+
+  describe('volume', () => {
+    const down = () => Promise.reject(new Error('no upnp'));
+
+    it('reads the absolute level and mute state', async () => {
+      const { handler, upnp } = setup();
+      upnp.getMute.mockResolvedValue(true);
+      const res = await call(handler, 'GET', '/api/tv/volume', AUTH);
+      expect(res.status).toBe(200);
+      expect(JSON.parse(res.body)).toEqual({ level: 14, muted: true, mode: 'absolute' });
+    });
+
+    it('still answers when only the mute read fails', async () => {
+      const { handler, upnp } = setup();
+      upnp.getMute.mockImplementation(down);
+      expect(JSON.parse((await call(handler, 'GET', '/api/tv/volume', AUTH)).body)).toEqual({ level: 14, muted: null, mode: 'absolute' });
+    });
+
+    it('sets the absolute level through UPnP', async () => {
+      const { handler, upnp, sendKey } = setup();
+      const res = await call(handler, 'POST', '/api/tv/volume', AUTH, { level: 30 });
+      expect(upnp.setVolume).toHaveBeenCalledWith(30);
+      expect(JSON.parse(res.body)).toEqual({ level: 30, muted: false, mode: 'absolute' });
+      expect(sendKey).not.toHaveBeenCalled();
+    });
+
+    it('falls back to relative when UPnP fails, then retries UPnP later', async () => {
+      const { handler, upnp, advance } = setup();
+      upnp.getVolume.mockImplementation(down);
+      expect(JSON.parse((await call(handler, 'GET', '/api/tv/volume', AUTH)).body)).toEqual({ level: 20, muted: null, mode: 'relative' });
+      upnp.getVolume.mockResolvedValue(9);
+      expect(JSON.parse((await call(handler, 'GET', '/api/tv/volume', AUTH)).body).mode).toBe('relative');
+      expect(upnp.getVolume).toHaveBeenCalledTimes(1);
+      advance(31_000);
+      expect(JSON.parse((await call(handler, 'GET', '/api/tv/volume', AUTH)).body)).toEqual({ level: 9, muted: false, mode: 'absolute' });
+    });
+
+    it('relative mode presses keys toward the target and remembers it', async () => {
+      const { handler, sendKey, upnp } = setup({ getConfig: () => ({ host: '1.2.3.4', token: 't', volumeMode: 'relative' }) });
+      const res = await call(handler, 'POST', '/api/tv/volume', AUTH, { level: 23 });
+      expect(JSON.parse(res.body)).toEqual({ level: 23, muted: null, mode: 'relative' });
+      expect(sendKey.mock.calls.map((c) => (c as unknown[])[0])).toEqual(['KEY_VOLUP', 'KEY_VOLUP', 'KEY_VOLUP']);
+      expect(JSON.parse((await call(handler, 'GET', '/api/tv/volume', AUTH)).body).level).toBe(23);
+      await call(handler, 'POST', '/api/tv/volume', AUTH, { level: 22 });
+      expect(sendKey.mock.calls[sendKey.mock.calls.length - 1]).toEqual(["KEY_VOLDOWN"]);
+      expect(upnp.getVolume).not.toHaveBeenCalled();
+    });
+
+    it('caps relative presses at 50', async () => {
+      const { handler, sendKey } = setup({ getConfig: () => ({ host: 'h', volumeMode: 'relative' }) });
+      const res = await call(handler, 'POST', '/api/tv/volume', AUTH, { level: 100 });
+      expect(sendKey).toHaveBeenCalledTimes(50);
+      expect(JSON.parse(res.body).level).toBe(70);
+    });
+
+    it('validates the level', async () => {
+      const { handler, upnp } = setup();
+      for (const body of [{ level: 101 }, { level: -1 }, { level: 1.5 }, { level: '5' }, {}, 'junk']) {
+        const res = await call(handler, 'POST', '/api/tv/volume', AUTH, body);
+        expect(res.status).toBe(400);
+        expect(JSON.parse(res.body)).toEqual({ error: 'bad-level' });
+      }
+      expect(upnp.setVolume).not.toHaveBeenCalled();
+    });
+
+    it('needs auth, a host and the right method', async () => {
+      expect((await call(setup().handler, 'GET', '/api/tv/volume', {})).status).toBe(401);
+      const none = setup({ getConfig: () => ({}) });
+      const res = await call(none.handler, 'GET', '/api/tv/volume', AUTH);
+      expect(res.status).toBe(503);
+      expect(JSON.parse(res.body)).toEqual({ error: 'not-configured' });
+      expect((await call(setup().handler, 'PUT', '/api/tv/volume', AUTH)).status).toBe(405);
+    });
+
+    it('maps TV errors in relative mode', async () => {
+      const off = setup({
+        getConfig: () => ({ host: 'h', volumeMode: 'relative' }),
+        createRemote: () => ({ sendKey: async () => Promise.reject(new TvError('tv-unreachable')), close() {} }),
+      });
+      const r1 = await call(off.handler, 'POST', '/api/tv/volume', AUTH, { level: 30 });
+      expect(r1.status).toBe(504);
+      expect(JSON.parse(r1.body)).toEqual({ error: 'tv-unreachable' });
+      const denied = setup({
+        getConfig: () => ({ host: 'h', volumeMode: 'relative' }),
+        createRemote: () => ({ sendKey: async () => Promise.reject(new TvError('not-allowed')), close() {} }),
+      });
+      expect((await call(denied.handler, 'POST', '/api/tv/volume', AUTH, { level: 30 })).status).toBe(403);
+    });
   });
 });

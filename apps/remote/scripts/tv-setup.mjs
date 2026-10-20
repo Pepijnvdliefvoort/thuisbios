@@ -1,6 +1,7 @@
 // One-time pairing with the Samsung TV. Usage: npm run tv:setup -w apps/remote -- <tv-ip> [--test]
-import { loadConfig, saveConfig, tvPort } from '../relay/config.mjs';
+import { loadConfig, saveConfig, tvPort, upnpPort } from '../relay/config.mjs';
 import { SamsungRemote } from '../relay/samsung.mjs';
+import { createUpnp } from '../relay/upnp.mjs';
 
 const args = process.argv.slice(2);
 const noTest = args.includes('--no-test');
@@ -18,7 +19,8 @@ if (!host) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // A new address means a new TV: start without an old token.
 const token = hostArg && hostArg !== saved.host ? undefined : saved.token;
-saveConfig({ host, token });
+const volumeMode = saved.host === host ? saved.volumeMode : undefined;
+saveConfig({ host, token, volumeMode });
 
 let newToken = token;
 const remote = new SamsungRemote({
@@ -28,7 +30,7 @@ const remote = new SamsungRemote({
   connectTimeoutMs: 60_000,
   onToken: (t) => {
     newToken = t;
-    saveConfig({ host, token: t });
+    saveConfig({ host, token: t, volumeMode });
   },
 });
 
@@ -70,4 +72,12 @@ if (!noTest) {
   }
 }
 remote.close();
-console.log('Paired. The volume buttons on the phone now work.');
+
+// Diagnosis only: can the exact TV volume be read? Without it the slider works by pressing the volume keys.
+try {
+  const level = await createUpnp({ host, port: upnpPort() }).getVolume();
+  console.log(`The TV reports volume ${level}. The slider on the phone will show the real volume.`);
+} catch {
+  console.log('The TV does not report its volume. The slider on the phone still works, but shows an approximate level.');
+}
+console.log('Paired. The volume button on the phone now works.');

@@ -67,7 +67,7 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
                 <Icon name="tv" size={20} /> Disconnect from TV
               </button>
             ) : null}
-            <VolumeControls />
+            <VolumeControls variant="row" />
             <p class="signed-in">Signed in as {session.userName}</p>
             <button
               type="button"
