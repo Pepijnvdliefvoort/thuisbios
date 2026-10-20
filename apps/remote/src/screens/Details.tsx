@@ -4,6 +4,7 @@ import { PullSpinner } from '../components/PullSpinner';
 import { Img } from '../components/Img';
 import { useApp } from '../context';
 import { artUrl } from '../jellyfin/art';
+import { chooseSeasonId } from '../jellyfin/seasons';
 import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from '../jellyfin/format';
 import type { BaseItem } from '../jellyfin/types';
 import { useAsync, useRegisterReload, type Reloaders } from '../useAsync';
@@ -84,7 +85,15 @@ function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders
       <div class="details-main">
         <Img class="poster" src={artUrl(client.serverUrl, item, 'poster', 240, 360)} />
         <div class="details-text">
-          {isEpisode && item.SeriesName ? <p class="eyebrow">{item.SeriesName}</p> : null}
+          {isEpisode && item.SeriesName ? (
+            item.SeriesId ? (
+              <button type="button" class="eyebrow eyebrow-link" onClick={() => openItem(item.SeriesId as string)}>
+                {item.SeriesName} <span aria-hidden="true">›</span>
+              </button>
+            ) : (
+              <p class="eyebrow">{item.SeriesName}</p>
+            )
+          ) : null}
           <h1>{item.Name}</h1>
           <p class="meta">{meta.join('  ·  ')}</p>
         </div>
@@ -119,26 +128,60 @@ function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders
       {item.Overview ? <p class="overview">{item.Overview}</p> : null}
       {item.Genres && item.Genres.length > 0 ? <p class="genres">{item.Genres.join(' · ')}</p> : null}
 
-      {isSeries ? <Episodes series={item} onOpen={openItem} reloaders={reloaders} /> : null}
+      {isSeries ? (
+        <Episodes
+          seriesId={item.Id}
+          initialSeasonId={playItem ? playItem.SeasonId : undefined}
+          currentEpisodeId={playItem ? playItem.Id : undefined}
+          onOpen={openItem}
+          reloaders={reloaders}
+        />
+      ) : null}
+      {isEpisode && item.SeriesId ? (
+        <Episodes
+          seriesId={item.SeriesId}
+          initialSeasonId={item.SeasonId}
+          currentEpisodeId={item.Id}
+          onEpisodePage
+          onOpen={openItem}
+          reloaders={reloaders}
+        />
+      ) : null}
     </>
   );
 }
 
-function Episodes({ series, onOpen, reloaders }: { series: BaseItem; onOpen: (id: string) => void; reloaders: Reloaders }) {
+function Episodes({
+  seriesId,
+  initialSeasonId,
+  currentEpisodeId,
+  onEpisodePage = false,
+  onOpen,
+  reloaders,
+}: {
+  seriesId: string;
+  initialSeasonId?: string;
+  currentEpisodeId?: string;
+  /** True on an episode's own page: heading and current-row label differ. */
+  onEpisodePage?: boolean;
+  onOpen: (id: string) => void;
+  reloaders: Reloaders;
+}) {
   const { client, session, tv, toast, playOnPhone } = useApp();
-  const seasons = useAsync(() => client.seasons(session.userId, series.Id), [client, session.userId, series.Id]);
+  const seasons = useAsync(() => client.seasons(session.userId, seriesId), [client, session.userId, seriesId]);
   const [picked, setPicked] = useState<string | null>(null);
-  const seasonId = picked || (seasons.data && seasons.data[0] ? seasons.data[0].Id : null);
+  // Follows initialSeasonId (it may load late) until the user taps a pill.
+  const seasonId = chooseSeasonId(picked, initialSeasonId, seasons.data);
   const episodes = useAsync<BaseItem[]>(
-    () => (seasonId ? client.episodes(session.userId, series.Id, seasonId) : Promise.resolve([])),
-    [client, session.userId, series.Id, seasonId],
+    () => (seasonId ? client.episodes(session.userId, seriesId, seasonId) : Promise.resolve([])),
+    [client, session.userId, seriesId, seasonId],
   );
   useRegisterReload(reloaders, seasons.reload);
   useRegisterReload(reloaders, episodes.reload);
   return (
     <section class="episodes">
-      <h2>Episodes</h2>
-      {seasons.data && seasons.data.length > 1 ? (
+      <h2>{onEpisodePage ? 'More episodes' : 'Episodes'}</h2>
+      {seasons.data && seasons.data.length > 0 ? (
         <div class="seasons" role="tablist">
           {seasons.data.map((s) => (
             <button
@@ -159,11 +202,18 @@ function Episodes({ series, onOpen, reloaders }: { series: BaseItem; onOpen: (id
         {(episodes.data || []).map((ep) => {
           const progress = progressFraction(ep.UserData, ep.RunTimeTicks);
           const from = resumeTicks(ep);
+          const played = !!(ep.UserData && ep.UserData.Played);
+          const current = ep.Id === currentEpisodeId;
           return (
-            <li key={ep.Id} class="ep">
+            <li key={ep.Id} class={current ? 'ep current' : 'ep'}>
               <button type="button" class="ep-open" onClick={() => onOpen(ep.Id)}>
                 <span class="ep-art">
                   <Img src={artUrl(client.serverUrl, ep, 'thumb', 320, 180)} />
+                  {played ? (
+                    <span class="ep-check" role="img" aria-label="Watched">
+                      <Icon name="check" size={14} />
+                    </span>
+                  ) : null}
                   {progress > 0 ? (
                     <span class="progress">
                       <i style={{ width: `${Math.round(progress * 100)}%` }} />
@@ -175,7 +225,10 @@ function Episodes({ series, onOpen, reloaders }: { series: BaseItem; onOpen: (id
                     {ep.IndexNumber !== undefined ? `${ep.IndexNumber}. ` : ''}
                     {ep.Name}
                   </span>
-                  <span class="ep-sub">{formatRuntime(ep.RunTimeTicks)}</span>
+                  <span class="ep-sub">
+                    {current ? (onEpisodePage ? 'Now viewing · ' : 'Up next · ') : ''}
+                    {formatRuntime(ep.RunTimeTicks)}
+                  </span>
                 </span>
               </button>
               <button
