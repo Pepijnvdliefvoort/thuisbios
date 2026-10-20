@@ -30,7 +30,7 @@ scripts/                  repo tooling (version checks)
 packages/jellyfin-client/ planned: shared typed Jellyfin API client
 apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite), served to the TV browser
 apps/remote/              phone remote PWA, phase 4 (Preact + TypeScript + Vite)
-apps/remote/relay/        Samsung TV volume relay (Node, runs inside the remote's vite server); apps/remote/scripts/tv-setup.mjs pairs the TV
+apps/remote/relay/        Samsung TV volume relay and title requests (Node, runs inside the remote's vite server); apps/remote/scripts/tv-setup.mjs pairs the TV
 server/                   Jellyfin helper scripts (PowerShell) and Pester tests; device profile planned
 ```
 
@@ -116,6 +116,14 @@ level instead. The TV address and pairing token live in
 the TV once. Follow [docs/remote/setup.md](docs/remote/setup.md) to run it on the PC and add it to
 the phone's home screen.
 
+The same relay serves title requests under `/api/requests`: when a search finds nothing, anyone signed
+in can request a movie or show (title, optional year, type and note), and the Requests tab shows their
+own requests with a status (Waiting, Added, Not added), where open ones can be withdrawn. The owner
+(a Jellyfin administrator, checked by the relay through `GET /Users/Me`, never taken from the client)
+sees all requests in that tab, marks them Added or Dismiss, and gets a badge with the open count on
+the tab. Requests are stored in `~/.thuisbios/requests.json`, outside the repo; nothing is downloaded
+automatically.
+
 Away from home the phone reaches the PC through Tailscale Serve (private, tailnet only, nothing opened
 to the internet): `https://<pc>.<tailnet>.ts.net` for the app (port 443) and `:8920` for Jellyfin, both
 over HTTPS so the home-screen install works. Follow [docs/remote/tailscale.md](docs/remote/tailscale.md).
@@ -167,5 +175,5 @@ Docker image builds (GHCR) and the other test jobs are added together with the f
 | 1. Server | Jellyfin on the Windows PC with a test library | done |
 | 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
 | 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done |
-| 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | in review: remote PWA built (browse, play on TV or on the phone, transport controls); volume slider built (relay in the remote's server), not yet verified on the real TV |
+| 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | in review: remote PWA built (browse, play on TV or on the phone, transport controls); volume slider built (relay in the remote's server), not yet verified on the real TV; title requests (Requests tab, admin badge) built |
 | 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve in review; the rest planned |

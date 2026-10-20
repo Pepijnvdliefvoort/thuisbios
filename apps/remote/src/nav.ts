@@ -6,7 +6,7 @@ export type Screen = { kind: 'details'; id: string } | { kind: 'nowPlaying' }
   | { kind: 'connect'; code?: string }
   | { kind: 'player'; item: BaseItem; startTicks: number };
 
-export type Tab = 'home' | 'search' | 'library';
+export type Tab = 'home' | 'search' | 'library' | 'requests';
 
 interface HistoryState {
   thuisbios?: number;

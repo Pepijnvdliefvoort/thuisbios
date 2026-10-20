@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { RequestSheet } from '../components/RequestSheet';
 import { PullSpinner } from '../components/PullSpinner';
 import { Grid } from '../components/Row';
 import { MediaCard } from '../components/MediaCard';
@@ -20,6 +21,7 @@ export function Search() {
     () => (term ? client.search(session.userId, term, 40) : Promise.resolve([])),
     [client, session.userId, term],
   );
+  const [requesting, setRequesting] = useState(false);
   const pageRef = useRef<HTMLDivElement>(null);
   const pull = usePullToRefresh(pageRef, () => results.reload());
   return (
@@ -41,7 +43,12 @@ export function Search() {
       {!term ? <p class="hint">Search your library.</p> : null}
       {term && results.error ? <p class="empty">Search failed. Check the connection.</p> : null}
       {term && !results.loading && !results.error && results.data && results.data.length === 0 ? (
-        <p class="empty">Nothing found for "{term}".</p>
+        <div class="empty">
+          <p>Nothing found for "{term}".</p>
+          <button type="button" class="request-link" onClick={() => setRequesting(true)}>
+            Not in the library? Request it
+          </button>
+        </div>
       ) : null}
       {term && results.data && results.data.length > 0 ? (
         <Grid>
@@ -50,6 +57,12 @@ export function Search() {
           ))}
         </Grid>
       ) : null}
+      <p class="request-more">
+        <button type="button" class="request-link" onClick={() => setRequesting(true)}>
+          Request a movie or show
+        </button>
+      </p>
+      {requesting ? <RequestSheet initialTitle={term || text.trim()} onClose={() => setRequesting(false)} /> : null}
     </div>
   );
 }

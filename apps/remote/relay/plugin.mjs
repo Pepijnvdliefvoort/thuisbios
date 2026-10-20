@@ -1,4 +1,5 @@
-import { loadConfig, saveConfig, tvPort, upnpPort } from './config.mjs';
+import { jellyfinUrl as defaultJellyfinUrl, loadConfig, saveConfig, tvPort, upnpPort } from './config.mjs';
+import { createRequestsHandler } from './requests.mjs';
 import { ALLOWED_KEYS, SamsungRemote, TvError } from './samsung.mjs';
 import { createUpnp } from './upnp.mjs';
 import { createVolumeBurst } from './volume.mjs';
@@ -25,7 +26,7 @@ export function createTvHandler(deps = {}) {
   const getConfig = deps.getConfig || (() => loadConfig());
   const persist = deps.persist || ((c) => saveConfig(c));
   const createRemote = deps.createRemote || ((o) => new SamsungRemote(o));
-  const jellyfinUrl = (deps.jellyfinUrl || process.env.THUISBIOS_JELLYFIN_URL || 'http://localhost:8096').replace(/\/+$/, '');
+  const jellyfinUrl = (deps.jellyfinUrl || defaultJellyfinUrl()).replace(/\/+$/, '');
   const fetchFn = deps.fetchFn || fetch;
   const now = deps.now || Date.now;
   const upnpFor = deps.createUpnp || ((o) => createUpnp({ host: o.host, port: upnpPort() }));
@@ -226,13 +227,13 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-/** Vite plugin: serves the TV relay from `vite dev` and `vite preview`. */
+/** Vite plugin: serves the TV relay and the title requests from `vite dev` and `vite preview`. */
 export function tvRelayPlugin() {
-  const handler = createTvHandler();
+  const handlers = [createTvHandler(), createRequestsHandler()];
   /** @param {{ middlewares: { use(fn: any): void } }} server */
   const install = (server) => {
     // Returning nothing matters: a returned function would run as a post hook.
-    server.middlewares.use(handler);
+    for (const handler of handlers) server.middlewares.use(handler);
   };
   return { name: 'thuisbios-tv-relay', configureServer: install, configurePreviewServer: install };
 }
