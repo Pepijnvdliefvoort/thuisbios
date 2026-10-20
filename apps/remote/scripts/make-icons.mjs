@@ -1,4 +1,4 @@
-// Generates the PWA icons (PNG) with built-in modules only: a red play triangle on the dark brand background.
+// Generates the PWA icons (PNG) with built-in modules only: a TV remote control (light rounded body, red power button, D-pad with OK button, two rows of small keys) on the dark brand background.
 // Run: npm run icons -w apps/remote
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -62,17 +62,21 @@ const coverage = (inside, u, v, px) => {
 /** `scale` shrinks the mark so the maskable icon keeps it inside the safe zone (center 80%). */
 function icon(size, { scale, rounded }) {
   const px = 1 / size;
-  // Rounded disc: red circle with a white play triangle.
-  const disc = (u, v) => (u - 0.5) ** 2 + (v - 0.5) ** 2 <= (0.36 * scale) ** 2;
-  const tri = (u, v) => {
-    const cx = 0.5 + 0.03 * scale;
-    const h = 0.2 * scale; // half height
-    const w = 0.34 * scale;
-    const x0 = cx - w / 2;
-    if (u < x0 || u > x0 + w) return false;
-    const half = h * (1 - (u - x0) / w);
-    return Math.abs(v - 0.5) <= half;
+  // TV remote: light rounded body, red power button, dark D-pad ring with a light OK button, 2x3 dark buttons.
+  const circle = (cx, cy, r) => (u, v) => (u - 0.5 - cx * scale) ** 2 + (v - 0.5 - cy * scale) ** 2 <= (r * scale) ** 2;
+  const body = (u, v) => {
+    const hw = 0.18 * scale;
+    const hh = 0.36 * scale;
+    const r = 0.1 * scale;
+    const dx = Math.max(Math.abs(u - 0.5) - (hw - r), 0);
+    const dy = Math.max(Math.abs(v - 0.5) - (hh - r), 0);
+    return dx * dx + dy * dy <= r * r;
   };
+  const power = circle(0, -0.265, 0.05);
+  const dpad = circle(0, -0.07, 0.125);
+  const ok = circle(0, -0.07, 0.055);
+  const keys = [];
+  for (const cy of [0.145, 0.255]) for (const cx of [-0.098, 0, 0.098]) keys.push(circle(cx, cy, 0.036));
   const corner = (u, v) => {
     if (!rounded) return true;
     const r = 0.22;
@@ -82,9 +86,12 @@ function icon(size, { scale, rounded }) {
   };
   return png(size, (u, v) => {
     const bgCover = coverage(corner, u, v, px);
-    let c = mix(BG, BG, 0);
-    c = mix(c, ACCENT, coverage(disc, u, v, px));
-    c = mix(c, WHITE, coverage(tri, u, v, px));
+    let c = BG;
+    c = mix(c, WHITE, coverage(body, u, v, px));
+    c = mix(c, ACCENT, coverage(power, u, v, px));
+    c = mix(c, BG, coverage(dpad, u, v, px));
+    c = mix(c, WHITE, coverage(ok, u, v, px));
+    for (const k of keys) c = mix(c, BG, coverage(k, u, v, px));
     // Outside the rounded corners keep the background (PNG has no alpha here); fine for a dark icon.
     return bgCover < 1 ? mix(BG, c, bgCover) : c;
   });
