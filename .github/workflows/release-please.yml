@@ -12,8 +12,27 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v5
+      - id: release
+        uses: googleapis/release-please-action@v5
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           target-branch: main
+
+      # Releases created with GITHUB_TOKEN do not trigger other workflows, so the
+      # back-merge runs here instead of on `release: published`.
+      - name: Open PR from main into develop
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          existing=$(gh pr list --base develop --head main --state open --json number --jq 'length')
+          if [ "$existing" -gt 0 ]; then
+            echo "PR from main to develop already exists; skipping."
+            exit 0
+          fi
+          gh pr create --base develop --head main \
+            --title "chore: sync main into develop after $TAG" \
+            --body "Automated back-merge of release $TAG from main into develop. Merge with a merge commit."

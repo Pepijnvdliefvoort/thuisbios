@@ -172,8 +172,7 @@ GitHub Actions in `.github/workflows`:
   (typecheck, Vitest, build, ES2017 syntax check, `dist` uploaded as artifact), phone remote
   (typecheck, Vitest, build, `dist` uploaded as the `remote-dist` artifact), PowerShell (PSScriptAnalyzer and Pester tests
   for `server/` on Windows).
-- `release-please.yml`: on push to `main`, opens or updates the release PR and creates tags and releases.
-- `sync-develop.yml`: after a release, opens a PR from `main` back into `develop`.
+- `release-please.yml`: on push to `main`, opens or updates the release PR, creates the `vX.Y.Z` tag and GitHub release, and then opens a PR from `main` back into `develop`.
 
 Dependabot updates GitHub Actions and npm weekly, targeting `develop`.
 Docker image builds (GHCR) and the other test jobs are added together with the first containerized service.
