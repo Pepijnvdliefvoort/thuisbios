@@ -67,6 +67,11 @@ results offers **Not in the library? Request it** (the form is prefilled with wh
 form takes a title, and optionally a year, Movie or Show, and a note. Nothing is downloaded: a request
 is only a note for the owner.
 
+While you type a title, the form shows matching movies and shows with a small poster and the year.
+Tap the right one and it is filled in for you (**Change** goes back to the list). **Can't find it? Send
+as typed** sends what you typed instead. Asking for the same title twice gives "You already requested
+this".
+
 The **Requests** tab shows **My requests** with their state (**Waiting**, **Added**, **Not added**),
 and open ones can be withdrawn. When the signed-in Jellyfin user is an administrator, the tab shows
 everyone's requests instead: open ones first, with **Added** and **Dismiss** buttons, and handled ones
@@ -74,7 +79,17 @@ under **Handled** (where **Reopen** undoes a choice). A red number on the Reques
 requests; it is read when the app starts and when you come back to it. Other users get no number.
 
 The requests are stored in `.thuisbios/requests.json` next to `samsung-tv.json`, never in the project.
-Nothing needs setting up. If Jellyfin is not at `http://localhost:8096` as seen from the PC, set
+
+Requests need no setup. To get the suggestions with posters, give the remote a Jellyfin API key once:
+
+1. Open Jellyfin as the owner and go to **Dashboard > API Keys**, press **+**, name it `Thuisbios` and
+   confirm. Copy the key.
+2. On the PC, run `npm run jellyfin:setup -w apps/remote` and paste the key when asked. It checks the
+   key with Jellyfin and saves it as `.thuisbios/jellyfin.json` next to the other file, never in the
+   project. No restart is needed.
+
+Without this step the form still works: you just type the title yourself and no suggestions appear.
+If Jellyfin is not at `http://localhost:8096` as seen from the PC, set
 `THUISBIOS_JELLYFIN_URL` before starting the remote.
 
 ## Volume button

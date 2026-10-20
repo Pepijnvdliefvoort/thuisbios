@@ -78,6 +78,11 @@ describe('parseCreate', () => {
     expect(parseCreate({ title: 'Heat', note: '   ' })).toEqual({ ok: true, value: { title: 'Heat' } });
   });
 
+  it('keeps valid TMDB ids and poster', () => {
+    const ids = { tmdbId: '949', imdbId: 'tt0113277', posterUrl: 'https://image.tmdb.org/t/p/w92/abc.jpg' };
+    expect(parseCreate({ title: 'Heat', ...ids })).toEqual({ ok: true, value: { title: 'Heat', ...ids } });
+  });
+
   it('rejects bad input', () => {
     for (const body of [
       null,
@@ -92,6 +97,14 @@ describe('parseCreate', () => {
       { title: 'a', note: 'n'.repeat(MAX_NOTE + 1) },
       { title: 'a', note: 3 },
       { title: 'a', type: 'game' },
+      { title: 'a', tmdbId: 949 },
+      { title: 'a', tmdbId: '12a' },
+      { title: 'a', tmdbId: '1'.repeat(21) },
+      { title: 'a', imdbId: '0113277' },
+      { title: 'a', imdbId: 'tt12345678901' },
+      { title: 'a', posterUrl: 'http://image.tmdb.org/t/p/w92/a.jpg' },
+      { title: 'a', posterUrl: 'https://evil.example/image.tmdb.org/' },
+      { title: 'a', posterUrl: `https://image.tmdb.org/${'a'.repeat(300)}` },
     ]) {
       expect(parseCreate(body)).toEqual({ ok: false });
     }
@@ -175,6 +188,32 @@ describe('requests handler', () => {
     expect((await call(handler, 'POST', '/api/requests', 'anna', 'not json')).status).toBe(400);
     expect((await call(handler, 'POST', '/api/requests', 'anna', { title: 'a', note: 'n'.repeat(5000) })).status).toBe(400);
     expect(loadRequests(file)).toEqual([]);
+  });
+
+  it('stores ids and poster, and refuses an open duplicate from the same user', async () => {
+    const { handler } = setup();
+    const heat = { title: 'Heat', year: 1995, type: 'movie', tmdbId: '949', imdbId: 'tt0113277', posterUrl: 'https://image.tmdb.org/t/p/w92/abc.jpg' };
+    const first = await call(handler, 'POST', '/api/requests', 'anna', heat);
+    expect(first.json).toMatchObject(heat);
+    const again = await call(handler, 'POST', '/api/requests', 'anna', { ...heat, title: 'Heat (renamed)' });
+    expect(again).toMatchObject({ status: 409, json: { error: 'already-requested' } });
+    // Another user, another type with the same number, and a handled request do not count.
+    expect((await call(handler, 'POST', '/api/requests', 'ben', heat)).status).toBe(201);
+    expect((await call(handler, 'POST', '/api/requests', 'anna', { ...heat, type: 'show' })).status).toBe(201);
+    await call(handler, 'PATCH', '/api/requests/id-1', 'owner', { status: 'dismissed' });
+    expect((await call(handler, 'POST', '/api/requests', 'anna', heat)).status).toBe(201);
+    expect(loadRequests(file)).toHaveLength(4);
+  });
+
+  it('without an id, compares lowercase title and year', async () => {
+    const { handler } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat', year: 1995 });
+    expect((await call(handler, 'POST', '/api/requests', 'anna', { title: ' HEAT ', year: 1995 })).status).toBe(409);
+    expect((await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat', year: 1986 })).status).toBe(201);
+    expect((await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat' })).status).toBe(201);
+    expect((await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat' })).status).toBe(409);
+    // A request with an id is a different thing from a typed one.
+    expect((await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat', year: 1995, tmdbId: '949' })).status).toBe(201);
   });
 
   it('limits the open requests per user', async () => {
@@ -262,5 +301,33 @@ describe('requests handler', () => {
     writeFileSync(file, '{ not json');
     expect((await call(handler, 'GET', '/api/requests', 'anna')).json.requests).toEqual([]);
     expect((await call(handler, 'POST', '/api/requests', 'anna', { title: 'Again' })).status).toBe(201);
+  });
+});
+
+describe('lookup route', () => {
+  function withLookup(apiKey = 'KEY') {
+    let n = 0;
+    const fetchFn = vi.fn(async () => ({ ok: true, status: 200, json: async () => [{ Name: 'Heat', ProductionYear: 1995, ProviderIds: { Tmdb: '949' } }] }));
+    const whoami = async (header: string) => USERS[/Token="([^"]*)"/.exec(header)?.[1] || ''] || null;
+    const handler = createRequestsHandler({ filePath: file, whoami, fetchFn: fetchFn as never, jellyfinUrl: 'http://jf:8096', getApiKey: () => apiKey, newId: () => `id-${++n}` });
+    return { handler, fetchFn };
+  }
+
+  it('is answered before the id routes, for signed-in users only', async () => {
+    const { handler, fetchFn } = withLookup();
+    expect((await call(handler, 'GET', '/api/requests/lookup?q=heat&type=movie', null)).status).toBe(401);
+    const res = await call(handler, 'GET', '/api/requests/lookup?q=heat&type=movie', 'anna');
+    expect(res.status).toBe(200);
+    expect(res.json.results).toEqual([{ title: 'Heat', year: 1995, type: 'movie', tmdbId: '949' }]);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect((await call(handler, 'POST', '/api/requests/lookup', 'anna')).status).toBe(405);
+  });
+
+  it('answers 400 for a short query and 503 when lookup is not set up', async () => {
+    expect((await call(withLookup().handler, 'GET', '/api/requests/lookup?q=h', 'anna')).status).toBe(400);
+    expect((await call(withLookup().handler, 'GET', '/api/requests/lookup', 'anna')).status).toBe(400);
+    const off = await call(withLookup('').handler, 'GET', '/api/requests/lookup?q=heat', 'anna');
+    expect(off).toMatchObject({ status: 503, json: { error: 'lookup-not-set-up' } });
+    expect((await call(withLookup('').handler, 'GET', '/api/requests/lookup?q=heat', 'owner')).status).toBe(200);
   });
 });

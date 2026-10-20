@@ -348,6 +348,17 @@ textarea:focus { outline: none; border-color: var(--accent); }
 .request-more { text-align: center; padding: 8px var(--gutter); }
 .request-list { list-style: none; margin: 0; padding: 8px var(--gutter) 0; display: flex; flex-direction: column; gap: 10px; }
 .request { background: var(--surface); border-radius: var(--radius); padding: 12px 14px; }
+.request-row { display: flex; gap: 12px; }
+.request-body { flex: 1; min-width: 0; }
+.req-poster { display: block; flex: none; width: 40px; height: 60px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.req-poster img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.suggest-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow-y: auto; }
+.suggest-item, .suggest-picked { display: flex; align-items: center; gap: 12px; width: 100%; padding: 6px; background: var(--surface-2); border-radius: var(--radius); text-align: left; }
+.suggest-item { min-height: 72px; }
+.suggest-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.suggest-title { font-weight: 700; color: var(--fg); overflow-wrap: anywhere; }
+.suggest-sub { font-size: 13px; color: var(--muted); }
+.suggest-picked .btn { flex: none; min-height: 44px; background: var(--surface); }
 .request-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .request-title { font-weight: 700; overflow-wrap: anywhere; }
 .request-status { flex: none; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--surface-2); color: var(--muted); }

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { PullSpinner } from '../components/PullSpinner';
+import { RequestPoster } from '../components/RequestPoster';
 import { RequestSheet } from '../components/RequestSheet';
 import { useApp } from '../context';
-import { describeRequestsError, requestLabel, splitRequests, STATUS_LABEL, type RequestsResult, type RequestStatus, type TitleRequest } from '../requests';
+import { describeRequestsError, requestLabel, splitRequests, STATUS_LABEL, typeLabel, type RequestsResult, type RequestStatus, type TitleRequest } from '../requests';
 import { useAsync } from '../useAsync';
 import { usePullToRefresh } from '../usePullToRefresh';
 
@@ -47,16 +48,21 @@ export function Requests({ active }: { active: boolean }) {
 
   const card = (r: TitleRequest) => (
     <li key={r.id} class="request">
-      <div class="request-head">
-        <span class="request-title">{requestLabel(r)}</span>
-        <span class={`request-status ${r.status}`}>{STATUS_LABEL[r.status]}</span>
+      <div class="request-row">
+        <RequestPoster url={r.posterUrl} />
+        <div class="request-body">
+          <div class="request-head">
+            <span class="request-title">{requestLabel(r)}</span>
+            <span class={`request-status ${r.status}`}>{STATUS_LABEL[r.status]}</span>
+          </div>
+          <p class="request-meta">
+            {[isAdmin ? r.userName : '', typeLabel(r.type), formatDate(r.createdAt)]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+          {r.note ? <p class="request-note">{r.note}</p> : null}
+        </div>
       </div>
-      <p class="request-meta">
-        {[isAdmin ? r.userName : '', r.type === 'movie' ? 'Movie' : r.type === 'show' ? 'Show' : '', formatDate(r.createdAt)]
-          .filter(Boolean)
-          .join(' · ')}
-      </p>
-      {r.note ? <p class="request-note">{r.note}</p> : null}
       {isAdmin && r.status === 'open' ? (
         <div class="request-actions">
           <button type="button" class="btn primary" disabled={busyId === r.id} onClick={() => setStatus(r, 'added', 'Marked as added')}>

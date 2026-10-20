@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createRequestsApi, parseYear, requestLabel, splitRequests, type TitleRequest } from './requests';
+import { createRequestsApi, describeRequestsError, parseYear, requestLabel, splitRequests, type TitleRequest, typeLabel } from './requests';
 
 const make = (response: Partial<Response> | Error) => {
   const fetchFn = vi.fn(async (_url: string, _init: RequestInit) => {
@@ -37,6 +37,21 @@ describe('requests api', () => {
     expect(JSON.parse(init.body as string)).toEqual({ title: 'Heat', year: 1995 });
   });
 
+  it('looks up suggestions with an encoded query and keeps only valid ones', async () => {
+    const heat = { title: 'Heat', year: 1995, type: 'movie', tmdbId: '949' };
+    const { api, fetchFn } = make(reply(200, { results: [heat, { title: 'x', type: 'game' }, null, { type: 'show' }] }));
+    expect(await api.lookup('Heat & Dust', 'any')).toEqual({ ok: true, value: [heat] });
+    expect(fetchFn.mock.calls[0][0]).toBe('http://pc:4174/app/api/requests/lookup?q=Heat+%26+Dust&type=any');
+    expect(fetchFn.mock.calls[0][1].method).toBe('GET');
+    expect(await make(reply(200, { nope: 1 })).api.lookup('Heat', 'movie')).toEqual({ ok: false, error: 'failed' });
+  });
+
+  it('sends the ids and poster when creating', async () => {
+    const { api, fetchFn } = make(reply(201, item));
+    await api.create({ title: 'Heat', tmdbId: '949', posterUrl: 'https://image.tmdb.org/t/p/w92/a.jpg' });
+    expect(JSON.parse(fetchFn.mock.calls[0][1].body as string)).toEqual({ title: 'Heat', tmdbId: '949', posterUrl: 'https://image.tmdb.org/t/p/w92/a.jpg' });
+  });
+
   it('patches and deletes by encoded id', async () => {
     const patch = make(reply(200, item));
     await patch.api.setStatus('a/b', 'added');
@@ -53,6 +68,8 @@ describe('requests api', () => {
     expect((await error(reply(403))).error).toBe('forbidden');
     expect((await error(reply(400))).error).toBe('invalid');
     expect((await error(reply(429))).error).toBe('too-many');
+    expect((await error(reply(409))).error).toBe('duplicate');
+    expect((await error(reply(503))).error).toBe('not-set-up');
     expect((await error(reply(404))).error).toBe('unavailable');
     expect((await error(reply(502))).error).toBe('unavailable');
     expect((await error(reply(500))).error).toBe('failed');
@@ -71,6 +88,13 @@ describe('helpers', () => {
   it('labels with the year when known', () => {
     expect(requestLabel({ title: 'Heat', year: 1995 })).toBe('Heat (1995)');
     expect(requestLabel({ title: 'Heat' })).toBe('Heat');
+  });
+
+  it('labels the type and the duplicate error', () => {
+    expect(typeLabel('movie')).toBe('Movie');
+    expect(typeLabel('show')).toBe('Show');
+    expect(typeLabel(undefined)).toBe('');
+    expect(describeRequestsError('duplicate')).toBe('You already requested this.');
   });
 
   it('parses the year field', () => {
