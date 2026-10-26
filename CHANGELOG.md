@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.2.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.1.0...v0.2.0) (2026-10-26)
+
+
+### Features
+
+* adjust TV subtitle timing from the phone ([#39](https://github.com/Pepijnvdliefvoort/thuisbios/issues/39)) ([b0437ea](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b0437ea5d8a31cc44b39741ee959d2038a394171))
+* play the next episode automatically ([#45](https://github.com/Pepijnvdliefvoort/thuisbios/issues/45)) ([b0437ea](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b0437ea5d8a31cc44b39741ee959d2038a394171))
+* show a Skip intro button on the TV and the phone ([#44](https://github.com/Pepijnvdliefvoort/thuisbios/issues/44)) ([b0437ea](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b0437ea5d8a31cc44b39741ee959d2038a394171))
+
+
+### Bug Fixes
+
+* **remote:** fit the app to the full phone screen and stop Now Playing scrolling ([#38](https://github.com/Pepijnvdliefvoort/thuisbios/issues/38)) ([b0437ea](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b0437ea5d8a31cc44b39741ee959d2038a394171))
+* **remote:** let the iPhone notice when the page becomes scrollable ([#41](https://github.com/Pepijnvdliefvoort/thuisbios/issues/41)) ([b0437ea](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b0437ea5d8a31cc44b39741ee959d2038a394171))
+* **remote:** let vertical swipes on poster rows scroll the page on iPhone ([#42](https://github.com/Pepijnvdliefvoort/thuisbios/issues/42)) ([b0437ea](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b0437ea5d8a31cc44b39741ee959d2038a394171))
+* **remote:** stop poster images from blocking page scrolling on iPhone ([#40](https://github.com/Pepijnvdliefvoort/thuisbios/issues/40)) ([b0437ea](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b0437ea5d8a31cc44b39741ee959d2038a394171))
+* show the Next episode card for 5 seconds instead of 10 or 30 ([#46](https://github.com/Pepijnvdliefvoort/thuisbios/issues/46)) ([b0437ea](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b0437ea5d8a31cc44b39741ee959d2038a394171))
+
+
+### Performance
+
+* **remote:** stop pull-to-refresh from making every swipe wait on the page ([#43](https://github.com/Pepijnvdliefvoort/thuisbios/issues/43)) ([b0437ea](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b0437ea5d8a31cc44b39741ee959d2038a394171))
+
 ## 0.1.0 (2026-10-20)
 
 
