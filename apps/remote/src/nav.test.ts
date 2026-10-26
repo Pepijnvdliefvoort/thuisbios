@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { depthOf, shouldCloseNowPlaying } from './nav';
+import { depthOf, replaceTop, shouldCloseNowPlaying, type Screen } from './nav';
 
 describe('depthOf', () => {
   it('reads the stack depth from a history state', () => {
@@ -22,5 +22,17 @@ describe('shouldCloseNowPlaying', () => {
   });
   it('stays open while playing', () => {
     expect(shouldCloseNowPlaying(true, true, true)).toBe(false);
+  });
+});
+
+describe('replaceTop', () => {
+  const player = (id: string): Screen => ({ kind: 'player', item: { Id: id, Name: id }, startTicks: 0 });
+  it('swaps only the top screen', () => {
+    const stack: Screen[] = [{ kind: 'details', id: 'show' }, player('e1')];
+    expect(replaceTop(stack, player('e2'))).toEqual([{ kind: 'details', id: 'show' }, player('e2')]);
+    expect(stack[1]).toEqual(player('e1'));
+  });
+  it('pushes onto an empty stack', () => {
+    expect(replaceTop([], player('e2'))).toEqual([player('e2')]);
   });
 });

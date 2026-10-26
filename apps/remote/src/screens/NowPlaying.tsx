@@ -1,19 +1,47 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
+import { SubtitleTiming } from '../components/SubtitleTiming';
 import { VolumeControls } from '../components/VolumeControls';
 import { Img } from '../components/Img';
+import { NextEpisodeCard } from '../components/NextEpisodeCard';
 import { useApp } from '../context';
 import { artUrl } from '../jellyfin/art';
+import { nextArmedAt, nextEpisodeCard, planNextEpisode } from '../jellyfin/nextEpisode';
+import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { episodeLabel, formatClock, formatTicksClock, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { shouldCloseNowPlaying } from '../nav';
+import { useNextEpisode } from '../useNextEpisode';
 import { useTick } from '../useTv';
 
 export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: () => void }) {
-  const { tv, client } = useApp();
+  const { tv, client, session } = useApp();
   const np = tv.nowPlaying;
   // Seconds while the thumb is being dragged; null otherwise. Seek is sent on release only.
   const [drag, setDrag] = useState<number | null>(null);
   useTick(!!np && !np.isPaused && drag === null, 500);
+
+  // Intro markers for the playing item (empty without the Intro Skipper plugin).
+  const itemId = np ? np.item.Id : '';
+  const [segments, setSegments] = useState<MediaSegment[]>([]);
+  useEffect(() => {
+    let alive = true;
+    setSegments([]);
+    if (itemId) {
+      client
+        .mediaSegments(itemId)
+        .then((list) => alive && setSegments(list))
+        .catch(() => undefined);
+    }
+    return () => {
+      alive = false;
+    };
+  }, [client, itemId]);
+
+  // The TV starts the next episode by itself; this phone only shows the card and can cancel it.
+  const nextEpisode = useNextEpisode(client, session.userId, np ? np.item : null);
+  const [cancelledFor, setCancelledFor] = useState('');
+  // Where the countdown started: when the position entered the card zone (as the TV counts it).
+  const armed = useRef<{ at: number | null; last: number | null }>({ at: null, last: null });
 
   // Leave when playback ends (Stop, or the TV finished/stopped); not while the screen is still settling.
   const wasPlaying = useRef(!!np);
@@ -43,6 +71,12 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
   const posSec = drag !== null ? drag : ticksToSeconds(tv.position());
   const subtitle = isEpisode ? `${item.SeriesName || ''} · ${episodeLabel(item)}`.replace(/^ · /, '') : item.ProductionYear ? String(item.ProductionYear) : '';
   const canSeek = np.canSeek && runtimeSec > 0;
+  const intro = canSeek ? activeIntro(segments, ticksToSeconds(tv.position())) : null;
+
+  const plan = planNextEpisode(segments, runtimeSec);
+  const position = ticksToSeconds(tv.position());
+  armed.current = { at: nextArmedAt(plan, armed.current.at, armed.current.last, position), last: position };
+  const card = nextEpisode && cancelledFor !== item.Id ? nextEpisodeCard(plan, position, armed.current.at) : null;
 
   return (
     <div class="nowplaying">
@@ -77,6 +111,26 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
         </div>
       </div>
 
+      {intro && (
+        <button type="button" class="btn primary skip-intro" onClick={() => tv.seekTo(intro.endTicks)}>
+          <Icon name="next" size={20} /> Skip intro
+        </button>
+      )}
+
+      {nextEpisode && card && card.show && (
+        <NextEpisodeCard
+          serverUrl={client.serverUrl}
+          next={nextEpisode}
+          remaining={card.remaining}
+          target="tv"
+          onPlayNow={tv.next}
+          onCancel={() => {
+            setCancelledFor(item.Id);
+            tv.cancelAutoplay(item.Id);
+          }}
+        />
+      )}
+
       <div class="transport">
         <button type="button" class="tbtn" disabled={!isEpisode} onClick={tv.previous} aria-label="Previous episode">
           <Icon name="prev" size={30} />
@@ -94,6 +148,7 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
           <Icon name="next" size={30} />
         </button>
       </div>
+      <SubtitleTiming itemId={item.Id} />
       <VolumeControls />
       <button type="button" class="btn secondary stop" onClick={() => {
           stopRequested.current = true;

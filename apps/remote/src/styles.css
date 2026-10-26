@@ -18,7 +18,8 @@
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; background: var(--bg); color: var(--fg); }
-html, body { overscroll-behavior: none; }
+html, body { overscroll-behavior: none; height: 100%; overflow: hidden; }
+#app { height: 100%; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 16px;
@@ -30,14 +31,16 @@ button:disabled { cursor: default; }
 h1, h2, p { margin: 0; }
 .icon { display: block; flex: none; }
 
-/* App shell: a fixed-height frame; only .scroller scrolls, the tab bar stays put. */
-.shell { height: 100vh; height: 100dvh; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+/* App shell: a fixed-height frame; only .scroller scrolls, the tab bar stays put. --app-h (viewport.ts) fixes iOS standalone's short 100dvh. */
+.shell { position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); overflow: hidden; display: flex; flex-direction: column; }
 .scroller {
-  flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: none; -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: none;
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
   padding-bottom: 16px;
 }
+/* Now Playing fits the screen and never scrolls. */
+.scroller.fixed { overflow: hidden; }
 /* A sheet is open: freeze the page behind it (the offset is kept). */
 html.scroll-locked .scroller { overflow-y: hidden; }
 
@@ -91,15 +94,16 @@ html.scroll-locked .scroller { overflow-y: hidden; }
 /* Rows and grid */
 .row { margin: 12px 0 20px; }
 .row h2 { font-size: 18px; padding: 0 var(--gutter); margin-bottom: 8px; }
+/* No scroll-snap: on iOS it makes a row grab vertical swipes that should scroll the page. */
 .row-scroll {
-  display: flex; gap: 10px; overflow-x: auto; padding: 0 var(--gutter);
-  scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; padding: 0 var(--gutter);
+  touch-action: pan-x pan-y; overscroll-behavior-x: contain; scrollbar-width: none;
 }
 .row-scroll::-webkit-scrollbar { display: none; }
 .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; padding: 8px var(--gutter) 0; }
 @media (min-width: 560px) { .grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
-.card { display: block; text-align: left; flex: none; min-width: 0; scroll-snap-align: start; }
+.card { display: block; text-align: left; flex: none; min-width: 0; touch-action: pan-x pan-y; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .card-poster { width: 120px; }
 .card-thumb { width: 240px; }
 .grid .card { width: auto; }
@@ -113,7 +117,8 @@ html.scroll-locked .scroller { overflow-y: hidden; }
 .card-art { transition: transform 0.12s; }
 
 .img { display: block; width: 100%; height: 100%; background: var(--surface); overflow: hidden; }
-.img img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* iOS: no image drag or long-press menu, so a press on a poster still scrolls the page. */
+.img img { display: block; width: 100%; height: 100%; object-fit: cover; -webkit-user-drag: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; pointer-events: none; }
 .progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, 0.25); }
 .progress i { display: block; height: 100%; background: var(--accent); }
 
@@ -190,8 +195,12 @@ input:focus { outline: none; border-color: var(--accent); }
 .ep-play:disabled { opacity: 0.35; }
 
 /* Now playing */
-.nowplaying { padding: calc(var(--safe-top) + 64px) var(--gutter) 24px; display: flex; flex-direction: column; gap: 20px; max-width: 520px; margin: 0 auto; }
-.np-art { aspect-ratio: 16 / 9; height: auto; border-radius: 12px; }
+.nowplaying { height: 100%; padding: calc(var(--safe-top) + 64px) var(--gutter) 8px; display: flex; flex-direction: column; gap: 16px; max-width: 520px; margin: 0 auto; }
+.nowplaying > * { flex: none; }
+/* The art keeps 16:9 when there is room and shrinks when the screen is short. */
+.nowplaying > .np-art { flex: 0 1 auto; min-height: 0; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; }
+.np-art img { min-height: 0; }
+@media (max-height: 700px) { .nowplaying { padding-top: calc(var(--safe-top) + 56px); gap: 8px; } }
 .np-text h1 { font-size: 22px; line-height: 1.2; }
 .np-sub { color: var(--muted); margin-top: 2px; }
 .scrub input[type="range"] {
@@ -207,12 +216,21 @@ input:focus { outline: none; border-color: var(--accent); }
 .scrub input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--fg); border: 0; }
 .scrub input[type="range"]:disabled { opacity: 0.4; }
 .times { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.skip-intro { animation: skip-in 200ms ease-out; }
+.next-card { display: flex; gap: 12px; padding: 12px; border-radius: var(--radius); background: var(--surface); animation: skip-in 200ms ease-out; }
+.next-thumb { flex: none; width: 96px; height: 54px; border-radius: 6px; overflow: hidden; }
+.next-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.next-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.next-count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.next-actions { display: flex; gap: 8px; margin-top: 8px; }
+.next-actions .btn { width: auto; flex: 1; min-height: 40px; padding: 0 16px; }
+.next-card.overlay { position: absolute; right: 12px; bottom: 56px; z-index: 2; width: min(340px, calc(100% - 24px)); background: rgba(20, 20, 24, 0.92); }
 .transport { display: flex; align-items: center; justify-content: space-between; }
 .tbtn { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .tbtn:disabled { opacity: 0.3; }
 .tbtn:active:not(:disabled) { background: var(--surface-2); }
 .tbtn.big { width: 72px; height: 72px; background: var(--fg); color: #111; }
-.stop { margin-top: 8px; }
+.stop { margin-top: 0; }
 .volume { display: flex; align-items: center; justify-content: center; }
 
 /* Volume sheet: enters and leaves with transform and opacity only */
@@ -235,6 +253,9 @@ input:focus { outline: none; border-color: var(--accent); }
 .vol-step:disabled { opacity: 0.3; }
 .vol-step:active:not(:disabled) { transform: scale(0.96); }
 .vol-value { min-width: 3ch; text-align: right; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sub-value { margin: 0; text-align: center; font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sub-steps { margin-top: 0; }
+.sub-steps .vol-step { font-size: 16px; font-weight: 600; }
 .vol-hint { margin: 0; text-align: center; color: var(--muted); font-size: 13px; }
 .vol-slider {
   --fill: 0%;
@@ -250,7 +271,8 @@ input:focus { outline: none; border-color: var(--accent); }
 .vol-slider:disabled { opacity: 0.4; }
 
 /* Sign in */
-.signin { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; max-width: 420px; margin: 0 auto; padding: calc(var(--safe-top) + 24px) calc(var(--gutter) + var(--safe-right)) calc(var(--safe-bottom) + 24px) calc(var(--gutter) + var(--safe-left)); }
+.signin { height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); overflow-y: auto; overscroll-behavior: none; display: flex; flex-direction: column; max-width: 420px; margin: 0 auto; padding: calc(var(--safe-top) + 24px) calc(var(--gutter) + var(--safe-right)) calc(var(--safe-bottom) + 24px) calc(var(--gutter) + var(--safe-left)); }
+.signin::before, .signin::after { content: ''; flex: 1 0 0; }
 .signin-logo { font-size: 38px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
 .signin-lead { color: var(--muted); margin: 4px 0 24px; }
 .signin form { display: flex; flex-direction: column; gap: 16px; }
@@ -261,7 +283,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .signin-banner { background: var(--surface); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; margin: 12px 0 0; font-weight: 600; }
 
 /* Connect TV */
-.connect { min-height: 100vh; min-height: 100dvh; display: flex; justify-content: center; padding: calc(var(--safe-top) + 72px) var(--gutter) calc(var(--safe-bottom) + 24px); }
+.connect { min-height: 100%; display: flex; justify-content: center; padding: calc(var(--safe-top) + 72px) var(--gutter) calc(var(--safe-bottom) + 24px); }
 .connect-body { width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
 .connect-body form { width: 100%; display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
 .connect h1 { font-size: 26px; line-height: 1.2; }
@@ -321,11 +343,22 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 .player-head { padding: 0 var(--gutter) 12px; }
 .player-head h1 { font-size: 18px; line-height: 1.2; }
-.player-video { display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 70vh; background: #000; }
+.player-video { display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 70vh; max-height: calc(var(--app-h, 100dvh) * 0.7); background: #000; }
+/* Portrait: the stage is the video's box, so the overlay can sit on its bottom-right corner. */
+.player-stage { position: relative; }
+.skip-intro-overlay {
+  position: absolute; right: 12px; bottom: 56px; z-index: 2; min-height: 44px; padding: 0 20px; border-radius: var(--radius);
+  background: var(--fg); color: #111; font-weight: 700; animation: skip-in 200ms ease-out;
+}
+.skip-intro-overlay:active { transform: scale(0.97); }
+@keyframes skip-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
 /* Full video player mode: in landscape the video fills the screen, with only the Back button on top. */
 @media (orientation: landscape) {
   .player { padding: 0; overflow: hidden; }
   .player-head { display: none; }
+  .player-stage { position: static; }
+  .skip-intro-overlay { right: calc(var(--safe-right) + 16px); bottom: calc(var(--safe-bottom) + 64px); }
+  .next-card.overlay { right: calc(var(--safe-right) + 16px); bottom: calc(var(--safe-bottom) + 64px); }
   .player-video { position: absolute; inset: 0; width: 100%; height: 100%; max-height: none; aspect-ratio: auto; object-fit: contain; }
 }
 
@@ -361,11 +394,11 @@ input:focus { outline: none; border-color: var(--accent); }
 .req-btn:active:not(:disabled) { transform: scale(0.97); }
 
 /* Request sheet: a fixed-height panel; only the results scroll */
-.request-sheet { height: 85vh; height: 85dvh; max-height: 85dvh; padding-bottom: 0; overflow: hidden; overscroll-behavior: contain; }
+.request-sheet { height: 85vh; height: 85dvh; height: calc(var(--app-h, 100dvh) * 0.85); max-height: 85dvh; max-height: calc(var(--app-h, 100dvh) * 0.85); padding-bottom: 0; overflow: hidden; overscroll-behavior: contain; }
 .rs-form { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
 .rs-title { flex: none; }
 .rs-input { flex: none; }
-.rs-results { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 8px; }
+.rs-results { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; }
 .rs-note { color: var(--muted); font-size: 14px; padding: 4px 2px; }
 .rs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .rs-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px; border-radius: var(--radius); text-align: left; }

@@ -23,6 +23,7 @@ import { parseConnectParam } from './jellyfin/quickConnect';
 import { clearSession, getDeviceId, loadPendingConnect, loadSession, saveSession, savePendingConnect } from './storage';
 import { SCROLLER_ID, scrollOffset, scrollToOffset } from './scroller';
 import { useRequests } from './useRequests';
+import { useScrollerRefresh } from './useScrollerRefresh';
 import { useTv } from './useTv';
 
 /**
@@ -90,6 +91,7 @@ function Shell({
   onConnectTaken: () => void;
   onSignOut: (expired?: boolean) => void;
 }) {
+  useScrollerRefresh();
   // The client is memoized on the session, so it reaches the latest callback through a ref.
   const onSignOutRef = useRef(onSignOut);
   onSignOutRef.current = onSignOut;
@@ -180,7 +182,7 @@ function Shell({
   return (
     <Ctx.Provider value={ctx}>
       <div class="shell">
-        <div class="scroller" id={SCROLLER_ID}>
+        <div class={top && top.kind === 'nowPlaying' ? 'scroller fixed' : 'scroller'} id={SCROLLER_ID}>
           <div hidden={open}>
             <TvChip onSignOut={signOut} />
             <main hidden={nav.tab !== 'home'}>
@@ -200,7 +202,13 @@ function Shell({
           {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
           {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
           {top && top.kind === 'player' ? (
-            <Player key={`${nav.stack.length}:player`} item={top.item} startTicks={top.startTicks} onBack={nav.back} />
+            <Player
+              key={`${nav.stack.length}:player:${top.item.Id}`}
+              item={top.item}
+              startTicks={top.startTicks}
+              onBack={nav.back}
+              onNext={(next) => nav.replace({ kind: 'player', item: next, startTicks: 0 })}
+            />
           ) : null}
         </div>
         <div class="bottom">

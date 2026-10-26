@@ -16,6 +16,36 @@ describe('client', () => {
     expect((init.headers as Record<string, string>).Authorization).toContain('Token="tok"');
   });
 
+  it('reads media segments and treats errors as none', async () => {
+    const body = { Items: [{ Id: 'a', ItemId: 'e1', Type: 'Intro', StartTicks: 100, EndTicks: 900 }], TotalRecordCount: 1, StartIndex: 0 };
+    const fetchFn = vi.fn(async () => ok(body));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    expect(await client.mediaSegments('e1')).toEqual([{ type: 'Intro', startTicks: 100, endTicks: 900 }]);
+    expect((fetchFn.mock.calls[0] as unknown as [string])[0]).toBe('http://pc/MediaSegments/e1');
+    const missing = vi.fn(async () => ({ ok: false, status: 404, text: async () => '' }) as Response);
+    const c2 = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: missing as unknown as typeof fetch });
+    expect(await c2.mediaSegments('e1')).toEqual([]);
+    const boom = vi.fn(async () => {
+      throw new TypeError('offline');
+    });
+    const c3 = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: boom as unknown as typeof fetch });
+    expect(await c3.mediaSegments('e1')).toEqual([]);
+  });
+
+  it('reads adjacent episodes and marks items played', async () => {
+    const fetchFn = vi.fn(async () => ok({ Items: [{ Id: 'e2', Name: 'Two' }], TotalRecordCount: 1 }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    expect((await client.adjacentEpisodes('u1', 's1', 'e1'))[0].Id).toBe('e2');
+    const [url] = fetchFn.mock.calls[0] as unknown as [string];
+    expect(url.startsWith('http://pc/Shows/s1/Episodes?UserId=u1&AdjacentTo=e1&')).toBe(true);
+    const played = vi.fn(async () => ok(undefined));
+    const c2 = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: played as unknown as typeof fetch });
+    await c2.markPlayed('u1', 'e1');
+    const [purl, init] = played.mock.calls[0] as unknown as [string, RequestInit];
+    expect(purl).toBe('http://pc/Users/u1/PlayedItems/e1');
+    expect(init.method).toBe('POST');
+  });
+
   it('sends commands as POST and tolerates empty responses', async () => {
     const fetchFn = vi.fn(async () => ok(undefined));
     const client = createClient({ serverUrl: 'http://pc:8096', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });

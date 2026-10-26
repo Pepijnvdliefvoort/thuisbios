@@ -25,7 +25,7 @@ sessions (remote control) API. The phone sends commands to the TV session throug
 ```text
 .github/                  CI, release and dependency automation, PR template
 docs/plan.md              project plan
-docs/server/              Jellyfin setup guide for Windows (windows-setup.md) and autostart guide (autostart.md)
+docs/server/              Jellyfin setup guide for Windows (windows-setup.md), autostart guide (autostart.md) and Intro Skipper guide (intro-skipper.md)
 docs/tv/                  TV app: Tizen setup, install and test guide (dev-setup.md)
 docs/remote/              phone remote: setup guide (setup.md), away from home via Tailscale (tailscale.md)
 scripts/                  repo tooling (version checks)
@@ -50,6 +50,9 @@ on Windows, enable NVENC, and set up the network. Helper scripts live in `server
   with Windows (administrator; run again after an update). `Uninstall-ThuisbiosAutostart.ps1`
   turns it off again, and `Start-ThuisbiosServer.ps1` is what the scheduled tasks run. See
   [docs/server/autostart.md](docs/server/autostart.md).
+
+Optional: the Intro Skipper plugin lets Jellyfin find the intro of each episode, which makes the apps
+show a "Skip intro" button. See [docs/server/intro-skipper.md](docs/server/intro-skipper.md).
 
 Run the tests with `Invoke-Pester -Path server/tests` (Pester 5).
 
@@ -123,6 +126,11 @@ level instead. The TV address and pairing token live in
 the TV once. Follow [docs/remote/setup.md](docs/remote/setup.md) to run it on the PC and add it to
 the phone's home screen.
 
+Now Playing also has a "Subtitles" button that opens a sheet to shift the subtitle timing in steps of
+0.1 s or 0.5 s (positive is later). The phone sends the absolute offset for the playing item as a private
+Jellyfin display message (`thuisbios:subtitle-offset:<itemId>:<ms>`), the TV shifts the WebVTT cues and
+remembers the offset per item. It only works for text subtitles.
+
 The same relay serves title requests under `/api/requests`: when a search finds nothing, anyone signed
 in can request a movie or show (just a title; picking a suggestion adds year, type and poster), and the Requests tab shows their
 own requests with a status (Waiting, Added, Not added), where open ones can be withdrawn. The owner
@@ -172,8 +180,7 @@ GitHub Actions in `.github/workflows`:
   (typecheck, Vitest, build, ES2017 syntax check, `dist` uploaded as artifact), phone remote
   (typecheck, Vitest, build, `dist` uploaded as the `remote-dist` artifact), PowerShell (PSScriptAnalyzer and Pester tests
   for `server/` on Windows).
-- `release-please.yml`: on push to `main`, opens or updates the release PR and creates tags and releases.
-- `sync-develop.yml`: after a release, opens a PR from `main` back into `develop`.
+- `release-please.yml`: on push to `main`, opens or updates the release PR, creates the `vX.Y.Z` tag and GitHub release, and then opens a PR from `main` back into `develop`.
 
 Dependabot updates GitHub Actions and npm weekly, targeting `develop`.
 Docker image builds (GHCR) and the other test jobs are added together with the first containerized service.
@@ -186,4 +193,4 @@ Docker image builds (GHCR) and the other test jobs are added together with the f
 | 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
 | 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done; later reshaped: the TV only connects and shows a screensaver, browsing moved to the phone |
 | 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | done: browse, search, play on TV or on the phone, transport controls, volume slider (relay in the remote's server), title requests; volume and title suggestions not yet verified on the real TV/phone |
-| 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve and start with Windows (autostart script, not yet run on the real PC) done; the rest planned |
+| 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve and start with Windows (autostart script, not yet run on the real PC) done; skip intro (needs the Intro Skipper plugin, on the TV and the phone; not yet verified on the real TV) done; next episode autoplay (card with countdown, on the TV and the phone; not yet verified on the real TV) done; the rest planned |

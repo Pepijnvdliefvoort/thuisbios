@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DISCONNECT_TEXT, REMOTE_CAPABILITIES, describeCommand, keepAliveIntervalMs, parseSocketMessage, reconnectDelayMs, socketUrl } from './messages';
+import { AUTOPLAY_CANCEL_PREFIX, DISCONNECT_TEXT, SUBTITLE_OFFSET_PREFIX, REMOTE_CAPABILITIES, describeCommand, keepAliveIntervalMs, parseSocketMessage, reconnectDelayMs, socketUrl } from './messages';
 
 const msg = (MessageType: string, Data?: unknown): string => JSON.stringify({ MessageType, Data });
 
@@ -95,6 +95,56 @@ describe('socketUrl', () => {
   it('switches the scheme and encodes the params', () => {
     expect(socketUrl('http://h:8096', 'a b', 'id/1')).toBe('ws://h:8096/socket?api_key=a%20b&ApiKey=a%20b&deviceId=id%2F1');
     expect(socketUrl('https://h', 't', 'd')).toBe('wss://h/socket?api_key=t&ApiKey=t&deviceId=d');
+  });
+});
+
+describe('subtitle offset message', () => {
+  const display = (text: string) =>
+    JSON.stringify({ MessageType: 'GeneralCommand', Data: { Name: 'DisplayMessage', Arguments: { Text: text } } });
+  const cmd = (itemId: string, ms: number) => ({ type: 'command', command: { type: 'subtitleOffset', itemId, ms } });
+
+  it('parses positive, negative and zero offsets', () => {
+    expect(SUBTITLE_OFFSET_PREFIX).toBe('thuisbios:subtitle-offset:');
+    expect(parseSocketMessage(display('thuisbios:subtitle-offset:abc123:500'))).toEqual(cmd('abc123', 500));
+    expect(parseSocketMessage(display('thuisbios:subtitle-offset:abc123:-1200'))).toEqual(cmd('abc123', -1200));
+    expect(parseSocketMessage(display('thuisbios:subtitle-offset:abc123:0'))).toEqual(cmd('abc123', 0));
+  });
+
+  it('clamps to 60 seconds', () => {
+    expect(parseSocketMessage(display('thuisbios:subtitle-offset:a:999999'))).toEqual(cmd('a', 60000));
+    expect(parseSocketMessage(display('thuisbios:subtitle-offset:a:-999999'))).toEqual(cmd('a', -60000));
+  });
+
+  it('rejects malformed values', () => {
+    expect(parseSocketMessage(display('thuisbios:subtitle-offset::500'))).toBeNull();
+    expect(parseSocketMessage(display('thuisbios:subtitle-offset:a:'))).toBeNull();
+    expect(parseSocketMessage(display('thuisbios:subtitle-offset:a:1.5'))).toBeNull();
+    expect(parseSocketMessage(display('thuisbios:subtitle-offset:a:abc'))).toBeNull();
+    expect(parseSocketMessage(display('thuisbios:subtitle-offset:a'))).toBeNull();
+  });
+
+  it('is described for the debug overlay', () => {
+    expect(describeCommand({ type: 'subtitleOffset', itemId: 'x', ms: 500 })).toBe('Subtitles +0.5 s');
+  });
+});
+
+describe('autoplay cancel message', () => {
+  const display = (text: string) =>
+    JSON.stringify({ MessageType: 'GeneralCommand', Data: { Name: 'DisplayMessage', Arguments: { Text: text } } });
+
+  it('parses the item id', () => {
+    expect(AUTOPLAY_CANCEL_PREFIX).toBe('thuisbios:autoplay-cancel:');
+    expect(parseSocketMessage(display('thuisbios:autoplay-cancel:abc123'))).toEqual({
+      type: 'command',
+      command: { type: 'autoplayCancel', itemId: 'abc123' },
+    });
+  });
+  it('rejects a missing item id and other text', () => {
+    expect(parseSocketMessage(display('thuisbios:autoplay-cancel:'))).toBeNull();
+    expect(parseSocketMessage(display('thuisbios:autoplay'))).toBeNull();
+  });
+  it('is described for the debug overlay', () => {
+    expect(describeCommand({ type: 'autoplayCancel', itemId: 'x' })).toBe('Cancel autoplay');
   });
 });
 

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import {
+  autoplayCancelCommand,
   disconnectCommand,
   playCommand,
   relativeSeekTicks,
   seekCommand,
+  subtitleOffsetCommand,
   transportCommand,
   viewCommand,
   type Command,
@@ -47,6 +49,10 @@ export interface TvApi {
   previous(): void;
   seekTo(ticks: number): void;
   skip(deltaSeconds: number): void;
+  /** Sets the subtitle timing of an item on the TV to an absolute offset in ms (positive = later). */
+  setSubtitleOffset(itemId: string, ms: number): void;
+  /** Tells the TV not to start the next episode after this item. */
+  cancelAutoplay(itemId: string): void;
 }
 
 export function useTv(
@@ -208,6 +214,8 @@ export function useTv(
       optimistic({ positionTicks: target });
       void run((s) => seekCommand(s, target));
     },
+    setSubtitleOffset: (itemId, ms) => void run((s) => subtitleOffsetCommand(s, itemId, ms)),
+    cancelAutoplay: (itemId) => void run((s) => autoplayCancelCommand(s, itemId)),
   };
 }
 

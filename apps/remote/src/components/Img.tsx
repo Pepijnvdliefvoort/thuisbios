@@ -5,7 +5,7 @@ export function Img({ src, alt = '', class: cls = '' }: { src: string; alt?: str
   const [failed, setFailed] = useState(false);
   return (
     <span class={`img ${cls}`}>
-      {src && !failed ? <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setFailed(true)} /> : null}
+      {src && !failed ? <img src={src} alt={alt} draggable={false} loading="lazy" decoding="async" onError={() => setFailed(true)} /> : null}
     </span>
   );
 }
