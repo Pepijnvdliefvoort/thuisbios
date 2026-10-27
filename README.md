@@ -1,4 +1,28 @@
-# Thuisbios
+<h1 align="center">
+  <img alt="Thuisbios" src="docs/images/banner.png" width="100%">
+</h1>
+
+<p align="center">
+  <a href="https://github.com/Pepijnvdliefvoort/thuisbios/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Pepijnvdliefvoort/thuisbios/ci.yml?branch=develop&label=CI"></a>
+  <a href="https://github.com/Pepijnvdliefvoort/thuisbios/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/Pepijnvdliefvoort/thuisbios?sort=semver"></a>
+  <a href="https://www.conventionalcommits.org"><img alt="Conventional Commits" src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white"></a>
+  <a href="https://www.typescriptlang.org"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white"></a>
+  <a href="https://preactjs.com"><img alt="Preact" src="https://img.shields.io/badge/Preact-673AB8?logo=preact&logoColor=white"></a>
+  <a href="https://vite.dev"><img alt="Vite" src="https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white"></a>
+  <a href="https://jellyfin.org"><img alt="Jellyfin" src="https://img.shields.io/badge/Jellyfin-00A4DC?logo=jellyfin&logoColor=white"></a>
+  <a href="https://developer.samsung.com/smarttv"><img alt="Samsung Tizen 4.0" src="https://img.shields.io/badge/Samsung%20Tizen%204.0-1428A0?logo=samsung&logoColor=white"></a>
+</p>
+
+<p align="center"><strong>A personal, Netflix-like way to stream my own media at home, on top of Jellyfin.</strong></p>
+
+<p align="center">
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#server-phase-1">Server</a> ·
+  <a href="#tv-app">TV app</a> ·
+  <a href="#phone-app-phase-4">Phone app</a> ·
+  <a href="#roadmap">Roadmap</a>
+</p>
 
 Thuisbios ("home cinema") is a personal, Netflix-like way to stream my own media at home.
 [Jellyfin](https://jellyfin.org) is the backend. Two custom clients are built on top of its API:
@@ -7,6 +31,36 @@ play with it, on the TV or on the phone itself. The TV app only connects (Quick 
 shows a screensaver and plays what the phone sends.
 
 Full plan: [docs/plan.md](docs/plan.md).
+
+## Screenshots
+
+All screenshots use a mocked Jellyfin server with placeholder titles and artwork.
+
+### Phone app
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/phone-home.png" alt="Home" width="250"><br><sub>Home</sub></td>
+    <td align="center"><img src="docs/images/phone-details.png" alt="Series details" width="250"><br><sub>Series details</sub></td>
+    <td align="center"><img src="docs/images/phone-now-playing.png" alt="Now Playing on the TV" width="250"><br><sub>Now Playing on the TV</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/phone-search.png" alt="Search" width="250"><br><sub>Search</sub></td>
+    <td align="center"><img src="docs/images/phone-library.png" alt="Library" width="250"><br><sub>Library</sub></td>
+    <td align="center"><img src="docs/images/phone-connect.png" alt="Connect a TV" width="250"><br><sub>Connect a TV</sub></td>
+  </tr>
+</table>
+
+### TV
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/tv-connect.png" alt="Connect with a code or QR" width="100%"><br><sub>Connect with a code or QR</sub></td>
+    <td align="center"><img src="docs/images/tv-screensaver.png" alt="Screensaver while idle" width="100%"><br><sub>Screensaver while idle</sub></td>
+  </tr>
+</table>
+
+Regenerate them with `node scripts/screenshots/capture.mjs`, see [scripts/screenshots/README.md](scripts/screenshots/README.md).
 
 ## Architecture
 
@@ -25,10 +79,12 @@ sessions (remote control) API. The phone sends commands to the TV session throug
 ```text
 .github/                  CI, release and dependency automation, PR template
 docs/plan.md              project plan
+docs/images/              README banner and screenshots
 docs/server/              Jellyfin setup guide for Windows (windows-setup.md), autostart guide (autostart.md) and Intro Skipper guide (intro-skipper.md)
 docs/tv/                  TV app: Tizen setup, install and test guide (dev-setup.md)
 docs/remote/              phone remote: setup guide (setup.md), away from home via Tailscale (tailscale.md)
 scripts/                  repo tooling (version checks)
+scripts/screenshots/      mock Jellyfin server and Playwright script that generates the README screenshots
 packages/jellyfin-client/ planned: shared typed Jellyfin API client
 apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite), served to the TV browser
 apps/remote/              phone remote PWA, phase 4 (Preact + TypeScript + Vite)
