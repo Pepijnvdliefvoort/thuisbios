@@ -183,7 +183,9 @@ GitHub Actions in `.github/workflows`:
   `apps/tv/package.json`, `apps/remote/package.json` and the Tizen `config.xml` must agree), TV app
   (typecheck, Vitest, build, ES2017 syntax check, `dist` uploaded as artifact), phone remote
   (typecheck, Vitest, build, `dist` uploaded as the `remote-dist` artifact), PowerShell (PSScriptAnalyzer and Pester tests
-  for `server/` on Windows).
+  for `server/` on Windows). The build and test jobs only run when their part of the repo changed (TV app,
+  phone app, server scripts, Markdown, version files; a change to `ci.yml` runs everything). CI runs on pull
+  requests into `develop` and `main` and on pushes to `develop`; runs on a PR are cancelled when a newer commit is pushed.
 - `release-please.yml`: on push to `main`, opens or updates the release PR, creates the `vX.Y.Z` tag and GitHub release, and then opens a PR from `main` back into `develop`.
 
 Dependabot updates GitHub Actions and npm weekly, targeting `develop`.
