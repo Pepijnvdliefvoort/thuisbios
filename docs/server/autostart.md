@@ -4,7 +4,8 @@
 
 After this one-time setup, the TV page and the phone app start by themselves when the PC starts,
 even before you sign in, and without any windows. Jellyfin and Tailscale already start by
-themselves, so after this nothing needs to be opened by hand.
+themselves, so after this nothing needs to be opened by hand. The same setup also keeps the
+project up to date by itself (see [Automatic updates](#automatic-updates)).
 
 It uses Task Scheduler, which is part of Windows. No extra software is needed.
 
@@ -39,15 +40,60 @@ shows the addresses of the TV page and the phone app.
 Open the TV page on the TV and the phone app on your phone, as usual. To be sure it also works
 after a restart, restart the PC, wait a minute or two without signing in, and try again.
 
-## After an update
+## Automatic updates
 
-When there is a new version of the project:
+The setup also adds a third task, **Update**. A few minutes after the PC starts, and then every 30
+minutes, it checks GitHub for a new release of Thuisbios. Most of the time there is nothing new and
+nothing happens. When there is a new release, it:
+
+1. downloads it and builds it,
+2. restarts the TV page and the phone app.
+
+This takes a few minutes. During that time the TV page and the phone app cannot be opened. A
+movie that is already playing keeps playing, because the video comes from Jellyfin and not from
+these two pages.
+
+If the update fails, it goes back to the previous version by itself, starts the pages again and
+writes what went wrong in the log.
+
+It follows the **releases**, the stable versions, and not the work in progress on `develop`. In
+git the project folder will therefore say `HEAD detached at vX.Y.Z`. That is normal.
+
+Until the first release that includes automatic updates is published, the folder stays where it is
+(for example on `develop`) and `update.log` says so.
+
+To turn this on, run the setup script once more (see
+[One-time setup](#one-time-setup)). It needs Git for Windows, which is already installed if you
+cloned the project with git. The setup tells you if it is missing. It also looks for a new release
+right away.
+
+### Update right now
+
+Open the Start menu, type `Task Scheduler`, open it, choose **Task Scheduler Library** >
+**Thuisbios**, right-click **Update** and choose **Run**. Or open PowerShell as administrator, go
+to the project folder and run:
+
+```powershell
+.\server\scripts\Update-Thuisbios.ps1
+```
+
+The script writes what it does to `update.log` (see below).
+
+### Turn off automatic updates
+
+Run the setup script again with `-NoAutoUpdate`. This removes the Update task:
+
+```powershell
+.\server\scripts\Install-ThuisbiosAutostart.ps1 -NoAutoUpdate
+```
+
+### Update by hand
+
+If you prefer to do it yourself (or the Update task is off):
 
 1. Open PowerShell as administrator and go to the project folder (steps 2 and 3 above).
-2. Run `git pull`.
-3. Run the same setup script again.
-
-It stops the servers, builds the new version and starts them again.
+2. Run `git fetch --tags` and then `git checkout vX.Y.Z`, with the number of the release you want.
+3. Run the setup script again. It stops the servers, builds that version and starts them again.
 
 ## Keep the PC awake
 
@@ -61,9 +107,10 @@ nothing works until it is switched on again.
 ## Where to look when something is wrong
 
 - Log files: open File Explorer, click the address bar, type `%USERPROFILE%\.thuisbios\logs` and
-  press Enter. `tv.log` belongs to the TV page and `remote.log` to the phone app.
+  press Enter. `tv.log` belongs to the TV page, `remote.log` to the phone app and `update.log`
+  to the automatic updates.
 - Task Scheduler: open the Start menu, type `Task Scheduler`, open it and choose **Task Scheduler
-  Library** > **Thuisbios**. You see the two tasks there. Right-click a task to run or end it.
+  Library** > **Thuisbios**. You see the three tasks there (TV page, Phone app and Update). Right-click a task to run or end it.
 
 ## Turn it off
 
@@ -73,7 +120,7 @@ Open PowerShell as administrator, go to the project folder and run:
 .\server\scripts\Uninstall-ThuisbiosAutostart.ps1
 ```
 
-Your log files and settings are kept. You can still start the servers by hand with
+This also removes the Update task. Your log files and settings are kept. You can still start the servers by hand with
 `npm run preview`.
 
 ## Troubleshooting
@@ -85,3 +132,13 @@ Your log files and settings are kept. You can still start the servers by hand wi
 - **The volume button stopped working.** The phone app now runs in the background under your own
   Windows account, so your earlier TV setup still applies. Only run `npm run tv:setup -w apps/remote` again if
   the TV's address changed.
+- **The update does not happen.** Open `update.log` and read the last lines. `Could not reach
+  GitHub` means there is no internet right now; it tries again 30 minutes later.
+- **`update.log` says there are local changes.** Something in the project folder was edited by
+  hand, and the update will not overwrite it. Open PowerShell in the project folder and run
+  `git checkout -- .` to undo those changes. The next check then updates normally.
+- **`update.log` says it went back to the previous version.** The new release did not build.
+  Everything keeps working on the old version. Tell the developer, with the last lines of
+  `update.log`.
+- **There is no Update task in Task Scheduler.** Run the setup script again (without
+  `-NoAutoUpdate`).
