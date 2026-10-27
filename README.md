@@ -5,6 +5,7 @@
 <p align="center">
   <a href="https://github.com/Pepijnvdliefvoort/thuisbios/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Pepijnvdliefvoort/thuisbios/ci.yml?branch=develop&label=CI"></a>
   <a href="https://github.com/Pepijnvdliefvoort/thuisbios/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/Pepijnvdliefvoort/thuisbios?sort=semver"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/Pepijnvdliefvoort/thuisbios"></a>
   <a href="https://www.conventionalcommits.org"><img alt="Conventional Commits" src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white"></a>
   <a href="https://www.typescriptlang.org"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white"></a>
   <a href="https://preactjs.com"><img alt="Preact" src="https://img.shields.io/badge/Preact-673AB8?logo=preact&logoColor=white"></a>
@@ -261,3 +262,7 @@ Docker image builds (GHCR) and the other test jobs are added together with the f
 | 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done; later reshaped: the TV only connects and shows a screensaver, browsing moved to the phone |
 | 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | done: browse, search, play on TV or on the phone, transport controls, volume slider (relay in the remote's server), title requests; volume and title suggestions not yet verified on the real TV/phone |
 | 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve and start with Windows and automatic updates from releases (autostart and update scripts, not yet run on the real PC) done; skip intro (needs the Intro Skipper plugin, on the TV and the phone; not yet verified on the real TV) done; next episode autoplay (card with countdown, on the TV and the phone; not yet verified on the real TV) done; the rest planned |
+
+## License
+
+Thuisbios is released under the [MIT License](LICENSE). It talks to Jellyfin only over its HTTP API and does not include Jellyfin code. Use it only with media you own or have the rights to.

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Personal streaming service on top of Jellyfin",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "check:versions": "node scripts/check-versions.mjs",
     "lint:md": "markdownlint-cli2",
