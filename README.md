@@ -47,9 +47,12 @@ on Windows, enable NVENC, and set up the network. Helper scripts live in `server
 - `Set-JellyfinFirewall.ps1`: allow TCP 8096 and UDP 7359 on the private network (administrator).
 - `Test-JellyfinServer.ps1`: check that the server answers.
 - `Install-ThuisbiosAutostart.ps1`: build the TV page and phone app and start them automatically
-  with Windows (administrator; run again after an update). `Uninstall-ThuisbiosAutostart.ps1`
-  turns it off again, and `Start-ThuisbiosServer.ps1` is what the scheduled tasks run. See
-  [docs/server/autostart.md](docs/server/autostart.md).
+  with Windows (administrator; also adds the hourly update task, `-NoAutoUpdate` skips it).
+  `Uninstall-ThuisbiosAutostart.ps1` turns it off again, and `Start-ThuisbiosServer.ps1` is what
+  the scheduled tasks run. See [docs/server/autostart.md](docs/server/autostart.md).
+- `Update-Thuisbios.ps1`: move the project folder to the newest GitHub release (tag `vX.Y.Z`),
+  build it and restart the TV page and phone app; goes back to the previous version if the build
+  fails. Run by the Update task every hour (administrator; `-Force` rebuilds the current release).
 
 Optional: the Intro Skipper plugin lets Jellyfin find the intro of each episode, which makes the apps
 show a "Skip intro" button. See [docs/server/intro-skipper.md](docs/server/intro-skipper.md).
@@ -193,4 +196,4 @@ Docker image builds (GHCR) and the other test jobs are added together with the f
 | 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
 | 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done; later reshaped: the TV only connects and shows a screensaver, browsing moved to the phone |
 | 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | done: browse, search, play on TV or on the phone, transport controls, volume slider (relay in the remote's server), title requests; volume and title suggestions not yet verified on the real TV/phone |
-| 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve and start with Windows (autostart script, not yet run on the real PC) done; skip intro (needs the Intro Skipper plugin, on the TV and the phone; not yet verified on the real TV) done; next episode autoplay (card with countdown, on the TV and the phone; not yet verified on the real TV) done; the rest planned |
+| 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve and start with Windows and automatic updates from releases (autostart and update scripts, not yet run on the real PC) done; skip intro (needs the Intro Skipper plugin, on the TV and the phone; not yet verified on the real TV) done; next episode autoplay (card with countdown, on the TV and the phone; not yet verified on the real TV) done; the rest planned |

@@ -3,18 +3,26 @@
     Makes the Thuisbios TV page and phone app start by themselves when Windows starts.
 
 .DESCRIPTION
-    Run once from PowerShell "as administrator" in the project folder. Run it again after
-    "git pull" to update. It:
+    Run once from PowerShell "as administrator" in the project folder. Run it again to repair
+    or refresh the setup. It:
       - stops the servers if they are running,
       - installs and builds the TV page and the phone app (unless -SkipBuild),
       - allows the two ports on the home network in the Windows Firewall,
       - creates two scheduled tasks (folder "Thuisbios") that start at boot, without anyone
-        signing in and without a window, and
+        signing in and without a window,
+      - creates a third task, "Update" (unless -NoAutoUpdate), that checks GitHub for a new
+        release a few minutes after the PC starts and then every hour, and installs it with
+        Update-Thuisbios.ps1 (needs Git for Windows), and
       - starts them now.
+    The project folder stays on whatever is checked out now. The first run of the Update task
+    moves it to the newest release.
     Uses only Windows Task Scheduler. Windows only.
 
 .PARAMETER SkipBuild
     Do not run "npm ci" and the builds (only refresh the tasks and firewall rules).
+
+.PARAMETER NoAutoUpdate
+    Do not install the automatic updates. An existing Update task is removed.
 
 .EXAMPLE
     .\Install-ThuisbiosAutostart.ps1
@@ -24,7 +32,9 @@
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+
+    [switch]$NoAutoUpdate
 )
 
 $ErrorActionPreference = 'Stop'
@@ -56,6 +66,18 @@ if (-not $npmCommand) {
     exit 1
 }
 $npmPath = $npmCommand.Source
+
+$updateScript = Join-Path $PSScriptRoot 'Update-Thuisbios.ps1'
+$updateTask = 'Update'
+$gitPath = $null
+if (-not $NoAutoUpdate) {
+    $gitCommand = Get-Command git.exe -ErrorAction SilentlyContinue
+    if (-not $gitCommand) {
+        Write-Error 'Git is not installed (git.exe was not found), which automatic updates need. Install Git for Windows from https://git-scm.com and open a new PowerShell window, or run this script with -NoAutoUpdate.' -ErrorAction Continue
+        exit 1
+    }
+    $gitPath = $gitCommand.Source
+}
 
 $servers = @(
     @{ Task = 'TV page'; App = 'tv'; Port = 4173; Rule = 'Thuisbios TV page (TCP 4173)' },
@@ -146,6 +168,32 @@ foreach ($server in $servers) {
     Write-Host "Task registered: $taskPath$($server.Task)"
 }
 
+if ($NoAutoUpdate) {
+    $existingUpdate = Get-ScheduledTask -TaskPath $taskPath -TaskName $updateTask -ErrorAction SilentlyContinue
+    if ($existingUpdate -and $PSCmdlet.ShouldProcess($updateTask, 'Stop and remove scheduled task')) {
+        Stop-ScheduledTask -TaskPath $taskPath -TaskName $updateTask -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskPath $taskPath -TaskName $updateTask -Confirm:$false
+        Write-Host "Task removed: $taskPath$updateTask"
+    }
+}
+elseif ($PSCmdlet.ShouldProcess($updateTask, 'Register scheduled task')) {
+    # Needs administrator rights (RunLevel Highest) to stop and start the other two tasks.
+    $arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Git "{1}" -Npm "{2}"' -f $updateScript, $gitPath, $npmPath
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments -WorkingDirectory $repoRoot
+    $atStartup = New-ScheduledTaskTrigger -AtStartup
+    $atStartup.Delay = 'PT5M'
+    # Without a duration the repetition goes on forever.
+    $hourly = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1)
+    $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType S4U -RunLevel Highest
+    $taskSettings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
+        -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable `
+        -MultipleInstances IgnoreNew
+    Register-ScheduledTask -TaskPath $taskPath -TaskName $updateTask -Action $action `
+        -Trigger @($atStartup, $hourly) -Principal $principal -Settings $taskSettings `
+        -Description 'Checks GitHub for a new Thuisbios release and installs it.' -Force | Out-Null
+    Write-Host "Task registered: $taskPath$updateTask"
+}
+
 if ($WhatIfPreference) {
     Write-Host 'WhatIf: nothing was changed.'
     return
@@ -184,4 +232,10 @@ else {
 Write-Host "  TV page:   http://${address}:4173"
 Write-Host "  Phone app: http://${address}:4174"
 Write-Host "Log files:   $logDir"
+if (-not $NoAutoUpdate) {
+    Write-Host 'This PC now follows the releases: it checks for a new one a few minutes after it starts and then every hour.'
+    Write-Host "Update log:  $(Join-Path $logDir 'update.log')"
+    # Look for a newer release right away; if there is one, the pages restart for a few minutes.
+    Start-ScheduledTask -TaskPath $taskPath -TaskName $updateTask
+}
 Write-Host 'To remove it again, run Uninstall-ThuisbiosAutostart.ps1 as administrator.'
