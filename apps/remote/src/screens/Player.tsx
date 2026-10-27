@@ -1,28 +1,35 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
+import { PlayerControls } from '../components/PlayerControls';
 import { NextEpisodeCard } from '../components/NextEpisodeCard';
 import { useApp } from '../context';
-import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscreen';
+import { exitLandscapeFullscreen } from '../fullscreen';
 import { artUrl } from '../jellyfin/art';
-import { getDeviceId } from '../storage';
+import { getDeviceId, loadSubtitleLang, loadSubtitleOffset, saveSubtitleLang } from '../storage';
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
 import { nextArmedAt, nextEpisodeCard, planNextEpisode } from '../jellyfin/nextEpisode';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { createThrottle, resolveStreamUrl, selectPlayMethod, type PlaySelection } from '../jellyfin/playback';
-import type { BaseItem, PlaybackReport } from '../jellyfin/types';
+import { activeCueText, listSubtitles, parseVtt, pickInitialSubtitle, subtitleVttUrl, type Cue } from '../jellyfin/subtitles';
+import type { BaseItem, MediaSource, PlaybackReport } from '../jellyfin/types';
 import { useNextEpisode } from '../useNextEpisode';
+import { useViewportPortrait } from '../useViewportPortrait';
 
 const PROGRESS_MS = 10000;
 /** Pause, play and seek reports go out at once, but never more often than this. */
 const EVENT_REPORT_MS = 1000;
 const HLS_MIME = 'application/vnd.apple.mpegurl';
+/** Controls fade out this long after the last touch while playing. */
+const HIDE_MS = 3000;
 
 interface Loaded {
   selection: PlaySelection;
   url: string;
   mediaSourceId: string;
   playSessionId?: string;
+  /** Kept to list the subtitle tracks. */
+  source: MediaSource;
 }
 
 /**
@@ -32,6 +39,9 @@ interface Loaded {
  * HLS playlist is still full length (segments before the start are simply not made), so the video's
  * currentTime is the position in the whole item and reports need no offset. Every method therefore
  * seeks to the start position itself once the metadata is known (hls.js through `startPosition`).
+ *
+ * The video is always inline with our own controls and subtitles (see PlayerControls). iPhone cannot go
+ * fullscreen or lock the orientation, so when the viewport is portrait the whole stage is turned 90° with CSS.
  */
 export function Player({
   item,
@@ -51,6 +61,18 @@ export function Player({
   const video = useRef<HTMLVideoElement>(null);
   const [segments, setSegments] = useState<MediaSegment[]>([]);
   const [now, setNow] = useState(0);
+  const rotated = useViewportPortrait();
+  // Our own controls.
+  const [paused, setPaused] = useState(true);
+  const [buffering, setBuffering] = useState(true);
+  const [duration, setDuration] = useState(0);
+  const [buffered, setBuffered] = useState(0);
+  const [shown, setShown] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [touched, setTouched] = useState(0);
+  // Our own subtitles: the chosen track (-1 = off) and its parsed cues.
+  const [subSel, setSubSel] = useState(-1);
+  const [cues, setCues] = useState<Cue[]>([]);
   // Next episode autoplay: the card, and the hooks into the reporting effect below.
   const next = useNextEpisode(client, session.userId, item);
   const [cancelled, setCancelled] = useState(false);
@@ -79,9 +101,87 @@ export function Player({
     [],
   );
 
-  // iPhone Safari cannot fullscreen the page. A video without `playsInline` opens in iOS's own fullscreen
-  // player instead, which follows the phone's rotation. Everywhere else keep it inline in our fullscreen page.
-  const inline = supportsElementFullscreen();
+  // We draw the subtitles ourselves: keep the browser's own text tracks off (iOS would draw embedded ones).
+  useEffect(() => {
+    const el = video.current;
+    if (!el) return;
+    const disable = () => {
+      for (let i = 0; i < el.textTracks.length; i++) el.textTracks[i].mode = 'disabled';
+    };
+    el.addEventListener('loadedmetadata', disable);
+    el.textTracks.addEventListener('addtrack', disable);
+    disable();
+    return () => {
+      el.removeEventListener('loadedmetadata', disable);
+      el.textTracks.removeEventListener('addtrack', disable);
+    };
+  }, []);
+
+  const tracks = useMemo(() => (loaded ? listSubtitles(loaded.source) : []), [loaded]);
+  const subOffset = useMemo(() => loadSubtitleOffset(item.Id), [item.Id]);
+  // Fetch the WebVTT of the chosen track once; a failure just shows no subtitles.
+  useEffect(() => {
+    setCues([]);
+    const track = tracks[subSel];
+    if (!loaded || !track) return;
+    let alive = true;
+    fetch(subtitleVttUrl(client.serverUrl, item.Id, loaded.mediaSourceId, track.index, session.token))
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
+      .then((text) => alive && setCues(parseVtt(text)))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [loaded, tracks, subSel]);
+  const chooseSubtitle = (index: number) => {
+    setSubSel(index);
+    // '' remembers "off". A track without a language cannot be matched later, so it is not remembered.
+    if (index < 0) saveSubtitleLang('');
+    else if (tracks[index] && tracks[index].lang) saveSubtitleLang(tracks[index].lang);
+  };
+
+  // Controls: shown by a tap, hidden again 3 s after the last touch while playing.
+  const keepUp = paused || busy || !loaded;
+  useEffect(() => {
+    if (!shown || keepUp) return;
+    const timer = window.setTimeout(() => setShown(false), HIDE_MS);
+    return () => window.clearTimeout(timer);
+  }, [shown, keepUp, touched]);
+  const interact = () => {
+    setShown(true);
+    setTouched((n) => n + 1);
+  };
+  const controlsUp = shown || keepUp;
+  const togglePlay = () => {
+    const el = video.current;
+    if (!el) return;
+    if (el.paused) void el.play().catch(() => undefined);
+    else el.pause();
+  };
+  const seekTo = (seconds: number) => {
+    const el = video.current;
+    if (!el) return;
+    const max = duration > 0 ? duration : seconds;
+    const to = Math.max(0, Math.min(max, seconds));
+    el.currentTime = to;
+    setNow(to);
+  };
+  const skipBy = (delta: number) => {
+    const el = video.current;
+    if (el) seekTo(el.currentTime + delta);
+  };
+  const syncBuffered = (el: HTMLVideoElement) => {
+    const r = el.buffered;
+    let end = 0;
+    for (let i = 0; i < r.length; i++) if (r.start(i) <= el.currentTime + 0.5 && r.end(i) > end) end = r.end(i);
+    setBuffered(end);
+  };
+  const syncDuration = (el: HTMLVideoElement) => {
+    setDuration(isFinite(el.duration) && el.duration > 0 ? el.duration : ticksToSeconds(item.RunTimeTicks || 0));
+  };
 
   // Ask the server how to play this item on this phone.
   useEffect(() => {
@@ -103,7 +203,9 @@ export function Player({
           url: resolveStreamUrl(client.serverUrl, selection.url, session.token),
           mediaSourceId: source.Id,
           playSessionId: info.PlaySessionId,
+          source,
         });
+        setSubSel(pickInitialSubtitle(listSubtitles(source), loadSubtitleLang()));
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -125,7 +227,7 @@ export function Player({
     let hls: { destroy(): void } | null = null;
     const onMeta = () => {
       seekToStart();
-      void el.play().catch(() => undefined); // blocked autoplay: the native controls start it
+      void el.play().catch(() => undefined); // blocked autoplay: stays paused, the big play button starts it
     };
     if (loaded.selection.hls && el.canPlayType(HLS_MIME) === '') {
       import('hls.js')
@@ -250,36 +352,70 @@ export function Player({
   };
 
   const label = item.Type === 'Episode' ? [item.SeriesName, episodeLabel(item)].filter(Boolean).join(' · ') : '';
+  const subtitleText = subSel >= 0 ? activeCueText(cues, now - subOffset / 1000) : '';
   return (
     <div class="player">
-      <button type="button" class="back" onClick={onBack} aria-label="Back">
-        <Icon name="back" />
-      </button>
-      <div class="player-head">
-        {label ? <p class="eyebrow">{label}</p> : null}
-        <h1>{item.Name}</h1>
-      </div>
       {error ? (
-        <p class="empty">Couldn't play this video.</p>
+        <div class="player-error">
+          <button type="button" class="back" onClick={onBack} aria-label="Back">
+            <Icon name="back" />
+          </button>
+          <p class="empty">Couldn't play this video.</p>
+        </div>
       ) : (
-        <div class="player-stage">
+        <div class={'player-stage' + (rotated ? ' rotated' : '')}>
           <video
             ref={video}
             class="player-video"
-            controls
-            playsInline={inline}
+            playsInline
+            webkit-playsinline=""
             autoPlay
             preload="auto"
             poster={artUrl(client.serverUrl, item, 'backdrop', 780, 440) || undefined}
             onTimeUpdate={(e) => setNow((e.target as HTMLVideoElement).currentTime)}
+            onPlay={() => setPaused(false)}
+            onPause={() => setPaused(true)}
+            onWaiting={() => setBuffering(true)}
+            onSeeking={() => setBuffering(true)}
+            onPlaying={() => setBuffering(false)}
+            onCanPlay={() => setBuffering(false)}
+            onSeeked={() => setBuffering(false)}
+            onProgress={(e) => syncBuffered(e.target as HTMLVideoElement)}
+            onLoadedMetadata={(e) => syncDuration(e.target as HTMLVideoElement)}
+            onDurationChange={(e) => syncDuration(e.target as HTMLVideoElement)}
           />
-          {/* Not shown in iPhone's native fullscreen player, which draws only its own controls. */}
+          {/* A tap on the picture shows or hides the controls. */}
+          <div class="player-tap" onClick={() => (shown && !busy ? setShown(false) : interact())} />
+          {subtitleText ? (
+            <div class={'player-subs' + (controlsUp ? ' raised' : '')}>
+              <span>{subtitleText}</span>
+            </div>
+          ) : null}
+          <PlayerControls
+            eyebrow={label}
+            title={item.Name}
+            visible={controlsUp}
+            paused={paused}
+            buffering={buffering || !loaded}
+            position={now}
+            duration={duration}
+            buffered={buffered}
+            rotated={rotated}
+            tracks={tracks}
+            selected={subSel}
+            onBack={onBack}
+            onTogglePlay={togglePlay}
+            onSkip={skipBy}
+            onSeek={seekTo}
+            onSelectSubtitle={chooseSubtitle}
+            onBusy={setBusy}
+            onInteract={interact}
+          />
           {intro && (
             <button type="button" class="skip-intro-overlay" onClick={skipIntro}>
               Skip intro
             </button>
           )}
-          {/* Same as the intro button: iPhone's native fullscreen player hides it, but the autoplay at `ended` still works. */}
           {next && card && card.show && (
             <NextEpisodeCard
               serverUrl={client.serverUrl}
@@ -290,7 +426,6 @@ export function Player({
               onCancel={() => setCancelled(true)}
             />
           )}
-          {loaded ? null : <p class="hint">Loading...</p>}
         </div>
       )}
     </div>

@@ -89,6 +89,14 @@ export interface RemoteSession {
 export interface MediaStream {
   Type?: 'Video' | 'Audio' | 'Subtitle' | string;
   Codec?: string;
+  Index?: number;
+  DisplayTitle?: string;
+  Title?: string;
+  Language?: string;
+  IsDefault?: boolean;
+  IsForced?: boolean;
+  /** False for image subtitles (PGS, dvdsub). */
+  IsTextSubtitleStream?: boolean;
 }
 
 /** One playable version of an item, from a PlaybackInfo response. */

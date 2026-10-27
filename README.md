@@ -108,9 +108,14 @@ Connect code and QR again (the choice survives a reload). Reconnecting needs the
 
 Without a TV connected, the play buttons play the video on the phone itself: direct play when the
 phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
-no native HLS). Playback goes fullscreen in landscape: on Android the app goes fullscreen and turns
-sideways, on iPhone the video opens in the iPhone's own fullscreen player. The phone reports its
-progress to Jellyfin, so it counts toward Resume watching.
+no native HLS). The phone plays in the app's own player, which fills the screen: tap the picture to
+show or hide the controls (play/pause, -10 s / +10 s, a scrub bar and a subtitles picker). Text
+subtitles are drawn by the app itself and the app remembers the subtitle language you picked; image
+subtitles (the kind stored as pictures on some discs) are not supported. On Android the app goes
+fullscreen and locks landscape. An iPhone cannot do that, so when the phone is held upright the
+player turns the picture sideways by itself. This works with rotation lock on. iOS still shows the
+status bar and home indicator in their upright places, and swipe gestures such as Control Center stay
+upright. The phone reports its progress to Jellyfin, so it counts toward Resume watching.
 
 The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
 remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on

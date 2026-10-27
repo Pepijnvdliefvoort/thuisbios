@@ -336,31 +336,84 @@ input:focus { outline: none; border-color: var(--accent); }
 .ptr-ring.spinning { animation: ptr-spin 0.8s linear infinite; }
 @keyframes ptr-spin { to { transform: rotate(360deg); } }
 
-/* Player (plays on the phone) */
-.player {
-  position: fixed; inset: 0; z-index: 20; background: #000; overflow-y: auto;
-  padding: calc(var(--safe-top) + 60px) var(--safe-right) var(--safe-bottom) var(--safe-left);
+/* Player (plays on the phone): full screen, no scrolling. The stage is the landscape canvas. */
+.player { position: fixed; inset: 0; z-index: 20; background: #000; overflow: hidden; }
+.player-error { padding-top: calc(var(--safe-top) + 60px); }
+.player-stage {
+  position: absolute; inset: 0; overflow: hidden; background: #000; container-type: size;
+  /* Safe areas along the stage's own edges. */
+  --st-t: var(--safe-top); --st-b: var(--safe-bottom); --st-l: var(--safe-left); --st-r: var(--safe-right);
 }
-.player-head { padding: 0 var(--gutter) 12px; }
-.player-head h1 { font-size: 18px; line-height: 1.2; }
-.player-video { display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 70vh; max-height: calc(var(--app-h, 100dvh) * 0.7); background: #000; }
-/* Portrait: the stage is the video's box, so the overlay can sit on its bottom-right corner. */
-.player-stage { position: relative; }
+/* iPhone cannot lock landscape: with the phone held upright the stage is turned 90 degrees clockwise instead.
+   Its left edge then lies along the top of the screen (notch) and its right edge along the bottom (home indicator). */
+.player-stage.rotated {
+  inset: auto; top: 0; left: 0; width: var(--app-h, 100dvh); height: 100vw;
+  transform-origin: top left; transform: translateX(100vw) rotate(90deg);
+  --st-t: var(--safe-right); --st-b: var(--safe-left); --st-l: var(--safe-top); --st-r: var(--safe-bottom);
+}
+.player-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; pointer-events: none; }
+.player-tap { position: absolute; inset: 0; }
+.player-subs {
+  position: absolute; left: 0; right: 0; bottom: 7%; display: flex; justify-content: center; padding: 0 10%;
+  pointer-events: none; transition: transform 0.2s ease;
+}
+.player-subs.raised { transform: translateY(-64px); }
+.player-subs span {
+  max-width: 100%; text-align: center; white-space: pre-line; color: #fff; line-height: 1.25;
+  font-size: 20px; font-size: clamp(16px, 5.2cqh, 34px);
+  text-shadow: 0 0 3px #000, 0 0 3px #000, 1px 1px 2px #000, -1px -1px 2px #000;
+}
 .skip-intro-overlay {
-  position: absolute; right: 12px; bottom: 56px; z-index: 2; min-height: 44px; padding: 0 20px; border-radius: var(--radius);
-  background: var(--fg); color: #111; font-weight: 700; animation: skip-in 200ms ease-out;
+  position: absolute; right: calc(var(--st-r) + 16px); bottom: calc(var(--st-b) + 84px); z-index: 4; min-height: 44px; padding: 0 20px;
+  border-radius: var(--radius); background: var(--fg); color: #111; font-weight: 700; animation: skip-in 200ms ease-out;
 }
 .skip-intro-overlay:active { transform: scale(0.97); }
+.player .next-card.overlay { right: calc(var(--st-r) + 16px); bottom: calc(var(--st-b) + 84px); z-index: 4; }
 @keyframes skip-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
-/* Full video player mode: in landscape the video fills the screen, with only the Back button on top. */
-@media (orientation: landscape) {
-  .player { padding: 0; overflow: hidden; }
-  .player-head { display: none; }
-  .player-stage { position: static; }
-  .skip-intro-overlay { right: calc(var(--safe-right) + 16px); bottom: calc(var(--safe-bottom) + 64px); }
-  .next-card.overlay { right: calc(var(--safe-right) + 16px); bottom: calc(var(--safe-bottom) + 64px); }
-  .player-video { position: absolute; inset: 0; width: 100%; height: 100%; max-height: none; aspect-ratio: auto; object-fit: contain; }
+
+/* Player controls */
+.pc { position: absolute; inset: 0; z-index: 3; pointer-events: none; color: #fff; }
+.pc-top, .pc-center, .pc-bottom { position: absolute; z-index: 1; opacity: 0; transition: opacity 0.2s ease; }
+.pc.show .pc-top, .pc.show .pc-center, .pc.show .pc-bottom { opacity: 1; pointer-events: auto; }
+.pc-top {
+  top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 8px;
+  padding: calc(var(--st-t) + 8px) calc(var(--st-r) + 12px) 28px calc(var(--st-l) + 8px);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
 }
+.pc-title { min-width: 0; }
+.pc-title h1 { font-size: 17px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-eyebrow { font-size: 13px; color: rgba(255, 255, 255, 0.75); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-btn { flex: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; }
+.pc-btn:active { transform: scale(0.92); }
+.pc-center { top: 50%; left: 50%; display: flex; align-items: center; gap: 36px; margin: -36px 0 0 -120px; }
+.pc-play { width: 72px; height: 72px; background: rgba(0, 0, 0, 0.45); }
+.pc.buffering .pc-center { visibility: hidden; }
+.pc-bottom {
+  bottom: 0; left: 0; right: 0; padding: 28px calc(var(--st-r) + 12px) calc(var(--st-b) + 8px) calc(var(--st-l) + 16px);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
+}
+.pc-row { display: flex; align-items: center; gap: 10px; }
+.pc-time { flex: none; min-width: 44px; font-size: 13px; font-variant-numeric: tabular-nums; text-align: center; }
+.pc-scrub { position: relative; flex: 1; height: 44px; touch-action: none; display: flex; align-items: center; }
+.pc-track { position: relative; width: 100%; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.25); overflow: hidden; }
+.pc-track i { position: absolute; left: 0; top: 0; bottom: 0; }
+.pc-buffered { background: rgba(255, 255, 255, 0.4); }
+.pc-played { background: var(--accent); }
+.pc-thumb { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--accent); transition: transform 0.15s ease; }
+.pc-scrub.dragging .pc-thumb { transform: scale(1.6); }
+.pc-cc.on { color: var(--accent); }
+.pc-backdrop { position: absolute; inset: 0; pointer-events: auto; }
+.pc-panel {
+  position: absolute; right: calc(var(--st-r) + 12px); bottom: calc(var(--st-b) + 64px); min-width: 180px; max-width: 70%;
+  /* Sized from the stage: the containing block (.pc-bottom) is only the height of the bar. */
+  max-height: 240px; max-height: calc(100cqh - var(--st-t) - var(--st-b) - 96px);
+  overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 12px; background: rgba(24, 24, 28, 0.95);
+}
+.pc-panel button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #fff; text-align: left; }
+.pc-panel button:active { background: rgba(255, 255, 255, 0.12); }
+.pc-check { flex: none; width: 20px; height: 20px; }
+.pc-loading { position: absolute; top: 50%; left: 50%; display: flex; flex-direction: column; align-items: center; gap: 8px; margin: -36px 0 0 -40px; width: 80px; font-size: 13px; }
+.pc-spinner { width: 36px; height: 36px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; animation: ptr-spin 0.8s linear infinite; }
 
 /* Requests */
 .tab-icon { position: relative; display: block; }
