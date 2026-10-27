@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.2.0...v0.3.0) (2026-10-27)
+
+
+### Features
+
+* **server:** check for a new release every 30 minutes ([6f3fd39](https://github.com/Pepijnvdliefvoort/thuisbios/commit/6f3fd398605b2bfd610093279a043587e641762b))
+* **server:** update the PC automatically when a new release is published ([b375130](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b3751304be5eeceb7bd6026ae4b90f69e0b3e7eb))
+* **server:** update the PC automatically when a new release is published ([a90b574](https://github.com/Pepijnvdliefvoort/thuisbios/commit/a90b57426d573d57f6e0da24a800116d2969de15))
+
+
+### Bug Fixes
+
+* **server:** do not move to a release that has no updater yet ([51ec0f6](https://github.com/Pepijnvdliefvoort/thuisbios/commit/51ec0f6b44e7016691a96c568ace330870316dd1))
+
 ## [0.2.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.1.0...v0.2.0) (2026-10-26)
 
 
