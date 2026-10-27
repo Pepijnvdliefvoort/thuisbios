@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.3.0...v0.4.0) (2026-10-27)
+
+
+### Features
+
+* **remote:** custom phone player with own controls, subtitles and landscape ([#60](https://github.com/Pepijnvdliefvoort/thuisbios/issues/60)) ([fb29845](https://github.com/Pepijnvdliefvoort/thuisbios/commit/fb29845f8e0118f6386e9e52d2cf4f6f75b1ab12))
+
 ## [0.3.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.2.0...v0.3.0) (2026-10-27)
 
 
