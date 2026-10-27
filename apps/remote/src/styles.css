@@ -404,8 +404,10 @@ input:focus { outline: none; border-color: var(--accent); }
 .pc-cc.on { color: var(--accent); }
 .pc-backdrop { position: absolute; inset: 0; pointer-events: auto; }
 .pc-panel {
-  position: absolute; right: calc(var(--st-r) + 12px); bottom: calc(var(--st-b) + 64px); min-width: 180px; max-width: 70%; max-height: 60%;
-  overflow-y: auto; padding: 6px; border-radius: 12px; background: rgba(24, 24, 28, 0.95);
+  position: absolute; right: calc(var(--st-r) + 12px); bottom: calc(var(--st-b) + 64px); min-width: 180px; max-width: 70%;
+  /* Sized from the stage: the containing block (.pc-bottom) is only the height of the bar. */
+  max-height: 240px; max-height: calc(100cqh - var(--st-t) - var(--st-b) - 96px);
+  overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 12px; background: rgba(24, 24, 28, 0.95);
 }
 .pc-panel button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #fff; text-align: left; }
 .pc-panel button:active { background: rgba(255, 255, 255, 0.12); }
