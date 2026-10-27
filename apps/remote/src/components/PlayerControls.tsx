@@ -30,7 +30,7 @@ interface Props {
   onInteract(): void;
 }
 
-/** Netflix-like overlay: top bar, centre buttons and a bottom bar with the scrub bar and subtitle picker. */
+/** Streaming-style overlay: top bar, centre buttons and a bottom bar with the scrub bar and subtitle picker. */
 export function PlayerControls(p: Props) {
   const [panel, setPanel] = useState(false);
   // While dragging: the time under the finger. The video only seeks on release.

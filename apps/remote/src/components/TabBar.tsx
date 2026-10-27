@@ -21,7 +21,7 @@ export function TabBar({ tab, onChange, badge = 0 }: { tab: Tab; onChange: (tab:
           onClick={() => onChange(t.id)}
         >
           <span class="tab-icon">
-            <Icon name={t.icon} />
+            <Icon name={t.icon} size={28} />
             {t.id === 'requests' && badge > 0 ? <span class="badge" aria-label={`${badge} open`}>{badge > 99 ? '99+' : badge}</span> : null}
           </span>
           <span>{t.label}</span>

@@ -15,7 +15,7 @@ Status: v1.1, updated with Pepijn's answers, 2026-10-19. No code yet.
 | Part | What it is | Runs on |
 |---|---|---|
 | **Media server** | Jellyfin: library scanning, metadata/artwork, users, watch progress, streaming and transcoding | Your PC (PoC) |
-| **TV app** | Custom Netflix-style web app for Tizen, talking to the Jellyfin API | Samsung UE49NU7100 |
+| **TV app** | Custom streaming-style web app for Tizen, talking to the Jellyfin API | Samsung UE49NU7100 |
 | **Phone remote** | Search, browse, "play on TV", play/pause/seek/next/prev, volume | iPhone and Android |
 
 Key idea: **Jellyfin is the backend.** It already has users, progress tracking, search, image resizing, transcoding and a remote-control (sessions) API. For the PoC we write no custom server code; we only write two clients. A small ASP.NET Core service can come later if Jellyfin ever falls short (it fits your C# background).
@@ -33,7 +33,7 @@ The UE49NU7100 is a 2018 model running **Tizen 4.0**. That shapes almost every t
 **Web engine.** Tizen 4.0's browser engine is based on roughly **Chromium 56** (2017).
 
 - Modern JS (optional chaining `?.`, `??`, class fields, top-level await) is **not** supported natively. We write TypeScript and compile down to ES2017 or lower, with a few polyfills.
-- CSS Grid and Flexbox work. `backdrop-filter`, heavy blur, big box-shadows and large animated layers are slow or unsupported; the Netflix "glass" look must be faked with gradients.
+- CSS Grid and Flexbox work. `backdrop-filter`, heavy blur, big box-shadows and large animated layers are slow or unsupported; the frosted "glass" look must be faked with gradients.
 - The CPU and RAM are modest. Rows of posters must be lazy-loaded, images requested at the exact size needed (Jellyfin resizes for us: `?maxWidth=300&quality=80`), and only transforms/opacity animated.
 
 **Video and audio (direct play, no transcoding needed):**
@@ -55,7 +55,7 @@ Reference: the open-source `jellyfin-tizen` app proves Jellyfin works on this ge
 
 **Focus/D-pad navigation** is the core UX problem on a TV. We'll use a spatial navigation library (e.g. `@noriginmedia/norigin-spatial-navigation`, which works with Preact via compat) so arrow keys move focus naturally between rows and cards. Remote keys (Back, Play/Pause, colored keys, media keys) must be registered with `tizen.tvinputdevice`.
 
-**Screens (Netflix-inspired):**
+**Screens (streaming-app style):**
 
 1. **Profile picker** (one Jellyfin user per family member, avatars).
 2. **Home**: big hero banner (backdrop + logo + "Play"), then horizontal rows: Continue Watching, Next Up (series), Recently Added, Movies, Series, per-genre rows.
@@ -125,7 +125,7 @@ Tips for this TV: prefer HEVC or H.264 video, AAC/AC3/E-AC3 audio (add an AC3 tr
 | **2. TV spike** | Prove the platform | Tizen VS Code extension set up, certificate made, a "hello world" app with D-pad focus installed on the TV, and one movie (direct play) + one transcoded file playing via HTML5 video (or AVPlay) |
 | **3. TV MVP** | Usable app | Quick Connect login, profile picker, home rows, detail page, playback with resume and progress reporting |
 | **4. Phone remote MVP** | Phone controls the TV | PWA with search, browse, "Play on TV", play/pause/seek/next/prev, live now-playing view, and volume that reaches the soundbar |
-| **5. Polish** | Feels like Netflix | Series flow (Next Up, auto-next, skip intro), audio/subtitle switching, trickplay thumbnails, transitions, optional Samsung power-on/launch from phone, upload flow, then remote access and the move off the PC |
+| **5. Polish** | Feels polished | Series flow (Next Up, auto-next, skip intro), audio/subtitle switching, trickplay thumbnails, transitions, optional Samsung power-on/launch from phone, upload flow, then remote access and the move off the PC |
 
 Phase 2 is deliberately a spike: it de-risks the TV's old engine and player before we invest in UI.
 
