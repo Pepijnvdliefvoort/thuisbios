@@ -101,21 +101,22 @@ jobs:
       - name: PSScriptAnalyzer
         shell: pwsh
         run: |
-          Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force
+          & ./.github/scripts/Install-CiModule.ps1 -Name PSScriptAnalyzer
           $results = Invoke-ScriptAnalyzer -Path server -Recurse -Settings server/PSScriptAnalyzerSettings.psd1
           $results | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message
           if ($results | Where-Object Severity -eq 'Error') { exit 1 }
       - name: Install Pester 5
         shell: pwsh
-        run: Install-Module -Name Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+        run: |
+          & ./.github/scripts/Install-CiModule.ps1 -Name Pester -MinimumVersion 5.5.0 -MaximumVersion 5.99.99
       - name: Pester (PowerShell 7)
         shell: pwsh
         run: |
-          Import-Module Pester -MinimumVersion 5.5.0
+          Import-Module Pester -MinimumVersion 5.5.0 -MaximumVersion 5.99.99
           Invoke-Pester -Path server/tests -CI -Output Detailed
       - name: Pester (Windows PowerShell 5.1)
         shell: powershell
         run: |
-          Install-Module -Name Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
-          Import-Module Pester -MinimumVersion 5.5.0
+          & ./.github/scripts/Install-CiModule.ps1 -Name Pester -MinimumVersion 5.5.0 -MaximumVersion 5.99.99
+          Import-Module Pester -MinimumVersion 5.5.0 -MaximumVersion 5.99.99
           Invoke-Pester -Path server/tests -CI -Output Detailed
