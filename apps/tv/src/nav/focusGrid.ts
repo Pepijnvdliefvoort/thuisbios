@@ -3,7 +3,7 @@ import type { Direction } from './spatial';
 /**
  * Pure focus-grid logic shared by the home and details screens. The screen is a list of rows, each
  * with a number of items; focus is a (row, col) pair and every row remembers the column it was
- * left at (Netflix behaviour). Rows with 0 items are skipped.
+ * left at (like most streaming apps). Rows with 0 items are skipped.
  */
 export interface GridState {
   row: number;

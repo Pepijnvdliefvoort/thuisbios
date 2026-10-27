@@ -1,6 +1,6 @@
 # Instructions for AI sessions
 
-Thuisbios: personal Netflix-like streaming on top of Jellyfin. Read [README.md](README.md) and
+Thuisbios: personal streaming service on top of Jellyfin. Read [README.md](README.md) and
 [docs/plan.md](docs/plan.md) first.
 
 ## Working model
