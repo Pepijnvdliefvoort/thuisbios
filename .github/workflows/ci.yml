@@ -3,13 +3,104 @@ name: CI
 on:
   pull_request:
     branches: [develop, main]
+  # main is only updated through PRs that already ran CI, so a push run there re-tests identical code
   push:
-    branches: [develop, main]
+    branches: [develop]
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Job-level if (not workflow paths filters) so skipped jobs count as passed for required checks
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      tv: ${{ steps.filter.outputs.tv }}
+      remote: ${{ steps.filter.outputs.remote }}
+      powershell: ${{ steps.filter.outputs.powershell }}
+      markdown: ${{ steps.filter.outputs.markdown }}
+      versions: ${{ steps.filter.outputs.versions }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Detect changed areas
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          tv=false
+          remote=false
+          powershell=false
+          markdown=false
+          versions=false
+          all() { tv=true; remote=true; powershell=true; markdown=true; versions=true; }
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="$PR_BASE"
+            HEAD="$PR_HEAD"
+          else
+            BASE="$PUSH_BEFORE"
+            HEAD="$PUSH_HEAD"
+          fi
+
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+            || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "No usable base commit, running everything."
+            all
+          else
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              files=$(git diff --name-only "$BASE...$HEAD")
+            else
+              files=$(git diff --name-only "$BASE" "$HEAD")
+            fi
+            echo "Changed files:"
+            printf '%s\n' "$files"
+            while IFS= read -r f; do
+              [ -n "$f" ] || continue
+              case "$f" in
+                .github/workflows/ci.yml) all ;;
+              esac
+              case "$f" in
+                package.json|package-lock.json|packages/*) tv=true; remote=true ;;
+                apps/tv/*) tv=true ;;
+                apps/remote/*) remote=true ;;
+              esac
+              case "$f" in
+                server/*|.github/scripts/*) powershell=true ;;
+              esac
+              case "$f" in
+                *.md|.markdownlint-cli2.jsonc) markdown=true ;;
+              esac
+              case "$f" in
+                package.json|apps/tv/package.json|apps/remote/package.json|apps/tv/public/config.xml) versions=true ;;
+                scripts/check-versions.mjs|.release-please-manifest.json|release-please-config.json) versions=true ;;
+              esac
+            done <<< "$files"
+          fi
+
+          echo "tv=$tv"
+          echo "remote=$remote"
+          echo "powershell=$powershell"
+          echo "markdown=$markdown"
+          echo "versions=$versions"
+          {
+            echo "tv=$tv"
+            echo "remote=$remote"
+            echo "powershell=$powershell"
+            echo "markdown=$markdown"
+            echo "versions=$versions"
+          } >> "$GITHUB_OUTPUT"
+
   commitlint:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -32,7 +123,29 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: printf '%s\n' "$PR_TITLE" | npx commitlint --verbose
 
+  branch-name:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR branch name
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            feat/?*|fix/?*|chore/?*|docs/?*|ci/?*|refactor/?*|perf/?*|test/?*) ;;
+            release-please--*) ;;
+            dependabot/*) ;;
+            main|develop) ;;
+            *)
+              echo "::error title=Invalid branch name::The branch '$HEAD_REF' is not allowed. Rename it so it starts with feat/, fix/, chore/, docs/, ci/, refactor/, perf/ or test/ (for example feat/my-change). Branches from release-please, Dependabot, and the main/develop sync PRs are also accepted."
+              exit 1
+              ;;
+          esac
+          echo "Branch name '$HEAD_REF' is allowed."
+
   markdown:
+    needs: changes
+    if: needs.changes.outputs.markdown == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -42,6 +155,8 @@ jobs:
       - run: npx --yes markdownlint-cli2
 
   version-check:
+    needs: changes
+    if: needs.changes.outputs.versions == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -51,6 +166,8 @@ jobs:
       - run: node scripts/check-versions.mjs
 
   tv:
+    needs: changes
+    if: needs.changes.outputs.tv == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -74,6 +191,8 @@ jobs:
           if-no-files-found: error
 
   remote:
+    needs: changes
+    if: needs.changes.outputs.remote == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -95,27 +214,30 @@ jobs:
           if-no-files-found: error
 
   powershell:
+    needs: changes
+    if: needs.changes.outputs.powershell == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - name: PSScriptAnalyzer
         shell: pwsh
         run: |
-          Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force
+          & ./.github/scripts/Install-CiModule.ps1 -Name PSScriptAnalyzer
           $results = Invoke-ScriptAnalyzer -Path server -Recurse -Settings server/PSScriptAnalyzerSettings.psd1
           $results | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message
           if ($results | Where-Object Severity -eq 'Error') { exit 1 }
       - name: Install Pester 5
         shell: pwsh
-        run: Install-Module -Name Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+        run: |
+          & ./.github/scripts/Install-CiModule.ps1 -Name Pester -MinimumVersion 5.5.0 -MaximumVersion 5.99.99
       - name: Pester (PowerShell 7)
         shell: pwsh
         run: |
-          Import-Module Pester -MinimumVersion 5.5.0
+          Import-Module Pester -MinimumVersion 5.5.0 -MaximumVersion 5.99.99
           Invoke-Pester -Path server/tests -CI -Output Detailed
       - name: Pester (Windows PowerShell 5.1)
         shell: powershell
         run: |
-          Install-Module -Name Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
-          Import-Module Pester -MinimumVersion 5.5.0
+          & ./.github/scripts/Install-CiModule.ps1 -Name Pester -MinimumVersion 5.5.0 -MaximumVersion 5.99.99
+          Import-Module Pester -MinimumVersion 5.5.0 -MaximumVersion 5.99.99
           Invoke-Pester -Path server/tests -CI -Output Detailed

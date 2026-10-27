@@ -15,7 +15,7 @@
     "package": "node scripts/package.mjs"
   },
   "dependencies": {
-    "preact": "^11.0.1",
+    "preact": "^11.0.2",
     "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
@@ -25,7 +25,7 @@
     "jsdom": "^29.1.1",
     "terser": "^5.51.2",
     "typescript": "^7.0.2",
-    "vite": "^8.3.4",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
   }
 }

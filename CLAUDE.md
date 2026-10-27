@@ -11,7 +11,8 @@ Thuisbios: personal Netflix-like streaming on top of Jellyfin. Read [README.md](
 ## Git workflow
 
 - Conventional Commits for every commit (`feat:`, `fix:`, `docs:`, `chore:`, `ci:`, `refactor:`, `perf:`, `test:`).
-- Create feature branches off `develop`: `feat/...`, `fix/...`, `chore/...`, `docs/...`, `ci/...`.
+- Create feature branches off `develop`: `feat/...`, `fix/...`, `chore/...`, `docs/...`, `ci/...`, `refactor/...`, `perf/...`, `test/...`.
+- Never push to an automatically assigned `claude/*` branch. Always create a branch named `feat/...`, `fix/...`, `ci/...` etc. off `develop`; CI rejects PRs from other branch names.
 - Open PRs into `develop`. The PR title must also be a Conventional Commit.
 - `main` is stable releases only, updated by a release PR from `develop` and tagged `vX.Y.Z`. Never commit to `main` directly.
 - Never merge PRs. The owner approves and merges every PR.

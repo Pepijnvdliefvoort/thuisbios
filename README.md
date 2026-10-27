@@ -108,9 +108,14 @@ Connect code and QR again (the choice survives a reload). Reconnecting needs the
 
 Without a TV connected, the play buttons play the video on the phone itself: direct play when the
 phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
-no native HLS). Playback goes fullscreen in landscape: on Android the app goes fullscreen and turns
-sideways, on iPhone the video opens in the iPhone's own fullscreen player. The phone reports its
-progress to Jellyfin, so it counts toward Resume watching.
+no native HLS). The phone plays in the app's own player, which fills the screen: tap the picture to
+show or hide the controls (play/pause, -10 s / +10 s, a scrub bar and a subtitles picker). Text
+subtitles are drawn by the app itself and the app remembers the subtitle language you picked; image
+subtitles (the kind stored as pictures on some discs) are not supported. On Android the app goes
+fullscreen and locks landscape. An iPhone cannot do that, so when the phone is held upright the
+player turns the picture sideways by itself. This works with rotation lock on. iOS still shows the
+status bar and home indicator in their upright places, and swipe gestures such as Control Center stay
+upright. The phone reports its progress to Jellyfin, so it counts toward Resume watching.
 
 The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
 remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on
@@ -162,7 +167,7 @@ npm run tv:setup -w apps/remote -- 192.168.1.156   # pair the Samsung TV once (v
 ## Branching and releases
 
 - `develop` is the continuously evolving integration branch.
-- Work happens on feature branches off `develop`: `feat/...`, `fix/...`, `chore/...`, `docs/...`, `ci/...`.
+- Work happens on feature branches off `develop`: `feat/...`, `fix/...`, `chore/...`, `docs/...`, `ci/...`, `refactor/...`, `perf/...`, `test/...`.
 - Pull requests go into `develop`. The owner approves every PR.
 - `main` holds stable releases only. It is updated by a release PR from `develop`, tagged `vX.Y.Z` (semver).
 - [release-please](https://github.com/googleapis/release-please) maintains the changelog and version bump.
@@ -178,11 +183,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the details.
 
 GitHub Actions in `.github/workflows`:
 
-- `ci.yml`: commitlint (commits and PR title), markdownlint, version consistency check (root,
+- `ci.yml`: commitlint (commits and PR title), branch-name check (PR branches must start with `feat/`, `fix/`,
+  `chore/`, `docs/`, `ci/`, `refactor/`, `perf/` or `test/`), markdownlint, version consistency check (root,
   `apps/tv/package.json`, `apps/remote/package.json` and the Tizen `config.xml` must agree), TV app
   (typecheck, Vitest, build, ES2017 syntax check, `dist` uploaded as artifact), phone remote
   (typecheck, Vitest, build, `dist` uploaded as the `remote-dist` artifact), PowerShell (PSScriptAnalyzer and Pester tests
-  for `server/` on Windows).
+  for `server/` on Windows). The build and test jobs only run when their part of the repo changed (TV app,
+  phone app, server scripts, Markdown, version files; a change to `ci.yml` runs everything). CI runs on pull
+  requests into `develop` and `main` and on pushes to `develop`; runs on a PR are cancelled when a newer commit is pushed.
 - `release-please.yml`: on push to `main`, opens or updates the release PR, creates the `vX.Y.Z` tag and GitHub release, and then opens a PR from `main` back into `develop`.
 
 Dependabot updates GitHub Actions and npm weekly, targeting `develop`.

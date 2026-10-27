@@ -62,8 +62,8 @@ New episodes are checked when they are added to the library.
    controls hidden, pressing **OK** on the remote presses it. With the controls shown, move to the
    button with the arrows and press OK. The video jumps to the end of the intro.
 3. On the phone, the Now Playing screen shows a **Skip intro** button above the playback buttons
-   while the intro plays. When the phone plays the video itself, the button is on the video. On an
-   iPhone the video opens in the iPhone's own full screen player, which cannot show the button.
+   while the intro plays. When the phone plays the video itself, the button is on the video, at the
+   bottom right.
 
 No button? Wait for the analysis to finish (see the task under **Scheduled Tasks**), or try
 another show.

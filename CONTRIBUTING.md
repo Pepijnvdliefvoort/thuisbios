@@ -2,7 +2,8 @@
 
 ## Branches
 
-1. Branch off `develop`: `feat/<topic>`, `fix/<topic>`, `chore/<topic>`, `docs/<topic>`, `ci/<topic>`.
+1. Branch off `develop`: `feat/<topic>`, `fix/<topic>`, `chore/<topic>`, `docs/<topic>`, `ci/<topic>`, `refactor/<topic>`, `perf/<topic>`, `test/<topic>`.
+   CI rejects PRs from any other branch name (release-please, Dependabot and the automatic `main` sync PR are exempt).
 2. Open a PR into `develop`. The owner reviews and approves every PR.
 
 ## Commits and PR titles

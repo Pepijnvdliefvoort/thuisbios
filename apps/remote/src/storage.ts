@@ -84,3 +84,9 @@ export function loadSubtitleOffset(itemId: string): number {
 
 export const saveSubtitleOffset = (itemId: string, ms: number): void =>
   write(subOffsetKey(itemId), ms === 0 ? null : String(Math.round(ms)));
+
+const SUB_LANG_KEY = 'thuisbios.remote.subtitleLang';
+
+/** The subtitle language last picked in the player ('' = off, null = never chosen). */
+export const loadSubtitleLang = (): string | null => read(SUB_LANG_KEY);
+export const saveSubtitleLang = (lang: string): void => write(SUB_LANG_KEY, lang);
