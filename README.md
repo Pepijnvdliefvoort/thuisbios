@@ -47,12 +47,12 @@ on Windows, enable NVENC, and set up the network. Helper scripts live in `server
 - `Set-JellyfinFirewall.ps1`: allow TCP 8096 and UDP 7359 on the private network (administrator).
 - `Test-JellyfinServer.ps1`: check that the server answers.
 - `Install-ThuisbiosAutostart.ps1`: build the TV page and phone app and start them automatically
-  with Windows (administrator; also adds the hourly update task, `-NoAutoUpdate` skips it).
+  with Windows (administrator; also adds the update task (every 30 minutes), `-NoAutoUpdate` skips it).
   `Uninstall-ThuisbiosAutostart.ps1` turns it off again, and `Start-ThuisbiosServer.ps1` is what
   the scheduled tasks run. See [docs/server/autostart.md](docs/server/autostart.md).
 - `Update-Thuisbios.ps1`: move the project folder to the newest GitHub release (tag `vX.Y.Z`),
   build it and restart the TV page and phone app; goes back to the previous version if the build
-  fails. Run by the Update task every hour (administrator; `-Force` rebuilds the current release).
+  fails. Run by the Update task every 30 minutes (administrator; `-Force` rebuilds the current release).
 
 Optional: the Intro Skipper plugin lets Jellyfin find the intro of each episode, which makes the apps
 show a "Skip intro" button. See [docs/server/intro-skipper.md](docs/server/intro-skipper.md).

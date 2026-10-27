@@ -11,7 +11,7 @@
       - creates two scheduled tasks (folder "Thuisbios") that start at boot, without anyone
         signing in and without a window,
       - creates a third task, "Update" (unless -NoAutoUpdate), that checks GitHub for a new
-        release a few minutes after the PC starts and then every hour, and installs it with
+        release a few minutes after the PC starts and then every 30 minutes, and installs it with
         Update-Thuisbios.ps1 (needs Git for Windows), and
       - starts them now.
     The project folder stays on whatever is checked out now. The first run of the Update task
@@ -183,13 +183,13 @@ elseif ($PSCmdlet.ShouldProcess($updateTask, 'Register scheduled task')) {
     $atStartup = New-ScheduledTaskTrigger -AtStartup
     $atStartup.Delay = 'PT5M'
     # Without a duration the repetition goes on forever.
-    $hourly = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1)
+    $repeat = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30)
     $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType S4U -RunLevel Highest
     $taskSettings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
         -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable `
         -MultipleInstances IgnoreNew
     Register-ScheduledTask -TaskPath $taskPath -TaskName $updateTask -Action $action `
-        -Trigger @($atStartup, $hourly) -Principal $principal -Settings $taskSettings `
+        -Trigger @($atStartup, $repeat) -Principal $principal -Settings $taskSettings `
         -Description 'Checks GitHub for a new Thuisbios release and installs it.' -Force | Out-Null
     Write-Host "Task registered: $taskPath$updateTask"
 }
@@ -233,7 +233,7 @@ Write-Host "  TV page:   http://${address}:4173"
 Write-Host "  Phone app: http://${address}:4174"
 Write-Host "Log files:   $logDir"
 if (-not $NoAutoUpdate) {
-    Write-Host 'This PC now follows the releases: it checks for a new one a few minutes after it starts and then every hour.'
+    Write-Host 'This PC now follows the releases: it checks for a new one a few minutes after it starts and then every 30 minutes.'
     Write-Host "Update log:  $(Join-Path $logDir 'update.log')"
     # Look for a newer release right away; if there is one, the pages restart for a few minutes.
     Start-ScheduledTask -TaskPath $taskPath -TaskName $updateTask

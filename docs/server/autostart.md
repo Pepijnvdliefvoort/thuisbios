@@ -42,8 +42,8 @@ after a restart, restart the PC, wait a minute or two without signing in, and tr
 
 ## Automatic updates
 
-The setup also adds a third task, **Update**. A few minutes after the PC starts, and then every
-hour, it checks GitHub for a new release of Thuisbios. Most of the time there is nothing new and
+The setup also adds a third task, **Update**. A few minutes after the PC starts, and then every 30
+minutes, it checks GitHub for a new release of Thuisbios. Most of the time there is nothing new and
 nothing happens. When there is a new release, it:
 
 1. downloads it and builds it,
@@ -133,7 +133,7 @@ This also removes the Update task. Your log files and settings are kept. You can
   Windows account, so your earlier TV setup still applies. Only run `npm run tv:setup -w apps/remote` again if
   the TV's address changed.
 - **The update does not happen.** Open `update.log` and read the last lines. `Could not reach
-  GitHub` means there is no internet right now; it tries again an hour later.
+  GitHub` means there is no internet right now; it tries again 30 minutes later.
 - **`update.log` says there are local changes.** Something in the project folder was edited by
   hand, and the update will not overwrite it. Open PowerShell in the project folder and run
   `git checkout -- .` to undo those changes. The next check then updates normally.
