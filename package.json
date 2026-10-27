@@ -1,6 +1,6 @@
 {
   "name": "thuisbios",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "type": "module",
   "description": "Personal streaming service on top of Jellyfin",

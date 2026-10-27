@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.4.0...v0.4.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **remote:** larger tab bar and toast at the top ([18e22f9](https://github.com/Pepijnvdliefvoort/thuisbios/commit/18e22f97167caa121be2b531b710fa8be3d090ae))
+* **remote:** use the full iPhone screen ([6280475](https://github.com/Pepijnvdliefvoort/thuisbios/commit/6280475d7405bb2f2fe7cfe26273ea1d2beaaa30))
+* **remote:** use the full iPhone screen ([65325ab](https://github.com/Pepijnvdliefvoort/thuisbios/commit/65325ab66811182de3950ff93ad6bd1be125bf2f))
+
+
+### Documentation
+
+* polish the README and add an MIT license ([b969948](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b969948255c22daf15198fe703e74a1c11888292))
+
 ## [0.4.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.3.0...v0.4.0) (2026-10-27)
 
 
