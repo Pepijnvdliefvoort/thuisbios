@@ -3,7 +3,7 @@
   "version": "0.4.0",
   "private": true,
   "type": "module",
-  "description": "Personal Netflix-like streaming on top of Jellyfin",
+  "description": "Personal streaming service on top of Jellyfin",
   "license": "UNLICENSED",
   "scripts": {
     "check:versions": "node scripts/check-versions.mjs",

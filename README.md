@@ -13,7 +13,7 @@
   <a href="https://developer.samsung.com/smarttv"><img alt="Samsung Tizen 4.0" src="https://img.shields.io/badge/Samsung%20Tizen%204.0-1428A0?logo=samsung&logoColor=white"></a>
 </p>
 
-<p align="center"><strong>A personal, Netflix-like way to stream my own media at home, on top of Jellyfin.</strong></p>
+<p align="center"><strong>Your own movies and shows, on your TV and phone. Self-hosted on Jellyfin.</strong></p>
 
 <p align="center">
   <a href="#screenshots">Screenshots</a> ·
@@ -24,7 +24,7 @@
   <a href="#roadmap">Roadmap</a>
 </p>
 
-Thuisbios ("home cinema") is a personal, Netflix-like way to stream my own media at home.
+Thuisbios ("home cinema") is a personal streaming service for my own media at home.
 [Jellyfin](https://jellyfin.org) is the backend. Two custom clients are built on top of its API:
 a phone app (PWA) and a Samsung Tizen TV app. The phone app is the main app: you browse, search and
 play with it, on the TV or on the phone itself. The TV app only connects (Quick Connect code and QR),
@@ -123,7 +123,7 @@ the account and shows a screensaver. It does not ask for a server address. It im
 Jellyfin Quick Connect code (6 digits) and a QR code; once the phone approves the code, the TV signs
 in and shows a slideshow of the library. You pick and play things on the phone, and the TV plays them
 through the Jellyfin sessions API. The old TV home rows, Movies, Shows and sidebar are removed. The
-player is a Netflix-style HTML5 player (Jellyfin device profile, `?debug` overlay) with text
+player is a full-screen HTML5 player (Jellyfin device profile, `?debug` overlay) with text
 subtitles. In the TV browser, Return while in full screen only leaves full screen, so the app asks
 for full screen again, and the "Press OK to continue in full screen" modal is handled with OK. Installing
 (sideloading) a packaged app is refused by this TV's firmware, so the app runs in the TV's built-in
