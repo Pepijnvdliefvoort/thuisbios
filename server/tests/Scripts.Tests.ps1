@@ -103,3 +103,46 @@ Describe 'Start-ThuisbiosServer.ps1 parameter validation' {
         { & $s -App foo } | Should -Throw
     }
 }
+
+Describe 'ThuisbiosUpdate.Helpers.ps1' {
+    BeforeAll { . ([System.IO.Path]::Combine($PSScriptRoot, '..', 'scripts', 'ThuisbiosUpdate.Helpers.ps1')) }
+
+    Context 'Get-LatestReleaseTag' {
+        It 'compares versions as numbers' {
+            Get-LatestReleaseTag -Tags @('v0.9.0', 'v0.10.0', 'v0.2.1') | Should -Be 'v0.10.0'
+        }
+        It 'ignores tags that are not releases' {
+            Get-LatestReleaseTag -Tags @('thuisbios-v0.1.0', 'v1.0.0-rc.1', 'latest', 'v0.3.0') | Should -Be 'v0.3.0'
+        }
+        It 'returns nothing when there are only other tags' {
+            Get-LatestReleaseTag -Tags @('thuisbios-v0.1.0', 'v1.0.0-rc.1', 'latest') | Should -BeNullOrEmpty
+        }
+        It 'returns nothing for no tags' {
+            Get-LatestReleaseTag -Tags @() | Should -BeNullOrEmpty
+            Get-LatestReleaseTag -Tags $null | Should -BeNullOrEmpty
+        }
+        It 'works with a single tag' {
+            Get-LatestReleaseTag -Tags 'v1.2.3' | Should -Be 'v1.2.3'
+        }
+    }
+
+    Context 'Test-UpdateNeeded' {
+        It 'updates when HEAD is not on a release' {
+            Test-UpdateNeeded -Current $null -Latest 'v1.0.0' | Should -BeTrue
+            Test-UpdateNeeded -Current '' -Latest 'v1.0.0' | Should -BeTrue
+        }
+        It 'does nothing when already on the latest release' {
+            Test-UpdateNeeded -Current 'v1.0.0' -Latest 'v1.0.0' | Should -BeFalse
+        }
+        It 'rebuilds on the latest release with -Force' {
+            Test-UpdateNeeded -Current 'v1.0.0' -Latest 'v1.0.0' -Force | Should -BeTrue
+        }
+        It 'updates from an older release' {
+            Test-UpdateNeeded -Current 'v0.9.0' -Latest 'v0.10.0' | Should -BeTrue
+        }
+        It 'does nothing when HEAD is on a newer release than the latest' {
+            Test-UpdateNeeded -Current 'v2.0.0' -Latest 'v1.0.0' | Should -BeFalse
+            Test-UpdateNeeded -Current 'v2.0.0' -Latest 'v1.0.0' -Force | Should -BeFalse
+        }
+    }
+}

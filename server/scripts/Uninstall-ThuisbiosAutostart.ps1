@@ -3,8 +3,8 @@
     Turns off the automatic start of the Thuisbios TV page and phone app.
 
 .DESCRIPTION
-    Stops and removes the two scheduled tasks created by Install-ThuisbiosAutostart.ps1, stops
-    the servers and removes their firewall rules. Log files and your settings in
+    Stops and removes the scheduled tasks created by Install-ThuisbiosAutostart.ps1 (the TV page,
+    the phone app and the automatic Update), stops the servers and removes their firewall rules. Log files and your settings in
     %USERPROFILE%\.thuisbios are left alone. Safe to run when nothing is installed.
     Requires an elevated (administrator) PowerShell. Windows only.
 
@@ -33,10 +33,19 @@ if (-not $WhatIfPreference -and -not (Test-IsAdministrator)) {
 }
 
 $taskPath = '\Thuisbios\'
+$updateTask = 'Update'
 $servers = @(
     @{ Task = 'TV page'; Port = 4173; Rule = 'Thuisbios TV page (TCP 4173)' },
     @{ Task = 'Phone app'; Port = 4174; Rule = 'Thuisbios phone app (TCP 4174)' }
 )
+
+# The Update task goes first, so nothing restarts the servers while they are being removed.
+$update = Get-ScheduledTask -TaskPath $taskPath -TaskName $updateTask -ErrorAction SilentlyContinue
+if ($update -and $PSCmdlet.ShouldProcess($updateTask, 'Stop and remove scheduled task')) {
+    Stop-ScheduledTask -TaskPath $taskPath -TaskName $updateTask -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskPath $taskPath -TaskName $updateTask -Confirm:$false
+    Write-Host "Removed task: $updateTask"
+}
 
 foreach ($server in $servers) {
     $task = Get-ScheduledTask -TaskPath $taskPath -TaskName $server.Task -ErrorAction SilentlyContinue
