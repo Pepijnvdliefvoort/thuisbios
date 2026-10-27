@@ -59,6 +59,9 @@ writes what went wrong in the log.
 It follows the **releases**, the stable versions, and not the work in progress on `develop`. In
 git the project folder will therefore say `HEAD detached at vX.Y.Z`. That is normal.
 
+Until the first release that includes automatic updates is published, the folder stays where it is
+(for example on `develop`) and `update.log` says so.
+
 To turn this on, run the setup script once more (see
 [One-time setup](#one-time-setup)). It needs Git for Windows, which is already installed if you
 cloned the project with git. The setup tells you if it is missing. It also looks for a new release

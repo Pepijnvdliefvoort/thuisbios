@@ -206,16 +206,24 @@ try {
         exit 0
     }
 
+    $previousCommit = (Get-GitOutput @('rev-parse', 'HEAD') | Select-Object -First 1)
+    $branch = (Get-GitOutput @('symbolic-ref', '--quiet', '--short', 'HEAD') | Select-Object -First 1)
+    $previousRef = if ($branch) { $branch } else { $previousCommit }
+    $previousLabel = if ($currentTag) { $currentTag } elseif ($branch) { $branch } else { "$previousCommit".Substring(0, [Math]::Min(8, "$previousCommit".Length)) }
+
+    # A release from before automatic updates does not contain this script. Checking it out would
+    # delete the script and break the scheduled task, so stay where we are.
+    $null = Get-GitOutput @('cat-file', '-e', "${latestTag}:server/scripts/Update-Thuisbios.ps1")
+    if ($LASTEXITCODE -ne 0) {
+        Add-LogLine "The newest release ($latestTag) does not include automatic updates yet, so this folder stays on $previousLabel. The next release will be installed automatically."
+        exit 0
+    }
+
     $changes = Get-GitOutput @('status', '--porcelain', '--untracked-files=no')
     if ($changes.Count -gt 0) {
         Add-LogLine "There are local changes in $repoRoot; not updating. Undo them with: git checkout -- ."
         exit 1
     }
-
-    $previousCommit = (Get-GitOutput @('rev-parse', 'HEAD') | Select-Object -First 1)
-    $branch = (Get-GitOutput @('symbolic-ref', '--quiet', '--short', 'HEAD') | Select-Object -First 1)
-    $previousRef = if ($branch) { $branch } else { $previousCommit }
-    $previousLabel = if ($currentTag) { $currentTag } elseif ($branch) { $branch } else { "$previousCommit".Substring(0, [Math]::Min(8, "$previousCommit".Length)) }
 
     if (-not $PSCmdlet.ShouldProcess($repoRoot, "Update from $previousLabel to $latestTag")) {
         Add-LogLine "WhatIf: would update from $previousLabel to $latestTag."
