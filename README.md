@@ -162,7 +162,7 @@ npm run tv:setup -w apps/remote -- 192.168.1.156   # pair the Samsung TV once (v
 ## Branching and releases
 
 - `develop` is the continuously evolving integration branch.
-- Work happens on feature branches off `develop`: `feat/...`, `fix/...`, `chore/...`, `docs/...`, `ci/...`.
+- Work happens on feature branches off `develop`: `feat/...`, `fix/...`, `chore/...`, `docs/...`, `ci/...`, `refactor/...`, `perf/...`, `test/...`.
 - Pull requests go into `develop`. The owner approves every PR.
 - `main` holds stable releases only. It is updated by a release PR from `develop`, tagged `vX.Y.Z` (semver).
 - [release-please](https://github.com/googleapis/release-please) maintains the changelog and version bump.
@@ -178,7 +178,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the details.
 
 GitHub Actions in `.github/workflows`:
 
-- `ci.yml`: commitlint (commits and PR title), markdownlint, version consistency check (root,
+- `ci.yml`: commitlint (commits and PR title), branch-name check (PR branches must start with `feat/`, `fix/`,
+  `chore/`, `docs/`, `ci/`, `refactor/`, `perf/` or `test/`), markdownlint, version consistency check (root,
   `apps/tv/package.json`, `apps/remote/package.json` and the Tizen `config.xml` must agree), TV app
   (typecheck, Vitest, build, ES2017 syntax check, `dist` uploaded as artifact), phone remote
   (typecheck, Vitest, build, `dist` uploaded as the `remote-dist` artifact), PowerShell (PSScriptAnalyzer and Pester tests

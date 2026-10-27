@@ -32,6 +32,26 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: printf '%s\n' "$PR_TITLE" | npx commitlint --verbose
 
+  branch-name:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR branch name
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            feat/?*|fix/?*|chore/?*|docs/?*|ci/?*|refactor/?*|perf/?*|test/?*) ;;
+            release-please--*) ;;
+            dependabot/*) ;;
+            main|develop) ;;
+            *)
+              echo "::error title=Invalid branch name::The branch '$HEAD_REF' is not allowed. Rename it so it starts with feat/, fix/, chore/, docs/, ci/, refactor/, perf/ or test/ (for example feat/my-change). Branches from release-please, Dependabot, and the main/develop sync PRs are also accepted."
+              exit 1
+              ;;
+          esac
+          echo "Branch name '$HEAD_REF' is allowed."
+
   markdown:
     runs-on: ubuntu-latest
     steps:
