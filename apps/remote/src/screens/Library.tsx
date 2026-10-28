@@ -39,6 +39,7 @@ export function Library() {
           ))}
         </Grid>
       ) : null}
+      <p class="app-version">Thuisbios v{__APP_VERSION__}</p>
     </div>
   );
 }

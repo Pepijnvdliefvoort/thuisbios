@@ -81,6 +81,7 @@ html.scroll-locked .scroller { overflow-y: hidden; }
 /* Generic */
 .page { padding: 4px 0 0; }
 .hint, .empty { color: var(--muted); padding: 24px var(--gutter); text-align: center; }
+.app-version { color: var(--muted); padding: 24px var(--gutter) 8px; margin: 0; font-size: 12px; text-align: center; }
 .hint.small { padding: 4px 0; font-size: 14px; text-align: left; }
 .pad-top { padding-top: 80px; }
 .btn {
