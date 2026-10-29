@@ -1,4 +1,5 @@
 import { createDeviceId } from './jellyfin/auth';
+import { parseView, type LibraryType, type LibraryView } from './jellyfin/libraryQuery';
 import type { Session } from './jellyfin/types';
 
 const SESSION_KEY = 'thuisbios.remote.session';
@@ -99,3 +100,16 @@ export function loadPlayerVolume(): number | null {
   return isFinite(v) && v >= 0 && v <= 1 ? v : null;
 }
 export const savePlayerVolume = (volume: number): void => write(PLAYER_VOLUME_KEY, String(Math.round(volume * 100) / 100));
+
+const libraryViewKey = (type: LibraryType): string => `thuisbios.remote.libraryView.${type}`;
+
+/** The sort and filters last used in the Library for a type (defaults when none or unreadable). */
+export function loadLibraryView(type: LibraryType): LibraryView {
+  try {
+    return parseView(JSON.parse(read(libraryViewKey(type)) || 'null'), type);
+  } catch (e) {
+    return parseView(null, type);
+  }
+}
+
+export const saveLibraryView = (type: LibraryType, view: LibraryView): void => write(libraryViewKey(type), JSON.stringify(view));

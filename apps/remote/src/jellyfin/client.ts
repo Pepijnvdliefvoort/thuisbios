@@ -1,6 +1,7 @@
 import { buildAuthHeader } from './auth';
 import type { Command } from './commands';
 import type { DeviceProfile } from './phoneProfile';
+import { libraryQuery, type LibraryView } from './libraryQuery';
 import { parseSegments, type MediaSegment } from './segments';
 import type {
   AuthenticationResult,
@@ -43,7 +44,10 @@ export interface JellyfinClient {
   nextUp(userId: string, limit: number, seriesId?: string): Promise<BaseItem[]>;
   /** Newest items by creation date (not the per-library "latest" endpoint). */
   latest(userId: string, type: MediaType, limit: number): Promise<BaseItem[]>;
-  library(userId: string, type: MediaType, limit?: number): Promise<BaseItem[]>;
+  /** A library page of one type; `view` sorts and filters it (name order, no filters when left out). */
+  library(userId: string, type: MediaType, limit?: number, view?: LibraryView): Promise<BaseItem[]>;
+  /** Genre names used by the items of one type. */
+  genres(userId: string, type: MediaType): Promise<string[]>;
   search(userId: string, term: string, limit: number): Promise<BaseItem[]>;
   item(userId: string, itemId: string): Promise<BaseItem>;
   seasons(userId: string, seriesId: string): Promise<BaseItem[]>;
@@ -127,10 +131,14 @@ export function createClient(options: ClientOptions): JellyfinClient {
       items(
         `${user(userId)}/Items?IncludeItemTypes=${type}&Recursive=true&SortBy=DateCreated&SortOrder=Descending&Limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
       ),
-    library: (userId, type, limit) =>
+    library: (userId, type, limit, view) =>
       items(
-        `${user(userId)}/Items?IncludeItemTypes=${type}&Recursive=true&SortBy=SortName&SortOrder=Ascending&Fields=${LIST_FIELDS}&${IMAGE_QUERY}${limit ? `&Limit=${limit}` : ''}`,
+        `${user(userId)}/Items?${libraryQuery(type, view)}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}${limit ? `&Limit=${limit}` : ''}`,
       ),
+    genres: async (userId, type) => {
+      const r = await req<ItemsResult>('GET', `/Genres?UserId=${enc(userId)}&IncludeItemTypes=${type}&Recursive=true&SortBy=SortName`);
+      return r.Items.map((g) => g.Name).filter(Boolean);
+    },
     search: (userId, term, limit) =>
       items(
         `${user(userId)}/Items?searchTerm=${enc(term)}&IncludeItemTypes=Movie,Series,Episode&Recursive=true&Limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,

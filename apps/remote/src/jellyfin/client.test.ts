@@ -85,6 +85,16 @@ describe('client', () => {
     expect(urls[2]).toContain('&Limit=30');
   });
 
+  it('sorts and filters the library, and lists genres', async () => {
+    const fetchFn = vi.fn(async () => ok({ Items: [{ Id: 'g', Name: 'Drama' }], TotalRecordCount: 1 }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    await client.library('u1', 'Series', undefined, { sort: 'rating', unwatched: true, genre: 'Drama', decade: null });
+    expect(await client.genres('u1', 'Series')).toEqual(['Drama']);
+    const urls = fetchFn.mock.calls.map((c) => (c as unknown as [string])[0]);
+    expect(urls[0]).toContain('IncludeItemTypes=Series&Recursive=true&SortBy=CommunityRating,SortName&SortOrder=Descending&Filters=IsUnplayed&Genres=Drama&Fields=');
+    expect(urls[1]).toBe('http://pc/Genres?UserId=u1&IncludeItemTypes=Series&Recursive=true&SortBy=SortName');
+  });
+
   it('asks for playback info with the device profile and an optional start position', async () => {
     const fetchFn = vi.fn(async () => ok({ MediaSources: [], PlaySessionId: 'ps' }));
     const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
