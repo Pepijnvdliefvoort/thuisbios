@@ -35,7 +35,7 @@ button:disabled { cursor: default; }
 h1, h2, p { margin: 0; }
 .icon { display: block; flex: none; }
 
-/* App shell: a fixed frame; only .scroller scrolls, the tab bar stays put. It follows the real viewport (top/bottom 0); the standalone html min-height makes iOS give it the full screen. The solid background lets iOS 26 skip its edge blur. */
+/* App shell: a fixed frame; only .scroller scrolls, the tab bar stays put. It follows the real viewport (top/bottom 0); the standalone html min-height makes iOS give it the full screen. */
 .shell { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); }
 .scroller {
   flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: none;
