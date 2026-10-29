@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { MiniPlayer } from './components/MiniPlayer';
 import { TabBar } from './components/TabBar';
 import { Toast } from './components/Toast';
+import { TopBar } from './components/TopBar';
 import { TvChip } from './components/TvChip';
 import { clientInfo } from './clientInfo';
 import { Ctx, type AppContext } from './context';
@@ -23,6 +24,7 @@ import { parseConnectParam } from './jellyfin/quickConnect';
 import { clearSession, getDeviceId, loadPendingConnect, loadSession, saveSession, savePendingConnect } from './storage';
 import { SCROLLER_ID, scrollOffset, scrollToOffset } from './scroller';
 import { useRequests } from './useRequests';
+import { isDesktop, useDesktop } from './useDesktop';
 import { useScrollerRefresh } from './useScrollerRefresh';
 import { useTv } from './useTv';
 
@@ -92,6 +94,7 @@ function Shell({
   onSignOut: (expired?: boolean) => void;
 }) {
   useScrollerRefresh();
+  const desktop = useDesktop();
   // The client is memoized on the session, so it reaches the latest callback through a ref.
   const onSignOutRef = useRef(onSignOut);
   onSignOutRef.current = onSignOut;
@@ -165,9 +168,10 @@ function Shell({
       remember();
       nav.push({ kind: 'nowPlaying' });
     },
-    playOnPhone: (item, startTicks) => {
+    playHere: (item, startTicks) => {
       // Inside the tap that started playback, so the browser allows fullscreen and the orientation lock.
-      enterLandscapeFullscreen();
+      // Not on a desktop: the player fills the window and has a fullscreen button.
+      if (!isDesktop()) enterLandscapeFullscreen();
       remember();
       nav.push({ kind: 'player', item, startTicks });
     },
@@ -182,9 +186,10 @@ function Shell({
   return (
     <Ctx.Provider value={ctx}>
       <div class="shell">
+        {desktop && !(top && top.kind === 'player') ? <TopBar tab={nav.tab} onChange={nav.setTab} badge={requests.badge} onSignOut={signOut} /> : null}
         <div class={top && top.kind === 'nowPlaying' ? 'scroller fixed' : 'scroller'} id={SCROLLER_ID}>
           <div hidden={open}>
-            <TvChip onSignOut={signOut} />
+            {desktop ? null : <TvChip onSignOut={signOut} />}
             <main hidden={nav.tab !== 'home'}>
               <Home />
             </main>
@@ -211,10 +216,18 @@ function Shell({
             />
           ) : null}
         </div>
-        <div class="bottom">
-          {top && (top.kind === 'nowPlaying' || top.kind === 'connect' || top.kind === 'player') ? null : <MiniPlayer />}
-          {top && (top.kind === 'connect' || top.kind === 'player') ? null : <TabBar tab={nav.tab} onChange={nav.setTab} badge={requests.badge} />}
-        </div>
+        {desktop ? (
+          top && (top.kind === 'nowPlaying' || top.kind === 'connect' || top.kind === 'player') ? null : (
+            <div class="mini-dock">
+              <MiniPlayer />
+            </div>
+          )
+        ) : (
+          <div class="bottom">
+            {top && (top.kind === 'nowPlaying' || top.kind === 'connect' || top.kind === 'player') ? null : <MiniPlayer />}
+            {top && (top.kind === 'connect' || top.kind === 'player') ? null : <TabBar tab={nav.tab} onChange={nav.setTab} badge={requests.badge} />}
+          </div>
+        )}
         <Toast message={toastText} />
       </div>
     </Ctx.Provider>

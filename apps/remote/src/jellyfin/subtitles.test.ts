@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeCueText, listSubtitles, parseVtt, pickInitialSubtitle, subtitleVttUrl } from './subtitles';
+import { activeCueText, listSubtitles, parseVtt, pickInitialSubtitle, subtitleLabel, subtitleVttUrl } from './subtitles';
 import type { MediaSource } from './types';
 
 const source: MediaSource = {
@@ -18,14 +18,26 @@ describe('listSubtitles', () => {
   it('lists text subtitle streams only', () => {
     const list = listSubtitles(source);
     expect(list.map((t) => t.index)).toEqual([2, 3, 3]);
-    expect(list[0]).toEqual({ index: 2, label: 'English (SRT)', lang: 'eng', isDefault: true, isForced: false });
-    expect(list[1].label).toBe('Dutch forced');
+    expect(list[0]).toEqual({ index: 2, label: 'English \u00b7 Default', lang: 'eng', isDefault: true, isForced: false });
+    expect(list[1].label).toBe('Dutch \u00b7 Forced');
     expect(list[1].isForced).toBe(true);
-    expect(list[2].label).toBe('ger');
+    expect(list[2].label).toBe('German');
   });
 
   it('is empty without streams', () => {
     expect(listSubtitles({ Id: 'x' })).toEqual([]);
+  });
+});
+
+describe('subtitleLabel', () => {
+  it('shows language, codec and flags', () => {
+    expect(subtitleLabel({ Language: 'eng', Codec: 'subrip', IsForced: true }, 1)).toBe('English \u00b7 SRT \u00b7 Forced');
+  });
+  it('keeps a title that adds something', () => {
+    expect(subtitleLabel({ Language: 'nld', Title: 'SDH', Codec: 'srt' }, 1)).toBe('Dutch \u00b7 SDH \u00b7 SRT');
+  });
+  it('numbers a stream without language or title', () => {
+    expect(subtitleLabel({}, 4)).toBe('Subtitle 4');
   });
 });
 

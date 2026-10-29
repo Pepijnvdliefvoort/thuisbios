@@ -91,7 +91,7 @@ export function Requests({ active }: { active: boolean }) {
   };
 
   return (
-    <div class="page" ref={pageRef}>
+    <div class="page requests" ref={pageRef}>
       <PullSpinner pull={pull} />
       <h2 class="page-title">{isAdmin ? 'Requests' : 'My requests'}</h2>
       {list.loading && !data ? <p class="hint">Loading...</p> : null}

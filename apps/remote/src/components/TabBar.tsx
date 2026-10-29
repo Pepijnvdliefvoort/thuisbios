@@ -1,7 +1,7 @@
 import type { Tab } from '../nav';
 import { Icon, type IconName } from './Icon';
 
-const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
+export const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
   { id: 'home', label: 'Home', icon: 'home' },
   { id: 'search', label: 'Search', icon: 'search' },
   { id: 'library', label: 'Library', icon: 'library' },

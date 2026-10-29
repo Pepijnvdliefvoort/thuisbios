@@ -7,6 +7,7 @@ import type {
   BaseItem,
   ClientInfo,
   ItemsResult,
+  MediaStream,
   PlaybackInfoResponse,
   PlaybackReport,
   RemoteSession,
@@ -35,6 +36,16 @@ const DETAIL_FIELDS = 'Overview,Genres,OfficialRating,CommunityRating,RunTimeTic
 const IMAGE_QUERY = 'EnableImageTypes=Primary,Backdrop,Thumb&ImageTypeLimit=1&EnableUserData=true';
 const enc = encodeURIComponent;
 
+/** Optional extras for {@link JellyfinClient.playbackInfo}. */
+export interface PlaybackOptions {
+  /** Start the transcode at this position (ticks). */
+  startTicks?: number;
+  /** Play this audio stream (Jellyfin stream index) instead of the default one. */
+  audioStreamIndex?: number;
+  /** False asks for a remux or transcode: the original file would play its default audio only. */
+  directPlay?: boolean;
+}
+
 export type MediaType = 'Movie' | 'Series';
 
 export interface JellyfinClient {
@@ -59,8 +70,10 @@ export interface JellyfinClient {
   /** Approves the Quick Connect code shown on a device (the TV) for the signed-in user. */
   authorizeQuickConnect(code: string, userId?: string): Promise<void>;
   logout(): Promise<void>;
-  /** Asks the server how this phone can play an item; `startTicks` makes a transcode start there. */
-  playbackInfo(userId: string, itemId: string, profile: DeviceProfile, startTicks?: number): Promise<PlaybackInfoResponse>;
+  /** The audio and subtitle streams of an item's first media source (empty when the server lists none). */
+  mediaStreams(userId: string, itemId: string): Promise<MediaStream[]>;
+  /** Asks the server how this phone can play an item; see {@link PlaybackOptions}. */
+  playbackInfo(userId: string, itemId: string, profile: DeviceProfile, options?: PlaybackOptions): Promise<PlaybackInfoResponse>;
   reportStart(report: PlaybackReport): Promise<void>;
   reportProgress(report: PlaybackReport): Promise<void>;
   /** `keepalive` lets the request outlive a page that is being hidden or closed. */
@@ -75,6 +88,7 @@ const playbackBody = (r: PlaybackReport) => ({
   PlayMethod: r.playMethod,
   IsPaused: !!r.isPaused,
   CanSeek: true,
+  ...(r.audioStreamIndex !== undefined ? { AudioStreamIndex: r.audioStreamIndex } : {}),
 });
 
 async function doRequest<T>(
@@ -137,6 +151,11 @@ export function createClient(options: ClientOptions): JellyfinClient {
       ),
     item: (userId, itemId) =>
       req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=${DETAIL_FIELDS}`),
+    mediaStreams: async (userId, itemId) => {
+      const item = await req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=MediaSources,MediaStreams`);
+      const source = item.MediaSources && item.MediaSources[0];
+      return (source && source.MediaStreams) || [];
+    },
     seasons: (userId, seriesId) =>
       items(`/Shows/${enc(seriesId)}/Seasons?UserId=${enc(userId)}&Fields=ChildCount&EnableImageTypes=Primary&EnableUserData=true`),
     episodes: (userId, seriesId, seasonId) =>
@@ -165,23 +184,27 @@ export function createClient(options: ClientOptions): JellyfinClient {
     logout: async () => {
       await req<void>('POST', '/Sessions/Logout');
     },
-    playbackInfo: (userId, itemId, profile, startTicks) => {
+    playbackInfo: (userId, itemId, profile, options = {}) => {
+      const { startTicks, audioStreamIndex } = options;
+      const directPlay = options.directPlay !== false;
       const query = [
         `UserId=${enc(userId)}`,
         `MaxStreamingBitrate=${profile.MaxStreamingBitrate}`,
-        'EnableDirectPlay=true',
+        `EnableDirectPlay=${directPlay}`,
         'EnableDirectStream=true',
         'EnableTranscoding=true',
         ...(startTicks ? [`StartTimeTicks=${startTicks}`] : []),
+        ...(audioStreamIndex !== undefined ? [`AudioStreamIndex=${audioStreamIndex}`] : []),
       ].join('&');
       return req<PlaybackInfoResponse>('POST', `/Items/${enc(itemId)}/PlaybackInfo?${query}`, {
         UserId: userId,
         MaxStreamingBitrate: profile.MaxStreamingBitrate,
-        EnableDirectPlay: true,
+        EnableDirectPlay: directPlay,
         EnableDirectStream: true,
         EnableTranscoding: true,
         AutoOpenLiveStream: false,
         ...(startTicks ? { StartTimeTicks: startTicks } : {}),
+        ...(audioStreamIndex !== undefined ? { AudioStreamIndex: audioStreamIndex } : {}),
         DeviceProfile: profile,
       });
     },

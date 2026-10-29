@@ -8,6 +8,7 @@ import { chooseSeasonId } from '../jellyfin/seasons';
 import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from '../jellyfin/format';
 import type { BaseItem } from '../jellyfin/types';
 import { useAsync, useRegisterReload, type Reloaders } from '../useAsync';
+import { useDesktop } from '../useDesktop';
 import { usePullToRefresh } from '../usePullToRefresh';
 
 /** Ticks to resume from: the saved position, ignored when it is basically the start. */
@@ -39,7 +40,8 @@ export function Details({ id, onBack }: { id: string; onBack: () => void }) {
 }
 
 function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders }) {
-  const { client, session, tv, toast, openItem, playOnPhone } = useApp();
+  const { client, session, tv, toast, openItem, playHere } = useApp();
+  const desktop = useDesktop();
   const isSeries = item.Type === 'Series';
   const isEpisode = item.Type === 'Episode';
   // For a series, "play" means the episode to watch next.
@@ -63,12 +65,16 @@ function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders
     if (await action) toast('Sent to TV');
   };
 
-  // Without a TV the video plays on the phone itself.
+  // Without a TV the video plays in the app's own player; a desktop does that even with a TV connected
+  // (and then offers "Play on TV" next to it).
+  const here = noTv || desktop;
   const start = (target: BaseItem, ticks: number) => {
-    if (noTv) playOnPhone(target, ticks);
+    if (here) playHere(target, ticks);
     else void send(tv.play(target, ticks));
   };
 
+  // The hero spans the window on a desktop.
+  const [backdropW, backdropH] = desktop ? [1920, 1080] : [780, 440];
   const meta = [
     isEpisode ? episodeLabel(item) : item.ProductionYear ? String(item.ProductionYear) : '',
     item.OfficialRating,
@@ -79,74 +85,83 @@ function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders
   return (
     <>
       <div class="hero">
-        <Img class="hero-img" src={artUrl(client.serverUrl, item, 'backdrop', 780, 440)} />
+        <Img class="hero-img" src={artUrl(client.serverUrl, item, 'backdrop', backdropW, backdropH)} />
         <div class="hero-fade" />
       </div>
-      <div class="details-main">
-        <Img class="poster" src={artUrl(client.serverUrl, item, 'poster', 240, 360)} />
-        <div class="details-text">
-          {isEpisode && item.SeriesName ? (
-            item.SeriesId ? (
-              <button type="button" class="eyebrow eyebrow-link" onClick={() => openItem(item.SeriesId as string)}>
-                {item.SeriesName} <span aria-hidden="true">›</span>
-              </button>
+      <div class="details-content">
+        <div class="details-head">
+          <div class="details-main">
+            <Img class="poster" src={artUrl(client.serverUrl, item, 'poster', desktop ? 400 : 240, desktop ? 600 : 360)} />
+            <div class="details-text">
+              {isEpisode && item.SeriesName ? (
+                item.SeriesId ? (
+                  <button type="button" class="eyebrow eyebrow-link" onClick={() => openItem(item.SeriesId as string)}>
+                    {item.SeriesName} <span aria-hidden="true">›</span>
+                  </button>
+                ) : (
+                  <p class="eyebrow">{item.SeriesName}</p>
+                )
+              ) : null}
+              <h1>{item.Name}</h1>
+              <p class="meta">{meta.join('  ·  ')}</p>
+            </div>
+          </div>
+
+          <div class="actions">
+            {isSeries && playItem ? (
+              <p class="next-ep">
+                Next episode: {episodeLabel(playItem)} {playItem.Name}
+              </p>
+            ) : null}
+            {resume > 0 && playItem ? (
+              <>
+                <button type="button" class="btn primary" disabled={disabled} onClick={() => start(playItem, resume)}>
+                  <Icon name="play" /> {here ? 'Resume' : 'Resume on TV'} ({formatTicksClock(resume)})
+                </button>
+                <button type="button" class="btn secondary" disabled={disabled} onClick={() => start(playItem, 0)}>
+                  <Icon name="restart" size={20} /> Play from start
+                </button>
+              </>
             ) : (
-              <p class="eyebrow">{item.SeriesName}</p>
-            )
-          ) : null}
-          <h1>{item.Name}</h1>
-          <p class="meta">{meta.join('  ·  ')}</p>
+              <button type="button" class="btn primary" disabled={disabled} onClick={() => playItem && start(playItem, 0)}>
+                <Icon name="play" /> {(isSeries ? 'Play next episode' : 'Play') + (here ? '' : ' on TV')}
+              </button>
+            )}
+            {desktop && !noTv ? (
+              <button type="button" class="btn secondary" disabled={disabled} onClick={() => playItem && void send(tv.play(playItem, resume))}>
+                <Icon name="tv" size={20} /> {resume > 0 ? 'Resume on TV' : 'Play on TV'}
+              </button>
+            ) : null}
+            <button type="button" class="btn secondary" disabled={noTv} onClick={() => void send(tv.show(item))}>
+              <Icon name="eye" size={20} /> Show on TV
+            </button>
+            {noTv && !desktop ? <p class="hint small">No TV connected, so this plays on your phone.</p> : null}
+          </div>
         </div>
-      </div>
 
-      <div class="actions">
-        {isSeries && playItem ? (
-          <p class="next-ep">
-            Next episode: {episodeLabel(playItem)} {playItem.Name}
-          </p>
+        {item.Overview ? <p class="overview">{item.Overview}</p> : null}
+        {item.Genres && item.Genres.length > 0 ? <p class="genres">{item.Genres.join(' · ')}</p> : null}
+
+        {isSeries ? (
+          <Episodes
+            seriesId={item.Id}
+            initialSeasonId={playItem ? playItem.SeasonId : undefined}
+            currentEpisodeId={playItem ? playItem.Id : undefined}
+            onOpen={openItem}
+            reloaders={reloaders}
+          />
         ) : null}
-        {resume > 0 && playItem ? (
-          <>
-            <button type="button" class="btn primary" disabled={disabled} onClick={() => start(playItem, resume)}>
-              <Icon name="play" /> {noTv ? 'Resume' : 'Resume on TV'} ({formatTicksClock(resume)})
-            </button>
-            <button type="button" class="btn secondary" disabled={disabled} onClick={() => start(playItem, 0)}>
-              <Icon name="restart" size={20} /> Play from start
-            </button>
-          </>
-        ) : (
-          <button type="button" class="btn primary" disabled={disabled} onClick={() => playItem && start(playItem, 0)}>
-            <Icon name="play" /> {(isSeries ? 'Play next episode' : 'Play') + (noTv ? '' : ' on TV')}
-          </button>
-        )}
-        <button type="button" class="btn secondary" disabled={noTv} onClick={() => void send(tv.show(item))}>
-          <Icon name="eye" size={20} /> Show on TV
-        </button>
-        {noTv ? <p class="hint small">No TV connected, so this plays on your phone.</p> : null}
+        {isEpisode && item.SeriesId ? (
+          <Episodes
+            seriesId={item.SeriesId}
+            initialSeasonId={item.SeasonId}
+            currentEpisodeId={item.Id}
+            onEpisodePage
+            onOpen={openItem}
+            reloaders={reloaders}
+          />
+        ) : null}
       </div>
-
-      {item.Overview ? <p class="overview">{item.Overview}</p> : null}
-      {item.Genres && item.Genres.length > 0 ? <p class="genres">{item.Genres.join(' · ')}</p> : null}
-
-      {isSeries ? (
-        <Episodes
-          seriesId={item.Id}
-          initialSeasonId={playItem ? playItem.SeasonId : undefined}
-          currentEpisodeId={playItem ? playItem.Id : undefined}
-          onOpen={openItem}
-          reloaders={reloaders}
-        />
-      ) : null}
-      {isEpisode && item.SeriesId ? (
-        <Episodes
-          seriesId={item.SeriesId}
-          initialSeasonId={item.SeasonId}
-          currentEpisodeId={item.Id}
-          onEpisodePage
-          onOpen={openItem}
-          reloaders={reloaders}
-        />
-      ) : null}
     </>
   );
 }
@@ -167,7 +182,8 @@ function Episodes({
   onOpen: (id: string) => void;
   reloaders: Reloaders;
 }) {
-  const { client, session, tv, toast, playOnPhone } = useApp();
+  const { client, session, tv, toast, playHere } = useApp();
+  const desktop = useDesktop();
   const seasons = useAsync(() => client.seasons(session.userId, seriesId), [client, session.userId, seriesId]);
   const [picked, setPicked] = useState<string | null>(null);
   // Follows initialSeasonId (it may load late) until the user taps a pill.
@@ -208,7 +224,7 @@ function Episodes({
             <li key={ep.Id} class={current ? 'ep current' : 'ep'}>
               <button type="button" class="ep-open" onClick={() => onOpen(ep.Id)}>
                 <span class="ep-art">
-                  <Img src={artUrl(client.serverUrl, ep, 'thumb', 320, 180)} />
+                  <Img src={artUrl(client.serverUrl, ep, 'thumb', desktop ? 480 : 320, desktop ? 270 : 180)} />
                   {played ? (
                     <span class="ep-check" role="img" aria-label="Watched">
                       <Icon name="check" size={14} />
@@ -234,9 +250,9 @@ function Episodes({
               <button
                 type="button"
                 class="ep-play"
-                aria-label={tv.tv ? `Play ${ep.Name} on TV` : `Play ${ep.Name}`}
+                aria-label={tv.tv && !desktop ? `Play ${ep.Name} on TV` : `Play ${ep.Name}`}
                 onClick={async () => {
-                  if (!tv.tv) playOnPhone(ep, from);
+                  if (!tv.tv || desktop) playHere(ep, from);
                   else if (await tv.play(ep, from)) toast('Sent to TV');
                 }}
               >

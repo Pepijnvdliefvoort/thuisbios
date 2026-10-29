@@ -59,6 +59,8 @@ export interface BaseItem {
   ParentThumbImageTag?: string;
   SeriesPrimaryImageTag?: string;
   UserData?: UserData;
+  /** Only present when requested with Fields=MediaSources. */
+  MediaSources?: MediaSource[];
 }
 
 export interface ItemsResult {
@@ -70,6 +72,11 @@ export interface PlayState {
   PositionTicks?: number;
   IsPaused?: boolean;
   CanSeek?: boolean;
+  /** Jellyfin stream index of the audio the player reports using. */
+  AudioStreamIndex?: number;
+  /** Jellyfin stream index of the subtitles shown; -1 or missing for none. */
+  SubtitleStreamIndex?: number;
+  MediaSourceId?: string;
 }
 
 /** One entry of `GET /Sessions`. */
@@ -95,6 +102,8 @@ export interface MediaStream {
   Language?: string;
   IsDefault?: boolean;
   IsForced?: boolean;
+  /** Audio channel count (2 = stereo, 6 = 5.1). */
+  Channels?: number;
   /** False for image subtitles (PGS, dvdsub). */
   IsTextSubtitleStream?: boolean;
 }
@@ -110,6 +119,8 @@ export interface MediaSource {
   TranscodingUrl?: string;
   TranscodingSubProtocol?: string;
   MediaStreams?: MediaStream[];
+  DefaultAudioStreamIndex?: number;
+  DefaultSubtitleStreamIndex?: number;
 }
 
 export interface PlaybackInfoResponse {
@@ -128,4 +139,6 @@ export interface PlaybackReport {
   positionTicks: number;
   playMethod: PlayMethod;
   isPaused?: boolean;
+  /** Jellyfin stream index of the audio being played. */
+  audioStreamIndex?: number;
 }

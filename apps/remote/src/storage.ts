@@ -90,3 +90,18 @@ const SUB_LANG_KEY = 'thuisbios.remote.subtitleLang';
 /** The subtitle language last picked in the player ('' = off, null = never chosen). */
 export const loadSubtitleLang = (): string | null => read(SUB_LANG_KEY);
 export const saveSubtitleLang = (lang: string): void => write(SUB_LANG_KEY, lang);
+
+const AUDIO_LANG_KEY = 'thuisbios.remote.audioLang';
+
+/** The audio language last picked in the player; null when never chosen. */
+export const loadAudioLang = (): string | null => read(AUDIO_LANG_KEY) || null;
+export const saveAudioLang = (lang: string): void => write(AUDIO_LANG_KEY, lang);
+
+const PLAYER_VOLUME_KEY = 'thuisbios.remote.playerVolume';
+
+/** The desktop player's volume (0 to 1) as last set; null when never set. */
+export function loadPlayerVolume(): number | null {
+  const v = parseFloat(read(PLAYER_VOLUME_KEY) || '');
+  return isFinite(v) && v >= 0 && v <= 1 ? v : null;
+}
+export const savePlayerVolume = (volume: number): void => write(PLAYER_VOLUME_KEY, String(Math.round(volume * 100) / 100));

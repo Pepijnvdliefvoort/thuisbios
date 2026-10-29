@@ -3,9 +3,11 @@ import { Icon } from '../components/Icon';
 import { PlayerControls } from '../components/PlayerControls';
 import { NextEpisodeCard } from '../components/NextEpisodeCard';
 import { useApp } from '../context';
-import { exitLandscapeFullscreen } from '../fullscreen';
+import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscreen';
 import { artUrl } from '../jellyfin/art';
-import { getDeviceId, loadSubtitleLang, loadSubtitleOffset, saveSubtitleLang } from '../storage';
+import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
+import { playerKeyAction, stepVolume } from '../playerKeys';
+import { getDeviceId, loadAudioLang, loadPlayerVolume, loadSubtitleLang, loadSubtitleOffset, saveAudioLang, savePlayerVolume, saveSubtitleLang } from '../storage';
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
 import { nextArmedAt, nextEpisodeCard, planNextEpisode } from '../jellyfin/nextEpisode';
@@ -13,6 +15,8 @@ import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { createThrottle, resolveStreamUrl, selectPlayMethod, type PlaySelection } from '../jellyfin/playback';
 import { activeCueText, listSubtitles, parseVtt, pickInitialSubtitle, subtitleVttUrl, type Cue } from '../jellyfin/subtitles';
 import type { BaseItem, MediaSource, PlaybackReport } from '../jellyfin/types';
+import { COARSE_QUERY, useFinePointer } from '../useDesktop';
+import { useMediaQuery } from '../useMediaQuery';
 import { useNextEpisode } from '../useNextEpisode';
 import { useViewportPortrait } from '../useViewportPortrait';
 
@@ -22,14 +26,24 @@ const EVENT_REPORT_MS = 1000;
 const HLS_MIME = 'application/vnd.apple.mpegurl';
 /** Controls fade out this long after the last touch while playing. */
 const HIDE_MS = 3000;
+/** Mouse: a second click within this time is a double click (fullscreen) and not a play / pause. */
+const DOUBLE_CLICK_MS = 220;
+/** Mouse moves restart the hide timer at most this often. */
+const MOVE_MS = 250;
+/** Esc right after leaving fullscreen is the browser's own exit, not a request to leave the player. */
+const FS_ESC_GRACE_MS = 400;
 
 interface Loaded {
   selection: PlaySelection;
   url: string;
   mediaSourceId: string;
   playSessionId?: string;
-  /** Kept to list the subtitle tracks. */
+  /** Kept to list the audio and subtitle tracks. */
   source: MediaSource;
+  /** Jellyfin stream index of the audio this stream plays; null when the source lists no audio. */
+  audioIndex: number | null;
+  /** Where the stream was asked to start (ticks): the resume point, or the spot an audio switch left. */
+  startTicks: number;
 }
 
 /**
@@ -40,8 +54,16 @@ interface Loaded {
  * currentTime is the position in the whole item and reports need no offset. Every method therefore
  * seeks to the start position itself once the metadata is known (hls.js through `startPosition`).
  *
+ * Audio: a browser cannot pick another audio stream out of a file, so a switch asks for PlaybackInfo again with
+ * AudioStreamIndex (and direct play off, so the server remuxes or transcodes) and restarts the stream at the
+ * current position. The old play session reports Stopped and the new one Started, as for any new stream.
+ *
  * The video is always inline with our own controls and subtitles (see PlayerControls). iPhone cannot go
- * fullscreen or lock the orientation, so when the viewport is portrait the whole stage is turned 90° with CSS.
+ * fullscreen or lock the orientation, so when the viewport is portrait the whole stage is turned 90° with CSS
+ * (only on a touch device: a narrow desktop window never rotates).
+ *
+ * With a mouse (`mouse`): moving the pointer shows the controls, a click plays / pauses, a double click toggles
+ * fullscreen, the bottom bar gets volume and fullscreen buttons, and the keys in playerKeys.ts work.
  */
 export function Player({
   item,
@@ -61,7 +83,10 @@ export function Player({
   const video = useRef<HTMLVideoElement>(null);
   const [segments, setSegments] = useState<MediaSegment[]>([]);
   const [now, setNow] = useState(0);
-  const rotated = useViewportPortrait();
+  const portrait = useViewportPortrait();
+  const coarse = useMediaQuery(COARSE_QUERY);
+  const rotated = portrait && coarse;
+  const mouse = useFinePointer();
   // Our own controls.
   const [paused, setPaused] = useState(true);
   const [buffering, setBuffering] = useState(true);
@@ -70,9 +95,23 @@ export function Player({
   const [shown, setShown] = useState(true);
   const [busy, setBusy] = useState(false);
   const [touched, setTouched] = useState(0);
+  // Mouse only: the video's volume and whether the page is fullscreen.
+  const [vol, setVol] = useState({ volume: 1, muted: false });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const lastSub = useRef(0);
+  const lastMove = useRef(0);
+  const clickTimer = useRef<number | undefined>(undefined);
+  const fsChangedAt = useRef(0);
   // Our own subtitles: the chosen track (-1 = off) and its parsed cues.
   const [subSel, setSubSel] = useState(-1);
   const [cues, setCues] = useState<Cue[]>([]);
+  // Audio: the stream asked for (null = the server's default), and where a restart should resume.
+  const [audioSel, setAudioSel] = useState<number | null>(null);
+  const restartTicks = useRef(startTicks);
+  const picked = useRef(false);
+  const subPicked = useRef(false);
+  // Last playing position, for reports after the video has been reset.
+  const lastTime = useRef(ticksToSeconds(startTicks));
   // Next episode autoplay: the card, and the hooks into the reporting effect below.
   const next = useNextEpisode(client, session.userId, item);
   const [cancelled, setCancelled] = useState(false);
@@ -136,6 +175,16 @@ export function Player({
       alive = false;
     };
   }, [loaded, tracks, subSel]);
+  const audioTracks = useMemo(() => (loaded ? listAudio(loaded.source) : []), [loaded]);
+  const chooseAudio = (index: number) => {
+    const el = video.current;
+    if (el && el.currentTime > 0) restartTicks.current = secondsToTicks(el.currentTime);
+    else restartTicks.current = secondsToTicks(lastTime.current);
+    setBuffering(true);
+    setAudioSel(index);
+    const track = audioTracks.filter((t) => t.index === index)[0];
+    if (track && track.lang) saveAudioLang(track.lang);
+  };
   const chooseSubtitle = (index: number) => {
     setSubSel(index);
     // '' remembers "off". A track without a language cannot be matched later, so it is not remembered.
@@ -183,17 +232,141 @@ export function Player({
     setDuration(isFinite(el.duration) && el.duration > 0 ? el.duration : ticksToSeconds(item.RunTimeTicks || 0));
   };
 
+  // Mouse only: volume (restored from the last session), fullscreen and the keyboard.
+  const syncVolume = (el: HTMLVideoElement) => setVol({ volume: el.volume, muted: el.muted });
+  const setVolume = (value: number) => {
+    const el = video.current;
+    if (!el) return;
+    const next = Math.max(0, Math.min(1, value));
+    el.volume = next;
+    if (next > 0) el.muted = false;
+    savePlayerVolume(next);
+  };
+  const toggleMute = () => {
+    const el = video.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    if (!el.muted && el.volume === 0) setVolume(0.5);
+  };
+  const toggleFullscreen = () => {
+    try {
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+      else if (supportsElementFullscreen()) void document.documentElement.requestFullscreen().catch(() => undefined);
+    } catch (e) {
+      // Fullscreen refused: the player keeps filling the window.
+    }
+  };
+  /** Subtitles on or off: back to the track used last (the first one if none yet). */
+  const toggleSubtitles = () => {
+    if (tracks.length === 0) return;
+    if (subSel >= 0) {
+      lastSub.current = subSel;
+      chooseSubtitle(-1);
+    } else {
+      chooseSubtitle(Math.min(lastSub.current, tracks.length - 1));
+    }
+  };
+  const onKey = (e: KeyboardEvent) => {
+    const target = e.target as HTMLElement | null;
+    if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+    const action = playerKeyAction(e);
+    if (!action) return;
+    if (action.type === 'exit') {
+      // In fullscreen the browser handles Esc itself (and the keydown can land just after it left).
+      if (document.fullscreenElement || Date.now() - fsChangedAt.current < FS_ESC_GRACE_MS) return;
+      e.preventDefault();
+      onBack();
+      return;
+    }
+    // Also stops Space from pressing a focused button.
+    e.preventDefault();
+    interact();
+    if (e.repeat && action.type !== 'skip' && action.type !== 'volume') return;
+    switch (action.type) {
+      case 'togglePlay':
+        return togglePlay();
+      case 'skip':
+        return skipBy(action.seconds);
+      case 'volume':
+        return setVolume(stepVolume(vol.volume, action.delta));
+      case 'mute':
+        return toggleMute();
+      case 'fullscreen':
+        return toggleFullscreen();
+      case 'subtitles':
+        return toggleSubtitles();
+    }
+  };
+  const onKeyRef = useRef(onKey);
+  onKeyRef.current = onKey;
+  useEffect(() => {
+    if (!mouse) return;
+    const down = (e: KeyboardEvent) => onKeyRef.current(e);
+    // Firefox presses a focused button on the key release; keydown's preventDefault does not stop that.
+    const up = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (e.key === ' ' && tag !== 'INPUT' && tag !== 'TEXTAREA') e.preventDefault();
+    };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+    };
+  }, [mouse]);
+  useEffect(() => {
+    const el = video.current;
+    if (!mouse || !el) return;
+    const saved = loadPlayerVolume();
+    if (saved !== null) el.volume = saved;
+    syncVolume(el);
+  }, [mouse]);
+  useEffect(() => {
+    if (!mouse) return;
+    const onChange = () => {
+      fsChangedAt.current = Date.now();
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, [mouse]);
+  useEffect(() => () => window.clearTimeout(clickTimer.current), []);
+
   // Ask the server how to play this item on this phone.
   useEffect(() => {
     let cancelled = false;
     const probe = document.createElement('video');
     const profile = buildPhoneProfile((mime) => probe.canPlayType(mime) !== '');
     client
-      .playbackInfo(session.userId, item.Id, profile, startTicks)
+      .playbackInfo(session.userId, item.Id, profile, {
+        startTicks: restartTicks.current,
+        audioStreamIndex: audioSel === null ? undefined : audioSel,
+        directPlay: audioSel === null ? undefined : false,
+      })
       .then((info) => {
         if (cancelled) return;
         const source = info.MediaSources[0];
-        const selection = source && selectPlayMethod(source, { itemId: item.Id, deviceId: getDeviceId(), playSessionId: info.PlaySessionId });
+        const audio = source ? listAudio(source) : [];
+        const defaultAudio = defaultAudioIndex(audio);
+        // First answer: if the remembered audio language is not the default one, ask again for that track.
+        if (source && !picked.current) {
+          picked.current = true;
+          const want = audioSel === null ? pickInitialAudio(audio, loadAudioLang()) : null;
+          if (want !== null) {
+            setAudioSel(want);
+            return;
+          }
+        }
+        const chosen = audioSel !== null ? audioSel : defaultAudio;
+        const selection =
+          source &&
+          selectPlayMethod(source, {
+            itemId: item.Id,
+            deviceId: getDeviceId(),
+            playSessionId: info.PlaySessionId,
+            audioStreamIndex: audioSel !== null && audioSel !== defaultAudio ? audioSel : undefined,
+          });
         if (!source || !selection) {
           setError(true);
           return;
@@ -204,8 +377,13 @@ export function Player({
           mediaSourceId: source.Id,
           playSessionId: info.PlaySessionId,
           source,
+          audioIndex: chosen,
+          startTicks: restartTicks.current,
         });
-        setSubSel(pickInitialSubtitle(listSubtitles(source), loadSubtitleLang()));
+        if (!subPicked.current) {
+          subPicked.current = true;
+          setSubSel(pickInitialSubtitle(listSubtitles(source), loadSubtitleLang()));
+        }
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -213,13 +391,13 @@ export function Player({
     return () => {
       cancelled = true;
     };
-  }, [client, session, item.Id]);
+  }, [client, session, item.Id, audioSel]);
 
   // Attach the stream: native playback, or hls.js where the browser cannot play HLS itself.
   useEffect(() => {
     const el = video.current;
     if (!loaded || !el) return;
-    const startSeconds = ticksToSeconds(startTicks);
+    const startSeconds = ticksToSeconds(loaded.startTicks);
     const seekToStart = () => {
       if (startSeconds > 0) el.currentTime = startSeconds;
     };
@@ -270,9 +448,11 @@ export function Player({
       itemId: item.Id,
       mediaSourceId: loaded.mediaSourceId,
       playSessionId: loaded.playSessionId,
-      positionTicks: secondsToTicks(el.currentTime),
+      // A destroyed hls.js player resets the video to 0; the last time seen keeps the resume point.
+      positionTicks: secondsToTicks(el.currentTime > 0 ? el.currentTime : lastTime.current),
       playMethod: loaded.selection.method,
       isPaused: el.paused,
+      ...(loaded.audioIndex !== null ? { audioStreamIndex: loaded.audioIndex } : {}),
     });
     const send = () => {
       if (started && !stopped) client.reportProgress(report()).catch(() => undefined);
@@ -351,6 +531,34 @@ export function Player({
     setNow(end);
   };
 
+  // Moving the mouse shows the controls (and restarts the hide timer, not on every event).
+  const onMouseMove = () => {
+    const t = Date.now();
+    if (!shown || t - lastMove.current > MOVE_MS) {
+      lastMove.current = t;
+      interact();
+    }
+  };
+  // A phone tap shows or hides the controls. With a mouse a click plays / pauses and a double click toggles fullscreen.
+  const onStageClick = () => {
+    if (!mouse) {
+      if (shown && !busy) setShown(false);
+      else interact();
+      return;
+    }
+    if (clickTimer.current !== undefined) {
+      window.clearTimeout(clickTimer.current);
+      clickTimer.current = undefined;
+      toggleFullscreen();
+      return;
+    }
+    clickTimer.current = window.setTimeout(() => {
+      clickTimer.current = undefined;
+      togglePlay();
+      interact();
+    }, DOUBLE_CLICK_MS);
+  };
+
   const label = item.Type === 'Episode' ? [item.SeriesName, episodeLabel(item)].filter(Boolean).join(' · ') : '';
   const subtitleText = subSel >= 0 ? activeCueText(cues, now - subOffset / 1000) : '';
   return (
@@ -363,7 +571,10 @@ export function Player({
           <p class="empty">Couldn't play this video.</p>
         </div>
       ) : (
-        <div class={'player-stage' + (rotated ? ' rotated' : '')}>
+        <div
+          class={'player-stage' + (rotated ? ' rotated' : '') + (mouse && !controlsUp ? ' idle' : '')}
+          onMouseMove={mouse ? onMouseMove : undefined}
+        >
           <video
             ref={video}
             class="player-video"
@@ -371,10 +582,15 @@ export function Player({
             webkit-playsinline=""
             autoPlay
             preload="auto"
-            poster={artUrl(client.serverUrl, item, 'backdrop', 780, 440) || undefined}
-            onTimeUpdate={(e) => setNow((e.target as HTMLVideoElement).currentTime)}
+            poster={(mouse ? artUrl(client.serverUrl, item, 'backdrop', 1920, 1080) : artUrl(client.serverUrl, item, 'backdrop', 780, 440)) || undefined}
+            onTimeUpdate={(e) => {
+              const t = (e.target as HTMLVideoElement).currentTime;
+              if (t > 0) lastTime.current = t;
+              setNow(t);
+            }}
             onPlay={() => setPaused(false)}
             onPause={() => setPaused(true)}
+            onVolumeChange={mouse ? (e) => syncVolume(e.target as HTMLVideoElement) : undefined}
             onWaiting={() => setBuffering(true)}
             onSeeking={() => setBuffering(true)}
             onPlaying={() => setBuffering(false)}
@@ -384,8 +600,7 @@ export function Player({
             onLoadedMetadata={(e) => syncDuration(e.target as HTMLVideoElement)}
             onDurationChange={(e) => syncDuration(e.target as HTMLVideoElement)}
           />
-          {/* A tap on the picture shows or hides the controls. */}
-          <div class="player-tap" onClick={() => (shown && !busy ? setShown(false) : interact())} />
+          <div class="player-tap" onClick={onStageClick} />
           {subtitleText ? (
             <div class={'player-subs' + (controlsUp ? ' raised' : '')}>
               <span>{subtitleText}</span>
@@ -403,13 +618,29 @@ export function Player({
             rotated={rotated}
             tracks={tracks}
             selected={subSel}
+            audioTracks={audioTracks}
+            audioSelected={loaded ? loaded.audioIndex : null}
             onBack={onBack}
             onTogglePlay={togglePlay}
             onSkip={skipBy}
             onSeek={seekTo}
             onSelectSubtitle={chooseSubtitle}
+            onSelectAudio={chooseAudio}
             onBusy={setBusy}
             onInteract={interact}
+            desktop={
+              mouse
+                ? {
+                    volume: vol.volume,
+                    muted: vol.muted,
+                    fullscreen: isFullscreen,
+                    canFullscreen: supportsElementFullscreen(),
+                    onVolume: setVolume,
+                    onToggleMute: toggleMute,
+                    onToggleFullscreen: toggleFullscreen,
+                  }
+                : undefined
+            }
           />
           {intro && (
             <button type="button" class="skip-intro-overlay" onClick={skipIntro}>

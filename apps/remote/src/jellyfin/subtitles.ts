@@ -1,4 +1,5 @@
-import type { MediaSource } from './types';
+import { codecName, joinLabel } from './trackLabel';
+import type { MediaSource, MediaStream } from './types';
 
 export interface SubtitleTrack {
   /** Jellyfin stream index, used in the subtitle URL. */
@@ -16,6 +17,12 @@ export interface Cue {
   text: string;
 }
 
+/** "English · SRT · Forced" for one subtitle stream; `n` numbers streams that carry no language or title. */
+export function subtitleLabel(stream: MediaStream, n: number): string {
+  const codec = codecName(stream.Codec);
+  return joinLabel(stream, [codec, stream.IsForced ? 'Forced' : '', stream.IsDefault ? 'Default' : ''], `Subtitle ${n}`);
+}
+
 /** Text subtitle streams of a source. Image subtitles (PGS, dvdsub) cannot be drawn by us and are left out. */
 export function listSubtitles(source: MediaSource): SubtitleTrack[] {
   const tracks: SubtitleTrack[] = [];
@@ -25,7 +32,7 @@ export function listSubtitles(source: MediaSource): SubtitleTrack[] {
     n += 1;
     tracks.push({
       index: s.Index !== undefined ? s.Index : n,
-      label: s.DisplayTitle || s.Title || s.Language || `Subtitle ${n}`,
+      label: subtitleLabel(s, n),
       lang: s.Language || '',
       isDefault: !!s.IsDefault,
       isForced: !!s.IsForced,

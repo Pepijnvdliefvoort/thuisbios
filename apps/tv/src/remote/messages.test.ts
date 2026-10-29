@@ -148,6 +148,48 @@ describe('autoplay cancel message', () => {
   });
 });
 
+describe('audio and subtitle stream commands', () => {
+  const general = (Name: string, Arguments: unknown) => msg('GeneralCommand', { Name, Arguments });
+  it('parses SetAudioStreamIndex with the index as a string', () => {
+    expect(parseSocketMessage(general('SetAudioStreamIndex', { Index: '2' }))).toEqual({
+      type: 'command',
+      command: { type: 'audioStream', index: 2 },
+    });
+    expect(parseSocketMessage(general('SetAudioStreamIndex', { Index: 3 }))).toEqual({
+      type: 'command',
+      command: { type: 'audioStream', index: 3 },
+    });
+  });
+  it('parses SetSubtitleStreamIndex, where -1 means off', () => {
+    expect(parseSocketMessage(general('SetSubtitleStreamIndex', { Index: '5' }))).toEqual({
+      type: 'command',
+      command: { type: 'subtitleStream', index: 5 },
+    });
+    expect(parseSocketMessage(general('SetSubtitleStreamIndex', { Index: '-1' }))).toEqual({
+      type: 'command',
+      command: { type: 'subtitleStream', index: -1 },
+    });
+  });
+  it('rejects a missing, malformed or out of range index', () => {
+    expect(parseSocketMessage(general('SetAudioStreamIndex', {}))).toBeNull();
+    expect(parseSocketMessage(general('SetAudioStreamIndex', { Index: 'two' }))).toBeNull();
+    expect(parseSocketMessage(general('SetAudioStreamIndex', { Index: '1.5' }))).toBeNull();
+    expect(parseSocketMessage(general('SetAudioStreamIndex', { Index: '-1' }))).toBeNull();
+    expect(parseSocketMessage(general('SetSubtitleStreamIndex', { Index: '-2' }))).toBeNull();
+    expect(parseSocketMessage(general('SetSubtitleStreamIndex', { Index: '99999' }))).toBeNull();
+    expect(parseSocketMessage(msg('GeneralCommand', { Name: 'SetAudioStreamIndex' }))).toBeNull();
+  });
+  it('announces both commands as supported', () => {
+    expect(REMOTE_CAPABILITIES.SupportedCommands).toContain('SetAudioStreamIndex');
+    expect(REMOTE_CAPABILITIES.SupportedCommands).toContain('SetSubtitleStreamIndex');
+  });
+  it('describes them for the debug overlay', () => {
+    expect(describeCommand({ type: 'audioStream', index: 2 })).toBe('Audio stream 2');
+    expect(describeCommand({ type: 'subtitleStream', index: -1 })).toBe('Subtitles off');
+    expect(describeCommand({ type: 'subtitleStream', index: 4 })).toBe('Subtitle stream 4');
+  });
+});
+
 describe('describeCommand', () => {
   it('summarises commands for the overlay', () => {
     expect(describeCommand({ type: 'playstate', command: 'Seek', seekPositionTicks: 6000000000 })).toBe('Playstate Seek 600s');

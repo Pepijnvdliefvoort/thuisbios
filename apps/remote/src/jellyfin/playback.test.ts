@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildStaticUrl, createThrottle, resolveStreamUrl, selectPlayMethod } from './playback';
+import { buildStaticUrl, createThrottle, resolveStreamUrl, selectPlayMethod, withAudioStreamIndex } from './playback';
 import type { MediaSource } from './types';
 
 const params = { itemId: 'item1', deviceId: 'dev', playSessionId: 'ps' };
@@ -27,8 +27,41 @@ describe('selectPlayMethod', () => {
     expect(selectPlayMethod({ ...base, TranscodingUrl: '/videos/item1/stream.mp4' }, params)?.hls).toBe(false);
   });
 
+  it('skips direct play when a non-default audio stream is chosen', () => {
+    const all: MediaSource = {
+      ...base,
+      SupportsDirectPlay: true,
+      SupportsDirectStream: true,
+      DirectStreamUrl: '/Videos/x/stream.mp4?a=b',
+      TranscodingUrl: '/videos/item1/master.m3u8?VideoCodec=h264',
+    };
+    expect(selectPlayMethod(all, { ...params, audioStreamIndex: 3 })).toEqual({
+      method: 'DirectStream',
+      url: '/Videos/x/stream.mp4?a=b&AudioStreamIndex=3',
+      hls: false,
+    });
+    const { SupportsDirectStream, ...noStream } = all;
+    expect(SupportsDirectStream).toBe(true);
+    expect(selectPlayMethod(noStream, { ...params, audioStreamIndex: 3 })).toMatchObject({
+      method: 'Transcode',
+      url: '/videos/item1/master.m3u8?VideoCodec=h264&AudioStreamIndex=3',
+      hls: true,
+    });
+  });
+
+  it('falls back to the default order when the server offers no remux for a chosen audio stream', () => {
+    expect(selectPlayMethod({ ...base, SupportsDirectPlay: true }, { ...params, audioStreamIndex: 3 })?.method).toBe('DirectPlay');
+  });
+
   it('returns null when nothing is playable', () => {
     expect(selectPlayMethod(base, params)).toBeNull();
+  });
+});
+
+describe('withAudioStreamIndex', () => {
+  it('adds the parameter, or replaces one the server already put there', () => {
+    expect(withAudioStreamIndex('/a/master.m3u8', 2)).toBe('/a/master.m3u8?AudioStreamIndex=2');
+    expect(withAudioStreamIndex('/a/master.m3u8?X=1&audioStreamIndex=1&Y=2', 2)).toBe('/a/master.m3u8?X=1&Y=2&AudioStreamIndex=2');
   });
 });
 
