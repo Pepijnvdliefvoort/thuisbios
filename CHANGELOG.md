@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.6.0...v0.7.0) (2026-10-29)
+
+
+### Features
+
+* **remote:** separate TV and account controls in the header ([#86](https://github.com/Pepijnvdliefvoort/thuisbios/issues/86)) ([75d2112](https://github.com/Pepijnvdliefvoort/thuisbios/commit/75d21125f143002e747c5732ca1223036843e407))
+* **remote:** separate TV and account controls in the header ([#86](https://github.com/Pepijnvdliefvoort/thuisbios/issues/86)) ([#87](https://github.com/Pepijnvdliefvoort/thuisbios/issues/87)) ([8560d30](https://github.com/Pepijnvdliefvoort/thuisbios/commit/8560d308f93f817abc42bf45d4cba99cb8618ffd))
+
 ## [0.6.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.5.1...v0.6.0) (2026-10-29)
 
 
