@@ -15,13 +15,14 @@ const source: MediaSource = {
 };
 
 describe('listSubtitles', () => {
-  it('lists text subtitle streams only', () => {
+  it('lists text streams, and image streams marked as burned in', () => {
     const list = listSubtitles(source);
-    expect(list.map((t) => t.index)).toEqual([2, 3, 3]);
-    expect(list[0]).toEqual({ index: 2, label: 'English \u00b7 Default', lang: 'eng', isDefault: true, isForced: false });
+    expect(list.map((t) => t.index)).toEqual([2, 3, 4, 4]);
+    expect(list[0]).toEqual({ index: 2, label: 'English \u00b7 Default', lang: 'eng', isDefault: true, isForced: false, burnIn: false });
     expect(list[1].label).toBe('Dutch \u00b7 Forced');
     expect(list[1].isForced).toBe(true);
-    expect(list[2].label).toBe('German');
+    expect(list[2]).toMatchObject({ label: 'French (burned in)', lang: 'fre', burnIn: true });
+    expect(list[3]).toMatchObject({ label: 'German', burnIn: false });
   });
 
   it('is empty without streams', () => {
@@ -57,15 +58,36 @@ describe('pickInitialSubtitle', () => {
       { Type: 'Subtitle', Index: 2, Language: 'nld' },
     ],
   });
+  const mixed = listSubtitles({
+    Id: 'a',
+    MediaStreams: [
+      { Type: 'Subtitle', Index: 1, Language: 'eng', Codec: 'hdmv_pgs_subtitle', IsTextSubtitleStream: false },
+      { Type: 'Subtitle', Index: 2, Language: 'eng', IsTextSubtitleStream: true },
+      { Type: 'Subtitle', Index: 3, Language: 'fre', IsTextSubtitleStream: false },
+    ],
+  });
   it('prefers a forced track', () => {
     expect(pickInitialSubtitle(listSubtitles(source), 'eng')).toBe(1);
+    expect(pickInitialSubtitle(listSubtitles(source), null, 2)).toBe(1);
   });
-  it('follows the remembered language', () => {
+  it('follows the remembered language, text before image', () => {
     expect(pickInitialSubtitle(list, 'NLD')).toBe(1);
+    expect(pickInitialSubtitle(mixed, 'eng')).toBe(1);
+    expect(pickInitialSubtitle(mixed, 'fre')).toBe(2);
   });
-  it('is off when never chosen, chosen off or the language is missing', () => {
+  it('takes the default track when the viewer never chose', () => {
+    expect(pickInitialSubtitle(list, null, 2)).toBe(1);
+    expect(pickInitialSubtitle(mixed, null, 3)).toBe(2);
+  });
+  it('lets a remembered choice, Off included, win over the default', () => {
+    expect(pickInitialSubtitle(list, 'eng', 2)).toBe(0);
+    expect(pickInitialSubtitle(list, '', 2)).toBe(-1);
+    expect(pickInitialSubtitle(list, 'spa', 2)).toBe(-1);
+  });
+  it('is off without a remembered language or a default in the list', () => {
     expect(pickInitialSubtitle(list, null)).toBe(-1);
-    expect(pickInitialSubtitle(list, '')).toBe(-1);
+    expect(pickInitialSubtitle(list, null, -1)).toBe(-1);
+    expect(pickInitialSubtitle(list, null, 9)).toBe(-1);
     expect(pickInitialSubtitle(list, 'spa')).toBe(-1);
   });
 });

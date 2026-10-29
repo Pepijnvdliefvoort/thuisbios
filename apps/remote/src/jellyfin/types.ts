@@ -141,4 +141,6 @@ export interface PlaybackReport {
   isPaused?: boolean;
   /** Jellyfin stream index of the audio being played. */
   audioStreamIndex?: number;
+  /** Jellyfin stream index of the subtitles shown (ours or burned in); -1 for none. */
+  subtitleStreamIndex?: number;
 }

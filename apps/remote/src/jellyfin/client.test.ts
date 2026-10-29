@@ -107,11 +107,11 @@ describe('client', () => {
     await client.playbackInfo('u1', 'i1', profile);
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(
-      'http://pc/Items/i%201/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=true&EnableDirectStream=true&EnableTranscoding=true&StartTimeTicks=600000000',
+      'http://pc/Items/i%201/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=true&EnableDirectStream=true&EnableTranscoding=true&AllowVideoStreamCopy=false&StartTimeTicks=600000000&SubtitleStreamIndex=-1',
     );
     expect(init.method).toBe('POST');
     const body = JSON.parse(init.body as string);
-    expect(body).toMatchObject({ UserId: 'u1', StartTimeTicks: 600000000, EnableTranscoding: true });
+    expect(body).toMatchObject({ UserId: 'u1', StartTimeTicks: 600000000, EnableTranscoding: true, AllowVideoStreamCopy: false, SubtitleStreamIndex: -1 });
     expect(body.DeviceProfile.Name).toBe(profile.Name);
     expect((fetchFn.mock.calls[1] as unknown as [string])[0]).not.toContain('StartTimeTicks');
     expect(JSON.parse((fetchFn.mock.calls[1] as unknown as [string, RequestInit])[1].body as string)).not.toHaveProperty('StartTimeTicks');
@@ -123,9 +123,32 @@ describe('client', () => {
     await client.playbackInfo('u1', 'i1', buildPhoneProfile(() => false), { audioStreamIndex: 3, directPlay: false });
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(
-      'http://pc/Items/i1/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=false&EnableDirectStream=true&EnableTranscoding=true&AudioStreamIndex=3',
+      'http://pc/Items/i1/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=false&EnableDirectStream=true&EnableTranscoding=true&AllowVideoStreamCopy=false&AudioStreamIndex=3&SubtitleStreamIndex=-1',
     );
-    expect(JSON.parse(init.body as string)).toMatchObject({ AudioStreamIndex: 3, EnableDirectPlay: false });
+    expect(JSON.parse(init.body as string)).toMatchObject({ AudioStreamIndex: 3, EnableDirectPlay: false, SubtitleStreamIndex: -1 });
+  });
+
+  it('sends no subtitle stream for a probe (null)', async () => {
+    const fetchFn = vi.fn(async () => ok({ MediaSources: [], PlaySessionId: 'ps' }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    await client.playbackInfo('u1', 'i1', buildPhoneProfile(() => false), { subtitleStreamIndex: null });
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).not.toContain('SubtitleStreamIndex');
+    expect(JSON.parse(init.body as string)).not.toHaveProperty('SubtitleStreamIndex');
+  });
+
+  it('burns in a given subtitle stream, and never by default', async () => {
+    const fetchFn = vi.fn(async () => ok({ MediaSources: [], PlaySessionId: 'ps' }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    const profile = buildPhoneProfile(() => false);
+    await client.playbackInfo('u1', 'i1', profile, { subtitleStreamIndex: 5, directPlay: false });
+    await client.playbackInfo('u1', 'i1', profile, { audioStreamIndex: 2 });
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain('&SubtitleStreamIndex=5');
+    expect(JSON.parse(init.body as string)).toMatchObject({ SubtitleStreamIndex: 5 });
+    const [url2, init2] = fetchFn.mock.calls[1] as unknown as [string, RequestInit];
+    expect(url2).toContain('&SubtitleStreamIndex=-1');
+    expect(JSON.parse(init2.body as string)).toMatchObject({ SubtitleStreamIndex: -1 });
   });
 
   it('lists the streams of the first media source of an item', async () => {
@@ -164,6 +187,8 @@ describe('client', () => {
     });
     await client.reportProgress({ ...report, audioStreamIndex: 2 });
     expect(JSON.parse((fetchFn.mock.calls[4] as unknown as [string, RequestInit])[1].body as string)).toMatchObject({ AudioStreamIndex: 2 });
+    await client.reportProgress({ ...report, subtitleStreamIndex: -1 });
+    expect(JSON.parse((fetchFn.mock.calls[5] as unknown as [string, RequestInit])[1].body as string)).toMatchObject({ SubtitleStreamIndex: -1 });
     expect(calls[2][1]).not.toHaveProperty('keepalive');
     expect(calls[3][1].keepalive).toBe(true);
   });

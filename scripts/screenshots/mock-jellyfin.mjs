@@ -125,13 +125,14 @@ function nextUpFor(seriesId) {
 // The fake TV is playing this episode at ~40%.
 const TV_ITEM = 'series-e-s1e5';
 
-// Streams every item "has", for the audio and subtitle sheet: two audio tracks and two text subtitles.
+// Streams every item "has", for the audio and subtitle sheet: two audio tracks, two text subtitles and one image subtitle.
 const STREAMS = [
   { Type: 'Video', Index: 0, Codec: 'h264' },
   { Type: 'Audio', Index: 1, Language: 'eng', Codec: 'ac3', Channels: 6, IsDefault: true },
   { Type: 'Audio', Index: 2, Language: 'nld', Codec: 'aac', Channels: 2 },
   { Type: 'Subtitle', Index: 3, Language: 'eng', Codec: 'subrip', IsTextSubtitleStream: true },
   { Type: 'Subtitle', Index: 4, Language: 'nld', Codec: 'subrip', IsTextSubtitleStream: true, IsForced: true },
+  { Type: 'Subtitle', Index: 5, Language: 'fra', Codec: 'hdmv_pgs_subtitle', IsTextSubtitleStream: false },
 ];
 
 function sessions() {
@@ -383,7 +384,9 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
     }
     if (/^\/MediaSegments\/[^/]+$/.test(path)) return json({ Items: [], TotalRecordCount: 0 });
     if ((m = /^\/Items\/([^/]+)\/PlaybackInfo$/.exec(path))) {
-      return json({ MediaSources: [{ Id: m[1], SupportsDirectPlay: false, SupportsTranscoding: false, MediaStreams: [] }], PlaySessionId: 'mock-play' });
+      // Like Jellyfin: the default subtitle track is only the server's own pick when none was asked for.
+      const asked = q.get('SubtitleStreamIndex');
+      return json({ MediaSources: [{ Id: m[1], SupportsDirectPlay: true, SupportsTranscoding: false, MediaStreams: STREAMS, DefaultAudioStreamIndex: 1, DefaultSubtitleStreamIndex: asked === null ? 3 : Number(asked) }], PlaySessionId: 'mock-play' });
     }
     if ((m = /^\/Items\/([^/]+)\/Images\/(Primary|Backdrop|Thumb|Logo)(?:\/\d+)?$/.exec(path))) {
       const it = items.get(m[1]);

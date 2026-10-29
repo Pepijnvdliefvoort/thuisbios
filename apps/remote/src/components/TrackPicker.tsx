@@ -43,7 +43,8 @@ export function TrackPicker({ itemId }: { itemId: string }) {
 
   const source = { Id: itemId, MediaStreams: streams || [] };
   const audio = listAudio(source);
-  const subs = listSubtitles(source);
+  // The TV only shows text subtitles; burned-in image tracks are a phone-player thing.
+  const subs = listSubtitles(source).filter((t) => !t.burnIn);
   const audioNow = np && np.audioIndex !== undefined ? np.audioIndex : defaultAudioIndex(audio);
   const subNow = np && np.subtitleIndex !== undefined ? np.subtitleIndex : -1;
 
