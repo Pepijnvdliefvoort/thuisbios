@@ -14,6 +14,8 @@ export interface StreamParams {
   playSessionId?: string;
   /** A non-default audio stream was chosen: the original file cannot be played as is, so DirectPlay is skipped. */
   audioStreamIndex?: number;
+  /** An image subtitle to burn in (Jellyfin stream index): only a transcode can do that. Missing or -1 for none. */
+  subtitleStreamIndex?: number;
 }
 
 /** URL for a direct (static) stream of the original file. */
@@ -33,28 +35,36 @@ export function buildStaticUrl(source: MediaSource, params: StreamParams): strin
  * Returns null when the server offers nothing playable.
  */
 export function selectPlayMethod(source: MediaSource, params: StreamParams): PlaySelection | null {
-  // A browser cannot pick another audio stream out of a file: the server has to remux or transcode it.
   const audio = params.audioStreamIndex;
+  const sub = params.subtitleStreamIndex !== undefined ? params.subtitleStreamIndex : -1;
+  // Burning in subtitles re-encodes the picture: only the transcode can do that.
+  if (sub >= 0 && source.TranscodingUrl) return transcodeSelection(source.TranscodingUrl, source, audio, sub);
+  // A browser cannot pick another audio stream out of a file: the server has to remux or transcode it.
   if (audio !== undefined) {
     if (source.SupportsDirectStream && source.DirectStreamUrl) {
-      return { method: 'DirectStream', url: withAudioStreamIndex(source.DirectStreamUrl, audio), hls: false };
+      return { method: 'DirectStream', url: withAudioStreamIndex(withSubtitleStreamIndex(source.DirectStreamUrl, sub), audio), hls: false };
     }
-    if (source.TranscodingUrl) return transcodeSelection(source.TranscodingUrl, source, audio);
+    if (source.TranscodingUrl) return transcodeSelection(source.TranscodingUrl, source, audio, sub);
   }
   if (source.SupportsDirectPlay) {
     return { method: 'DirectPlay', url: buildStaticUrl(source, params), hls: false };
   }
   if (source.SupportsDirectStream) {
-    return { method: 'DirectStream', url: source.DirectStreamUrl ?? buildStaticUrl(source, params), hls: false };
+    return {
+      method: 'DirectStream',
+      url: source.DirectStreamUrl ? withSubtitleStreamIndex(source.DirectStreamUrl, sub) : buildStaticUrl(source, params),
+      hls: false,
+    };
   }
   const transcodeUrl = source.TranscodingUrl;
-  if (transcodeUrl) return transcodeSelection(transcodeUrl, source, audio);
+  if (transcodeUrl) return transcodeSelection(transcodeUrl, source, audio, sub);
   return null;
 }
 
-function transcodeSelection(url: string, source: MediaSource, audio: number | undefined): PlaySelection {
+function transcodeSelection(url: string, source: MediaSource, audio: number | undefined, sub: number): PlaySelection {
   const hls = source.TranscodingSubProtocol === 'hls' || /\.m3u8(\?|$)/i.test(url);
-  return { method: 'Transcode', url: audio === undefined ? url : withAudioStreamIndex(url, audio), hls };
+  const withSub = withSubtitleStreamIndex(url, sub);
+  return { method: 'Transcode', url: audio === undefined ? withSub : withAudioStreamIndex(withSub, audio), hls };
 }
 
 /** Makes sure a stream URL asks for this audio stream (the server normally adds it itself; this is the safety net). */
@@ -63,6 +73,20 @@ export function withAudioStreamIndex(url: string, index: number): string {
   const kept = query.split('&').filter((pair) => pair !== '' && pair.split('=')[0].toLowerCase() !== 'audiostreamindex');
   kept.push(`AudioStreamIndex=${index}`);
   return `${path}?${kept.join('&')}`;
+}
+
+/**
+ * Makes sure a stream URL agrees with the subtitle choice (safety net, like `withAudioStreamIndex`): index -1 drops
+ * SubtitleStreamIndex and SubtitleMethod so nothing is burned in; another index replaces SubtitleStreamIndex.
+ */
+export function withSubtitleStreamIndex(url: string, index: number): string {
+  const [path, query = ''] = url.split('?');
+  const kept = query.split('&').filter((pair) => {
+    const key = pair.split('=')[0].toLowerCase();
+    return pair !== '' && key !== 'subtitlestreamindex' && !(index < 0 && key === 'subtitlemethod');
+  });
+  if (index >= 0) kept.push(`SubtitleStreamIndex=${index}`);
+  return kept.length > 0 ? `${path}?${kept.join('&')}` : path;
 }
 
 /** Makes a server-relative URL absolute and adds the access token (a <video> cannot send headers). */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildStaticUrl, createThrottle, resolveStreamUrl, selectPlayMethod, withAudioStreamIndex } from './playback';
+import { buildStaticUrl, createThrottle, resolveStreamUrl, selectPlayMethod, withAudioStreamIndex, withSubtitleStreamIndex } from './playback';
 import type { MediaSource } from './types';
 
 const params = { itemId: 'item1', deviceId: 'dev', playSessionId: 'ps' };
@@ -53,6 +53,25 @@ describe('selectPlayMethod', () => {
     expect(selectPlayMethod({ ...base, SupportsDirectPlay: true }, { ...params, audioStreamIndex: 3 })?.method).toBe('DirectPlay');
   });
 
+  it('transcodes to burn in an image subtitle, and keeps the URL in step with the choice', () => {
+    const all: MediaSource = {
+      ...base,
+      SupportsDirectPlay: true,
+      SupportsDirectStream: true,
+      DirectStreamUrl: '/Videos/x/stream.mp4?a=b',
+      TranscodingUrl: '/videos/item1/master.m3u8?VideoCodec=h264&SubtitleStreamIndex=2&SubtitleMethod=Encode',
+    };
+    expect(selectPlayMethod(all, { ...params, subtitleStreamIndex: 4 })).toEqual({
+      method: 'Transcode',
+      url: '/videos/item1/master.m3u8?VideoCodec=h264&SubtitleMethod=Encode&SubtitleStreamIndex=4',
+      hls: true,
+    });
+    // No burn-in asked: a transcode URL the server filled with a default track is cleaned.
+    const { SupportsDirectPlay, SupportsDirectStream, ...transcode } = all;
+    expect(SupportsDirectPlay && SupportsDirectStream).toBe(true);
+    expect(selectPlayMethod(transcode, params)?.url).toBe('/videos/item1/master.m3u8?VideoCodec=h264');
+  });
+
   it('returns null when nothing is playable', () => {
     expect(selectPlayMethod(base, params)).toBeNull();
   });
@@ -62,6 +81,19 @@ describe('withAudioStreamIndex', () => {
   it('adds the parameter, or replaces one the server already put there', () => {
     expect(withAudioStreamIndex('/a/master.m3u8', 2)).toBe('/a/master.m3u8?AudioStreamIndex=2');
     expect(withAudioStreamIndex('/a/master.m3u8?X=1&audioStreamIndex=1&Y=2', 2)).toBe('/a/master.m3u8?X=1&Y=2&AudioStreamIndex=2');
+  });
+});
+
+describe('withSubtitleStreamIndex', () => {
+  it('drops the subtitle parameters for -1', () => {
+    expect(withSubtitleStreamIndex('/a/master.m3u8?X=1&SubtitleStreamIndex=2&subtitleMethod=Encode&Y=2', -1)).toBe('/a/master.m3u8?X=1&Y=2');
+    expect(withSubtitleStreamIndex('/a/stream.mp4?SubtitleMethod=Encode', -1)).toBe('/a/stream.mp4');
+    expect(withSubtitleStreamIndex('/a/stream.mp4', -1)).toBe('/a/stream.mp4');
+  });
+  it('sets the stream for another index', () => {
+    expect(withSubtitleStreamIndex('/a/master.m3u8?X=1&subtitleStreamIndex=2&SubtitleMethod=Encode', 4)).toBe(
+      '/a/master.m3u8?X=1&SubtitleMethod=Encode&SubtitleStreamIndex=4',
+    );
   });
 });
 

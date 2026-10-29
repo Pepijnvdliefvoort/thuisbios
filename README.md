@@ -167,12 +167,17 @@ Without a TV connected, the play buttons play the video on the phone itself: dir
 phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
 no native HLS). The phone plays in the app's own player, which fills the screen: tap the picture to
 show or hide the controls (play/pause, -10 s / +10 s, a scrub bar and a subtitles picker). Text
-subtitles are drawn by the app itself and the app remembers the subtitle language you picked; image
-subtitles (the kind stored as pictures on some discs) are not supported. On Android the app goes
-fullscreen and locks landscape. An iPhone cannot do that, so when the phone is held upright the
+subtitles are drawn by the app itself and the app remembers the subtitle language you picked.
+Without a choice yet, the player starts with the track Jellyfin would pick for you (from your
+Jellyfin subtitle settings), as before. Subtitles are never burned into the picture unless you pick
+one that has to be: image subtitles (the kind stored as pictures on some discs) are listed with
+"(burned in)" and picking one restarts the video at the same spot with that track in the picture,
+which makes the server convert the video. Picking a text track or Off again restarts it once more
+without burned-in subtitles. The subtitle timing only applies to text subtitles. On Android the app
+goes fullscreen and locks landscape. An iPhone cannot do that, so when the phone is held upright the
 player turns the picture sideways by itself. This works with rotation lock on. iOS still shows the
-status bar and home indicator in their upright places, and swipe gestures such as Control Center stay
-upright. The phone reports its progress to Jellyfin, so it counts toward Resume watching.
+status bar and home indicator in their upright places, and swipe gestures such as Control Center
+stay upright. The phone reports its progress to Jellyfin, so it counts toward Resume watching.
 
 The CC button opens an "Audio & subtitles" menu. Items with two or more audio tracks get an Audio
 section: picking one asks the server for that track (a remux or transcode, because a browser cannot

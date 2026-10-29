@@ -58,6 +58,10 @@ interface Loaded {
  * AudioStreamIndex (and direct play off, so the server remuxes or transcodes) and restarts the stream at the
  * current position. The old play session reports Stopped and the new one Started, as for any new stream.
  *
+ * Subtitles: text tracks are drawn by us (WebVTT) and never need a new stream. PlaybackInfo always asks for
+ * SubtitleStreamIndex=-1, or else Jellyfin burns in the item's default track. An image track (PGS, dvdsub) can only be
+ * burned in: choosing one restarts the stream like an audio switch, and so does leaving it for a text track or Off.
+ *
  * The video is always inline with our own controls and subtitles (see PlayerControls). iPhone cannot go
  * fullscreen or lock the orientation, so when the viewport is portrait the whole stage is turned 90° with CSS
  * (only on a touch device: a narrow desktop window never rotates).
@@ -98,7 +102,7 @@ export function Player({
   // Mouse only: the video's volume and whether the page is fullscreen.
   const [vol, setVol] = useState({ volume: 1, muted: false });
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const lastSub = useRef(0);
+  const lastSub = useRef(-1);
   const lastMove = useRef(0);
   const clickTimer = useRef<number | undefined>(undefined);
   const fsChangedAt = useRef(0);
@@ -107,14 +111,19 @@ export function Player({
   const [cues, setCues] = useState<Cue[]>([]);
   // Audio: the stream asked for (null = the server's default), and where a restart should resume.
   const [audioSel, setAudioSel] = useState<number | null>(null);
+  // The image subtitle asked to be burned in (Jellyfin stream index; null = none).
+  const [burnSel, setBurnSel] = useState<number | null>(null);
+  // Never chose a subtitle language: the first request omits SubtitleStreamIndex, so the server reports its own default.
+  const [probe, setProbe] = useState(() => loadSubtitleLang() === null);
   const restartTicks = useRef(startTicks);
   const picked = useRef(false);
-  const subPicked = useRef(false);
   // Last playing position, for reports after the video has been reset.
   const lastTime = useRef(ticksToSeconds(startTicks));
   // Next episode autoplay: the card, and the hooks into the reporting effect below.
   const next = useNextEpisode(client, session.userId, item);
   const [cancelled, setCancelled] = useState(false);
+  // Jellyfin index of the subtitle track chosen (-1 = off), for progress reports.
+  const subIndex = useRef(-1);
   const stopRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const advancing = useRef(false);
 
@@ -157,12 +166,13 @@ export function Player({
   }, []);
 
   const tracks = useMemo(() => (loaded ? listSubtitles(loaded.source) : []), [loaded]);
+  subIndex.current = tracks[subSel] ? tracks[subSel].index : -1;
   const subOffset = useMemo(() => loadSubtitleOffset(item.Id), [item.Id]);
   // Fetch the WebVTT of the chosen track once; a failure just shows no subtitles.
   useEffect(() => {
     setCues([]);
     const track = tracks[subSel];
-    if (!loaded || !track) return;
+    if (!loaded || !track || track.burnIn) return;
     let alive = true;
     fetch(subtitleVttUrl(client.serverUrl, item.Id, loaded.mediaSourceId, track.index, session.token))
       .then((r) => {
@@ -176,17 +186,27 @@ export function Player({
     };
   }, [loaded, tracks, subSel]);
   const audioTracks = useMemo(() => (loaded ? listAudio(loaded.source) : []), [loaded]);
-  const chooseAudio = (index: number) => {
+  /** Notes the current position so the new stream starts there, and shows the loading state. */
+  const prepareRestart = () => {
     const el = video.current;
     if (el && el.currentTime > 0) restartTicks.current = secondsToTicks(el.currentTime);
     else restartTicks.current = secondsToTicks(lastTime.current);
     setBuffering(true);
+  };
+  const chooseAudio = (index: number) => {
+    prepareRestart();
     setAudioSel(index);
     const track = audioTracks.filter((t) => t.index === index)[0];
     if (track && track.lang) saveAudioLang(track.lang);
   };
   const chooseSubtitle = (index: number) => {
     setSubSel(index);
+    // Only a change of the burned-in track needs a new stream: text tracks and Off are drawn by us.
+    const burn = tracks[index] && tracks[index].burnIn ? tracks[index].index : null;
+    if (burn !== burnSel) {
+      prepareRestart();
+      setBurnSel(burn);
+    }
     // '' remembers "off". A track without a language cannot be matched later, so it is not remembered.
     if (index < 0) saveSubtitleLang('');
     else if (tracks[index] && tracks[index].lang) saveSubtitleLang(tracks[index].lang);
@@ -263,7 +283,9 @@ export function Player({
       lastSub.current = subSel;
       chooseSubtitle(-1);
     } else {
-      chooseSubtitle(Math.min(lastSub.current, tracks.length - 1));
+      // Never used yet: the first text track, so a key press does not start a burn-in.
+      const first = lastSub.current >= 0 ? lastSub.current : Math.max(0, tracks.findIndex((t) => !t.burnIn));
+      chooseSubtitle(Math.min(first, tracks.length - 1));
     }
   };
   const onKey = (e: KeyboardEvent) => {
@@ -336,25 +358,34 @@ export function Player({
   // Ask the server how to play this item on this phone.
   useEffect(() => {
     let cancelled = false;
-    const probe = document.createElement('video');
-    const profile = buildPhoneProfile((mime) => probe.canPlayType(mime) !== '');
+    const canPlay = document.createElement('video');
+    const profile = buildPhoneProfile((mime) => canPlay.canPlayType(mime) !== '');
     client
       .playbackInfo(session.userId, item.Id, profile, {
         startTicks: restartTicks.current,
         audioStreamIndex: audioSel === null ? undefined : audioSel,
-        directPlay: audioSel === null ? undefined : false,
+        subtitleStreamIndex: probe ? null : burnSel === null ? undefined : burnSel,
+        directPlay: audioSel === null && burnSel === null ? undefined : false,
       })
       .then((info) => {
         if (cancelled) return;
         const source = info.MediaSources[0];
         const audio = source ? listAudio(source) : [];
         const defaultAudio = defaultAudioIndex(audio);
-        // First answer: if the remembered audio language is not the default one, ask again for that track.
+        // First answer: if the remembered audio language is not the default one, or the first subtitle track is an
+        // image one, ask again for that track (both at once when both apply). A probe always asks again, as its
+        // stream URL may burn in the server's default subtitle track.
         if (source && !picked.current) {
           picked.current = true;
           const want = audioSel === null ? pickInitialAudio(audio, loadAudioLang()) : null;
-          if (want !== null) {
-            setAudioSel(want);
+          const subs = listSubtitles(source);
+          const sel = pickInitialSubtitle(subs, loadSubtitleLang(), source.DefaultSubtitleStreamIndex);
+          setSubSel(sel);
+          const burn = sel >= 0 && subs[sel].burnIn ? subs[sel].index : null;
+          if (want !== null || burn !== null || probe) {
+            if (want !== null) setAudioSel(want);
+            if (burn !== null) setBurnSel(burn);
+            setProbe(false);
             return;
           }
         }
@@ -366,6 +397,7 @@ export function Player({
             deviceId: getDeviceId(),
             playSessionId: info.PlaySessionId,
             audioStreamIndex: audioSel !== null && audioSel !== defaultAudio ? audioSel : undefined,
+            subtitleStreamIndex: burnSel === null ? undefined : burnSel,
           });
         if (!source || !selection) {
           setError(true);
@@ -380,10 +412,6 @@ export function Player({
           audioIndex: chosen,
           startTicks: restartTicks.current,
         });
-        if (!subPicked.current) {
-          subPicked.current = true;
-          setSubSel(pickInitialSubtitle(listSubtitles(source), loadSubtitleLang()));
-        }
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -391,7 +419,7 @@ export function Player({
     return () => {
       cancelled = true;
     };
-  }, [client, session, item.Id, audioSel]);
+  }, [client, session, item.Id, audioSel, burnSel, probe]);
 
   // Attach the stream: native playback, or hls.js where the browser cannot play HLS itself.
   useEffect(() => {
@@ -453,6 +481,7 @@ export function Player({
       playMethod: loaded.selection.method,
       isPaused: el.paused,
       ...(loaded.audioIndex !== null ? { audioStreamIndex: loaded.audioIndex } : {}),
+      subtitleStreamIndex: subIndex.current,
     });
     const send = () => {
       if (started && !stopped) client.reportProgress(report()).catch(() => undefined);
@@ -560,7 +589,7 @@ export function Player({
   };
 
   const label = item.Type === 'Episode' ? [item.SeriesName, episodeLabel(item)].filter(Boolean).join(' · ') : '';
-  const subtitleText = subSel >= 0 ? activeCueText(cues, now - subOffset / 1000) : '';
+  const subtitleText = subSel >= 0 && tracks[subSel] && !tracks[subSel].burnIn ? activeCueText(cues, now - subOffset / 1000) : '';
   return (
     <div class="player">
       {error ? (

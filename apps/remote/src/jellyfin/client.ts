@@ -43,6 +43,12 @@ export interface PlaybackOptions {
   startTicks?: number;
   /** Play this audio stream (Jellyfin stream index) instead of the default one. */
   audioStreamIndex?: number;
+  /**
+   * Burn this image subtitle (Jellyfin stream index) into the video. Left out: -1, which burns in nothing.
+   * null sends nothing, so the server applies the user's subtitle preferences and reports its pick as
+   * DefaultSubtitleStreamIndex (a probe: its stream URL may burn that track in and must not be played).
+   */
+  subtitleStreamIndex?: number | null;
   /** False asks for a remux or transcode: the original file would play its default audio only. */
   directPlay?: boolean;
 }
@@ -95,6 +101,7 @@ const playbackBody = (r: PlaybackReport) => ({
   IsPaused: !!r.isPaused,
   CanSeek: true,
   ...(r.audioStreamIndex !== undefined ? { AudioStreamIndex: r.audioStreamIndex } : {}),
+  ...(r.subtitleStreamIndex !== undefined ? { SubtitleStreamIndex: r.subtitleStreamIndex } : {}),
 });
 
 async function doRequest<T>(
@@ -199,6 +206,8 @@ export function createClient(options: ClientOptions): JellyfinClient {
     },
     playbackInfo: (userId, itemId, profile, options = {}) => {
       const { startTicks, audioStreamIndex } = options;
+      // -1 stops the server from burning in the item's default subtitle track (our own overlay draws text subtitles).
+      const subtitleStreamIndex = options.subtitleStreamIndex === undefined ? -1 : options.subtitleStreamIndex;
       const directPlay = options.directPlay !== false;
       const query = [
         `UserId=${enc(userId)}`,
@@ -208,6 +217,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
         'EnableTranscoding=true',
         ...(startTicks ? [`StartTimeTicks=${startTicks}`] : []),
         ...(audioStreamIndex !== undefined ? [`AudioStreamIndex=${audioStreamIndex}`] : []),
+        ...(subtitleStreamIndex !== null ? [`SubtitleStreamIndex=${subtitleStreamIndex}`] : []),
       ].join('&');
       return req<PlaybackInfoResponse>('POST', `/Items/${enc(itemId)}/PlaybackInfo?${query}`, {
         UserId: userId,
@@ -218,6 +228,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
         AutoOpenLiveStream: false,
         ...(startTicks ? { StartTimeTicks: startTicks } : {}),
         ...(audioStreamIndex !== undefined ? { AudioStreamIndex: audioStreamIndex } : {}),
+        ...(subtitleStreamIndex !== null ? { SubtitleStreamIndex: subtitleStreamIndex } : {}),
         DeviceProfile: profile,
       });
     },
