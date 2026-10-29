@@ -150,11 +150,11 @@ committed.
 `apps/remote` is the phone remote: a PWA ("Thuisbios Remote", Preact + TypeScript + Vite) for modern
 phone browsers (iOS Safari 15+, Android Chrome), so there is no legacy build. The phone is the main
 screen. It connects the TV: scan the QR code on the TV (the link is
-`http://<pc>:4174/?connect=<code>`) or tap "Connect a TV" and type the 6-digit Quick Connect code
+`http://<pc>:4174/?connect=<code>`) or tap "Connect TV" at the top right and type the 6-digit Quick Connect code
 (the phone approves it with `POST /QuickConnect/Authorize`). The Connect a TV screen can also scan the
 TV's QR code with the camera (over plain HTTP it takes a photo; a live viewfinder needs HTTPS). It signs in to
 Jellyfin with just username and password (the server address is derived from the page host; "Change server" reveals it), browses the library (Home rows, Search, Library with
-Movies and Shows, which you can sort (name, date added, release year, rating, runtime) and filter (unwatched, genre, decade), remembered per type, with the app version at the bottom) and shows a details page with Play on TV, Resume on TV, Play from start and Show
+Movies and Shows, which you can sort (name, date added, release year, rating, runtime) and filter (unwatched, genre, decade), remembered per type) and shows a details page with Play on TV, Resume on TV, Play from start and Show
 on TV; series and episode pages have a season selector and an episode list that marks watched episodes and the next or current one, and an episode page links back to its show. Movies, episodes, seasons and whole series can be marked watched or unwatched from the details page. While the TV plays, a mini player bar and a
 Now Playing screen offer play/pause, a scrub slider, -10 s / +10 s, previous and next episode and
 stop. The remote finds the TV through the Jellyfin sessions API (the TV app registers as

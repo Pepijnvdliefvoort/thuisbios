@@ -39,9 +39,10 @@ and you pick everything on the phone.
    - Android: tap the **menu** (three dots) in Chrome, then **Add to Home screen** or
      **Install app**.
 
-From now on, open the remote on the phone, pick a movie and press **Play on TV**. The chip at the top
-right shows the TV with a green dot. Tap the chip to pick a TV if you have more than one, or to
-connect another TV.
+From now on, open the remote on the phone, pick a movie and press **Play on TV**. The button at the top
+right shows the TV with a green dot. Tap it to open the TV sheet: pick a TV if you have more than one,
+adjust the volume, connect another TV or disconnect. The round avatar next to it opens the account
+sheet with Sign out and the app version.
 
 ## What the buttons do
 
@@ -111,7 +112,7 @@ keep running. You set it up once.
    either **The TV reports volume 14** (the slider will show the real volume) or that the volume is
    not reported (the slider still works, but shows an approximate level).
 5. Reload the remote on the phone. A speaker button appears on the Now Playing screen, and a
-   **TV volume** button in the **Your TV** sheet (tap the chip at the top right) so you can also use
+   **TV volume** button in the TV sheet (tap the TV button at the top right) so you can also use
    it when nothing plays. You do not need to restart anything.
 
 Tap the button and a panel slides up from the bottom. Drag the slider to set the volume; the number

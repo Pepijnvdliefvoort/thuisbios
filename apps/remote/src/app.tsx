@@ -3,7 +3,7 @@ import { MiniPlayer } from './components/MiniPlayer';
 import { TabBar } from './components/TabBar';
 import { Toast } from './components/Toast';
 import { TopBar } from './components/TopBar';
-import { TvChip } from './components/TvChip';
+import { HeaderActions } from './components/HeaderActions';
 import { clientInfo } from './clientInfo';
 import { Ctx, type AppContext } from './context';
 import { createClient } from './jellyfin/client';
@@ -192,7 +192,12 @@ function Shell({
         {desktop && !(top && top.kind === 'player') ? <TopBar tab={nav.tab} onChange={nav.setTab} badge={requests.badge} onSignOut={signOut} /> : null}
         <div class={top && top.kind === 'nowPlaying' ? 'scroller fixed' : 'scroller'} id={SCROLLER_ID}>
           <div hidden={open}>
-            {desktop ? null : <TvChip onSignOut={signOut} />}
+            {desktop ? null : (
+              <header class="header">
+                <span class="brand">Thuisbios</span>
+                <HeaderActions onSignOut={signOut} />
+              </header>
+            )}
             <main hidden={nav.tab !== 'home'}>
               <Home />
             </main>

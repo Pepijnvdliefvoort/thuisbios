@@ -101,7 +101,6 @@ export function Library() {
           ))}
         </Grid>
       ) : null}
-      <p class="app-version">Thuisbios v{__APP_VERSION__}</p>
       {sheet === 'sort' ? <SortSheet type={type} view={view} onChange={change} onClose={() => setSheet(null)} /> : null}
       {sheet === 'filter' ? (
         <FilterSheet view={view} genres={genres.data || []} onChange={change} onClear={clear} onClose={() => setSheet(null)} />
