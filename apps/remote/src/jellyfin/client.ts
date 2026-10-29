@@ -68,6 +68,8 @@ export interface JellyfinClient {
   adjacentEpisodes(userId: string, seriesId: string, itemId: string): Promise<BaseItem[]>;
   /** Marks an item as watched, so it leaves Resume watching. */
   markPlayed(userId: string, itemId: string): Promise<void>;
+  /** Marks an item as not watched. On a season or series Jellyfin applies it to every episode. */
+  markUnplayed(userId: string, itemId: string): Promise<void>;
   /** Intro, outro and similar markers (Jellyfin 10.10+ with a plugin). Any error means no segments. */
   mediaSegments(itemId: string): Promise<MediaSegment[]>;
   send(command: Command): Promise<void>;
@@ -174,6 +176,9 @@ export function createClient(options: ClientOptions): JellyfinClient {
       items(`/Shows/${enc(seriesId)}/Episodes?UserId=${enc(userId)}&AdjacentTo=${enc(itemId)}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`),
     markPlayed: async (userId, itemId) => {
       await req<void>('POST', `${user(userId)}/PlayedItems/${enc(itemId)}`);
+    },
+    markUnplayed: async (userId, itemId) => {
+      await req<void>('DELETE', `${user(userId)}/PlayedItems/${enc(itemId)}`);
     },
     sessions: (userId) => req<RemoteSession[]>('GET', `/Sessions?ControllableByUserId=${enc(userId)}&ActiveWithinSeconds=960`),
     mediaSegments: async (itemId) => {

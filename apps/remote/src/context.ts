@@ -13,6 +13,10 @@ export interface AppContext {
   requests: RequestsState;
   /** Increments each time playback ends (TV stopped or phone Player closed), so screens can refresh. */
   playbackEnded: number;
+  /** Increments when the user marks something watched or unwatched, so Home can refresh its rows. */
+  libraryChanged: number;
+  /** Tells Home that watched state changed. */
+  refreshLibrary(): void;
   openItem(id: string): void;
   openNowPlaying(): void;
   /** Plays an item in the app's own player on this device (the phone, or the desktop browser). */

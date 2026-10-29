@@ -44,6 +44,10 @@ describe('client', () => {
     const [purl, init] = played.mock.calls[0] as unknown as [string, RequestInit];
     expect(purl).toBe('http://pc/Users/u1/PlayedItems/e1');
     expect(init.method).toBe('POST');
+    await c2.markUnplayed('u1', 'e1');
+    const [uurl, uinit] = played.mock.calls[1] as unknown as [string, RequestInit];
+    expect(uurl).toBe('http://pc/Users/u1/PlayedItems/e1');
+    expect(uinit.method).toBe('DELETE');
   });
 
   it('sends commands as POST and tolerates empty responses', async () => {
