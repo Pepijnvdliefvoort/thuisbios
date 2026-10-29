@@ -107,6 +107,7 @@ export interface MediaSource {
   TranscodingSubProtocol?: string;
   TranscodingContainer?: string;
   MediaStreams?: MediaStream[];
+  DefaultAudioStreamIndex?: number;
 }
 
 export interface PlaybackInfoResponse {

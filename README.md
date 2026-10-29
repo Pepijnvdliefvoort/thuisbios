@@ -154,8 +154,8 @@ screen. It connects the TV: scan the QR code on the TV (the link is
 (the phone approves it with `POST /QuickConnect/Authorize`). The Connect a TV screen can also scan the
 TV's QR code with the camera (over plain HTTP it takes a photo; a live viewfinder needs HTTPS). It signs in to
 Jellyfin with just username and password (the server address is derived from the page host; "Change server" reveals it), browses the library (Home rows, Search, Library with
-Movies and Shows, with the app version at the bottom) and shows a details page with Play on TV, Resume on TV, Play from start and Show
-on TV; series and episode pages have a season selector and an episode list that marks watched episodes and the next or current one, and an episode page links back to its show. While the TV plays, a mini player bar and a
+Movies and Shows, which you can sort (name, date added, release year, rating, runtime) and filter (unwatched, genre, decade), remembered per type, with the app version at the bottom) and shows a details page with Play on TV, Resume on TV, Play from start and Show
+on TV; series and episode pages have a season selector and an episode list that marks watched episodes and the next or current one, and an episode page links back to its show. Movies, episodes, seasons and whole series can be marked watched or unwatched from the details page. While the TV plays, a mini player bar and a
 Now Playing screen offer play/pause, a scrub slider, -10 s / +10 s, previous and next episode and
 stop. The remote finds the TV through the Jellyfin sessions API (the TV app registers as
 remote-controllable) and polls `/Sessions` every 2 seconds while the page is visible.
@@ -167,16 +167,33 @@ Without a TV connected, the play buttons play the video on the phone itself: dir
 phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
 no native HLS). The phone plays in the app's own player, which fills the screen: tap the picture to
 show or hide the controls (play/pause, -10 s / +10 s, a scrub bar and a subtitles picker). Text
-subtitles are drawn by the app itself and the app remembers the subtitle language you picked; image
-subtitles (the kind stored as pictures on some discs) are not supported. On Android the app goes
-fullscreen and locks landscape. An iPhone cannot do that, so when the phone is held upright the
+subtitles are drawn by the app itself and the app remembers the subtitle language you picked.
+Without a choice yet, the player starts with the track Jellyfin would pick for you (from your
+Jellyfin subtitle settings), as before. Subtitles are never burned into the picture unless you pick
+one that has to be: image subtitles (the kind stored as pictures on some discs) are listed with
+"(burned in)" and picking one restarts the video at the same spot with that track in the picture,
+which makes the server convert the video. Picking a text track or Off again restarts it once more
+without burned-in subtitles. The subtitle timing only applies to text subtitles. On Android the app
+goes fullscreen and locks landscape. An iPhone cannot do that, so when the phone is held upright the
 player turns the picture sideways by itself. This works with rotation lock on. iOS still shows the
-status bar and home indicator in their upright places, and swipe gestures such as Control Center stay
-upright. The phone reports its progress to Jellyfin, so it counts toward Resume watching.
+status bar and home indicator in their upright places, and swipe gestures such as Control Center
+stay upright. The phone reports its progress to Jellyfin, so it counts toward Resume watching.
+
+The CC button opens an "Audio & subtitles" menu. Items with two or more audio tracks get an Audio
+section: picking one asks the server for that track (a remux or transcode, because a browser cannot
+switch audio inside a file) and continues from the same spot. The app remembers the audio language
+you picked and uses it the next time when the item has that language.
+
+The app also works in a desktop browser (a wide window with a mouse). The tabs move to a top bar,
+rows get arrow buttons, and Play and Resume use the app's own player on that computer even when a TV is
+connected ("Play on TV" sits next to them). The player has volume and fullscreen buttons and these keys:
+Space or K play/pause, Left/Right or J/L -10 s/+10 s, Up/Down volume, M mute, F fullscreen,
+C subtitles on/off and Esc to leave. A click on the picture plays or pauses, a double click toggles
+fullscreen. Phones keep their own layout.
 
 The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
 remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on
-TV" and Disconnect (sign out).
+TV", audio and subtitle track choice and Disconnect (sign out).
 
 Every request uses the configured absolute server URL and there is no service worker, so the app can
 be wrapped with Capacitor later. A volume button (Now Playing and the TV sheet) opens a bottom sheet
@@ -191,10 +208,15 @@ level instead. The TV address and pairing token live in
 the TV once. Follow [docs/remote/setup.md](docs/remote/setup.md) to run it on the PC and add it to
 the phone's home screen.
 
-Now Playing also has a "Subtitles" button that opens a sheet to shift the subtitle timing in steps of
+Now Playing also has a "Sub timing" button that opens a sheet to shift the subtitle timing in steps of
 0.1 s or 0.5 s (positive is later). The phone sends the absolute offset for the playing item as a private
 Jellyfin display message (`thuisbios:subtitle-offset:<itemId>:<ms>`), the TV shifts the WebVTT cues and
 remembers the offset per item. It only works for text subtitles.
+
+Now Playing also has an "Audio & subs" button (next to "Sub timing") that lists the audio and subtitle tracks of what the
+TV plays, with the current ones checked (the TV reports them in its progress). Tapping a track sends
+Jellyfin's standard `SetAudioStreamIndex` or `SetSubtitleStreamIndex` command to the TV. The TV switches
+text subtitles at once and restarts the stream at the same position for another audio track.
 
 The same relay serves title requests under `/api/requests`: when a search finds nothing, anyone signed
 in can request a movie or show (just a title; picking a suggestion adds year, type and poster), and the Requests tab shows their

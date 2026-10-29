@@ -44,6 +44,10 @@ describe('client', () => {
     const [purl, init] = played.mock.calls[0] as unknown as [string, RequestInit];
     expect(purl).toBe('http://pc/Users/u1/PlayedItems/e1');
     expect(init.method).toBe('POST');
+    await c2.markUnplayed('u1', 'e1');
+    const [uurl, uinit] = played.mock.calls[1] as unknown as [string, RequestInit];
+    expect(uurl).toBe('http://pc/Users/u1/PlayedItems/e1');
+    expect(uinit.method).toBe('DELETE');
   });
 
   it('sends commands as POST and tolerates empty responses', async () => {
@@ -85,22 +89,76 @@ describe('client', () => {
     expect(urls[2]).toContain('&Limit=30');
   });
 
+  it('sorts and filters the library, and lists genres', async () => {
+    const fetchFn = vi.fn(async () => ok({ Items: [{ Id: 'g', Name: 'Drama' }], TotalRecordCount: 1 }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    await client.library('u1', 'Series', undefined, { sort: 'rating', unwatched: true, genre: 'Drama', decade: null });
+    expect(await client.genres('u1', 'Series')).toEqual(['Drama']);
+    const urls = fetchFn.mock.calls.map((c) => (c as unknown as [string])[0]);
+    expect(urls[0]).toContain('IncludeItemTypes=Series&Recursive=true&SortBy=CommunityRating,SortName&SortOrder=Descending&Filters=IsUnplayed&Genres=Drama&Fields=');
+    expect(urls[1]).toBe('http://pc/Genres?UserId=u1&IncludeItemTypes=Series&Recursive=true&SortBy=SortName');
+  });
+
   it('asks for playback info with the device profile and an optional start position', async () => {
     const fetchFn = vi.fn(async () => ok({ MediaSources: [], PlaySessionId: 'ps' }));
     const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
     const profile = buildPhoneProfile(() => false);
-    await client.playbackInfo('u1', 'i 1', profile, 600000000);
+    await client.playbackInfo('u1', 'i 1', profile, { startTicks: 600000000 });
     await client.playbackInfo('u1', 'i1', profile);
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(
-      'http://pc/Items/i%201/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=true&EnableDirectStream=true&EnableTranscoding=true&StartTimeTicks=600000000',
+      'http://pc/Items/i%201/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=true&EnableDirectStream=true&EnableTranscoding=true&AllowVideoStreamCopy=false&StartTimeTicks=600000000&SubtitleStreamIndex=-1',
     );
     expect(init.method).toBe('POST');
     const body = JSON.parse(init.body as string);
-    expect(body).toMatchObject({ UserId: 'u1', StartTimeTicks: 600000000, EnableTranscoding: true });
+    expect(body).toMatchObject({ UserId: 'u1', StartTimeTicks: 600000000, EnableTranscoding: true, AllowVideoStreamCopy: false, SubtitleStreamIndex: -1 });
     expect(body.DeviceProfile.Name).toBe(profile.Name);
     expect((fetchFn.mock.calls[1] as unknown as [string])[0]).not.toContain('StartTimeTicks');
     expect(JSON.parse((fetchFn.mock.calls[1] as unknown as [string, RequestInit])[1].body as string)).not.toHaveProperty('StartTimeTicks');
+  });
+
+  it('asks for a given audio stream with direct play off', async () => {
+    const fetchFn = vi.fn(async () => ok({ MediaSources: [], PlaySessionId: 'ps' }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    await client.playbackInfo('u1', 'i1', buildPhoneProfile(() => false), { audioStreamIndex: 3, directPlay: false });
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(
+      'http://pc/Items/i1/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=false&EnableDirectStream=true&EnableTranscoding=true&AllowVideoStreamCopy=false&AudioStreamIndex=3&SubtitleStreamIndex=-1',
+    );
+    expect(JSON.parse(init.body as string)).toMatchObject({ AudioStreamIndex: 3, EnableDirectPlay: false, SubtitleStreamIndex: -1 });
+  });
+
+  it('sends no subtitle stream for a probe (null)', async () => {
+    const fetchFn = vi.fn(async () => ok({ MediaSources: [], PlaySessionId: 'ps' }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    await client.playbackInfo('u1', 'i1', buildPhoneProfile(() => false), { subtitleStreamIndex: null });
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).not.toContain('SubtitleStreamIndex');
+    expect(JSON.parse(init.body as string)).not.toHaveProperty('SubtitleStreamIndex');
+  });
+
+  it('burns in a given subtitle stream, and never by default', async () => {
+    const fetchFn = vi.fn(async () => ok({ MediaSources: [], PlaySessionId: 'ps' }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    const profile = buildPhoneProfile(() => false);
+    await client.playbackInfo('u1', 'i1', profile, { subtitleStreamIndex: 5, directPlay: false });
+    await client.playbackInfo('u1', 'i1', profile, { audioStreamIndex: 2 });
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain('&SubtitleStreamIndex=5');
+    expect(JSON.parse(init.body as string)).toMatchObject({ SubtitleStreamIndex: 5 });
+    const [url2, init2] = fetchFn.mock.calls[1] as unknown as [string, RequestInit];
+    expect(url2).toContain('&SubtitleStreamIndex=-1');
+    expect(JSON.parse(init2.body as string)).toMatchObject({ SubtitleStreamIndex: -1 });
+  });
+
+  it('lists the streams of the first media source of an item', async () => {
+    const streams = [{ Type: 'Audio', Index: 1 }];
+    const fetchFn = vi.fn(async () => ok({ Id: 'i1', Name: 'A', MediaSources: [{ Id: 'm', MediaStreams: streams }] }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    expect(await client.mediaStreams('u1', 'i1')).toEqual(streams);
+    expect((fetchFn.mock.calls[0] as unknown as [string])[0]).toBe('http://pc/Users/u1/Items/i1?Fields=MediaSources,MediaStreams');
+    const none = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: (async () => ok({ Id: 'i1', Name: 'A' })) as unknown as typeof fetch });
+    expect(await none.mediaStreams('u1', 'i1')).toEqual([]);
   });
 
   it('reports playback start, progress and stopped, keepalive only when asked', async () => {
@@ -127,6 +185,10 @@ describe('client', () => {
       IsPaused: true,
       CanSeek: true,
     });
+    await client.reportProgress({ ...report, audioStreamIndex: 2 });
+    expect(JSON.parse((fetchFn.mock.calls[4] as unknown as [string, RequestInit])[1].body as string)).toMatchObject({ AudioStreamIndex: 2 });
+    await client.reportProgress({ ...report, subtitleStreamIndex: -1 });
+    expect(JSON.parse((fetchFn.mock.calls[5] as unknown as [string, RequestInit])[1].body as string)).toMatchObject({ SubtitleStreamIndex: -1 });
     expect(calls[2][1]).not.toHaveProperty('keepalive');
     expect(calls[3][1].keepalive).toBe(true);
   });

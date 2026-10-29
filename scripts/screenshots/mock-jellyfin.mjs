@@ -125,6 +125,16 @@ function nextUpFor(seriesId) {
 // The fake TV is playing this episode at ~40%.
 const TV_ITEM = 'series-e-s1e5';
 
+// Streams every item "has", for the audio and subtitle sheet: two audio tracks, two text subtitles and one image subtitle.
+const STREAMS = [
+  { Type: 'Video', Index: 0, Codec: 'h264' },
+  { Type: 'Audio', Index: 1, Language: 'eng', Codec: 'ac3', Channels: 6, IsDefault: true },
+  { Type: 'Audio', Index: 2, Language: 'nld', Codec: 'aac', Channels: 2 },
+  { Type: 'Subtitle', Index: 3, Language: 'eng', Codec: 'subrip', IsTextSubtitleStream: true },
+  { Type: 'Subtitle', Index: 4, Language: 'nld', Codec: 'subrip', IsTextSubtitleStream: true, IsForced: true },
+  { Type: 'Subtitle', Index: 5, Language: 'fra', Codec: 'hdmv_pgs_subtitle', IsTextSubtitleStream: false },
+];
+
 function sessions() {
   const np = items.get(TV_ITEM);
   return [
@@ -139,7 +149,7 @@ function sessions() {
       SupportsRemoteControl: true,
       PlayableMediaTypes: ['Audio', 'Video'],
       NowPlayingItem: strip(np),
-      PlayState: { PositionTicks: Math.round(np.RunTimeTicks * 0.4), IsPaused: false, CanSeek: true },
+      PlayState: { PositionTicks: Math.round(np.RunTimeTicks * 0.4), IsPaused: false, CanSeek: true, AudioStreamIndex: 1, SubtitleStreamIndex: 3 },
     },
   ];
 }
@@ -267,6 +277,15 @@ function queryItems(q) {
   if (sort === 'DatePlayed') list.sort((a, b) => Date.parse(userData(b).LastPlayedDate || 0) - Date.parse(userData(a).LastPlayedDate || 0));
   else if (sort === 'DateCreated') list.sort((a, b) => (desc ? 1 : -1) * ((a.created ?? 0) - (b.created ?? 0)));
   else if (sort === 'SortName') list.sort((a, b) => a.Name.localeCompare(b.Name));
+  else if (sort) {
+    const key = { 'PremiereDate,ProductionYear,SortName': 'ProductionYear', 'CommunityRating,SortName': 'CommunityRating', 'Runtime,SortName': 'RunTimeTicks', 'DateCreated,SortName': 'created' }[sort];
+    if (key) list.sort((a, b) => (desc ? -1 : 1) * ((a[key] ?? 0) - (b[key] ?? 0)));
+  }
+  if ((q.get('Filters') || '').includes('IsUnplayed')) list = list.filter((i) => !userData(i).Played);
+  const genre = q.get('Genres');
+  if (genre) list = list.filter((i) => (i.Genres || []).includes(genre));
+  const years = (q.get('Years') || '').split(',').filter(Boolean).map(Number);
+  if (years.length) list = list.filter((i) => years.includes(i.ProductionYear));
   const limit = parseInt(q.get('Limit') || '', 10);
   const total = list.length;
   if (limit > 0) list = list.slice(0, limit);
@@ -341,15 +360,33 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       return json({ Items: seasons.map(strip), TotalRecordCount: seasons.length });
     }
     if ((m = /^\/Shows\/([^/]+)\/Episodes$/.exec(path))) return json(episodesQuery(m[1], q));
+    if (path === '/Genres') {
+      const type = q.get('IncludeItemTypes');
+      const names = [...new Set([...items.values()].filter((i) => i.Type === type).flatMap((i) => i.Genres || []))].sort();
+      return json({ Items: names.map((Name) => ({ Id: `genre-${Name}`, Name })), TotalRecordCount: names.length });
+    }
     if ((m = /^\/Users\/[^/]+\/Items$/.exec(path))) return json(queryItems(q));
     if ((m = /^\/Users\/[^/]+\/Items\/([^/]+)$/.exec(path)) || (m = /^\/Items\/([^/]+)$/.exec(path))) {
       const it = items.get(m[1]);
-      return it ? json(strip(it)) : send(404, { error: 'not found' });
+      if (!it) return send(404, { error: 'not found' });
+      const withSources = (q.get('Fields') || '').includes('MediaSources');
+      return json(withSources ? { ...strip(it), MediaSources: [{ Id: it.Id, MediaStreams: STREAMS }] } : strip(it));
     }
-    if ((m = /^\/Users\/[^/]+\/PlayedItems\/[^/]+$/.exec(path))) return json({ Played: true });
+    if ((m = /^\/Users\/[^/]+\/PlayedItems\/([^/]+)$/.exec(path))) {
+      // Marks the item and, for a season or series, its episodes (like Jellyfin).
+      const played = req.method !== 'DELETE';
+      const hit = (i) => i.Id === m[1] || i.SeasonId === m[1] || (i.Type === 'Episode' && i.SeriesId === m[1]);
+      for (const i of items.values()) {
+        if (!hit(i)) continue;
+        i.UserData = played ? { ...i.UserData, Played: true, PlaybackPositionTicks: 0, LastPlayedDate: new Date().toISOString() } : { PlaybackPositionTicks: 0, Played: false };
+      }
+      return json({ Played: played });
+    }
     if (/^\/MediaSegments\/[^/]+$/.test(path)) return json({ Items: [], TotalRecordCount: 0 });
     if ((m = /^\/Items\/([^/]+)\/PlaybackInfo$/.exec(path))) {
-      return json({ MediaSources: [{ Id: m[1], SupportsDirectPlay: false, SupportsTranscoding: false, MediaStreams: [] }], PlaySessionId: 'mock-play' });
+      // Like Jellyfin: the default subtitle track is only the server's own pick when none was asked for.
+      const asked = q.get('SubtitleStreamIndex');
+      return json({ MediaSources: [{ Id: m[1], SupportsDirectPlay: true, SupportsTranscoding: false, MediaStreams: STREAMS, DefaultAudioStreamIndex: 1, DefaultSubtitleStreamIndex: asked === null ? 3 : Number(asked) }], PlaySessionId: 'mock-play' });
     }
     if ((m = /^\/Items\/([^/]+)\/Images\/(Primary|Backdrop|Thumb|Logo)(?:\/\d+)?$/.exec(path))) {
       const it = items.get(m[1]);

@@ -1,4 +1,5 @@
-import type { MediaSource } from './types';
+import { codecName, joinLabel } from './trackLabel';
+import type { MediaSource, MediaStream } from './types';
 
 export interface SubtitleTrack {
   /** Jellyfin stream index, used in the subtitle URL. */
@@ -7,6 +8,8 @@ export interface SubtitleTrack {
   lang: string;
   isDefault: boolean;
   isForced: boolean;
+  /** Image subtitle (PGS, dvdsub): we cannot draw it, so the server burns it into the video. */
+  burnIn: boolean;
 }
 
 /** One subtitle line to show between `start` and `end` (seconds). */
@@ -16,19 +19,27 @@ export interface Cue {
   text: string;
 }
 
-/** Text subtitle streams of a source. Image subtitles (PGS, dvdsub) cannot be drawn by us and are left out. */
+/** "English · SRT · Forced" for one subtitle stream; `n` numbers streams that carry no language or title. */
+export function subtitleLabel(stream: MediaStream, n: number): string {
+  const codec = codecName(stream.Codec);
+  return joinLabel(stream, [codec, stream.IsForced ? 'Forced' : '', stream.IsDefault ? 'Default' : ''], `Subtitle ${n}`);
+}
+
+/** Subtitle streams of a source. Text tracks are drawn by us; image tracks (PGS, dvdsub) are marked `burnIn` and labelled so. */
 export function listSubtitles(source: MediaSource): SubtitleTrack[] {
   const tracks: SubtitleTrack[] = [];
   let n = 0;
   for (const s of source.MediaStreams ?? []) {
-    if (s.Type !== 'Subtitle' || s.IsTextSubtitleStream === false) continue;
+    if (s.Type !== 'Subtitle') continue;
     n += 1;
+    const burnIn = s.IsTextSubtitleStream === false;
     tracks.push({
       index: s.Index !== undefined ? s.Index : n,
-      label: s.DisplayTitle || s.Title || s.Language || `Subtitle ${n}`,
+      label: subtitleLabel(s, n) + (burnIn ? ' (burned in)' : ''),
       lang: s.Language || '',
       isDefault: !!s.IsDefault,
       isForced: !!s.IsForced,
+      burnIn,
     });
   }
   return tracks;
@@ -44,14 +55,22 @@ export function subtitleVttUrl(serverUrl: string, itemId: string, mediaSourceId:
 
 /**
  * Index into `list` of the track to show first: a forced track, else the one in the remembered language,
- * else -1 (off). `lang` is '' when the viewer last chose Off, null when they never chose.
+ * else (never chosen) the source's default track, else -1 (off). `lang` is '' when the viewer last chose Off,
+ * null when they never chose. A text track wins over an image track (burned in) of the same kind.
  */
-export function pickInitialSubtitle(list: SubtitleTrack[], lang: string | null): number {
-  for (let i = 0; i < list.length; i++) if (list[i].isForced) return i;
+export function pickInitialSubtitle(list: SubtitleTrack[], lang: string | null, defaultIndex?: number): number {
+  const find = (match: (t: SubtitleTrack) => boolean): number => {
+    for (let i = 0; i < list.length; i++) if (!list[i].burnIn && match(list[i])) return i;
+    for (let i = 0; i < list.length; i++) if (list[i].burnIn && match(list[i])) return i;
+    return -1;
+  };
+  const forced = find((t) => t.isForced);
+  if (forced >= 0) return forced;
   if (lang) {
     const want = lang.toLowerCase();
-    for (let i = 0; i < list.length; i++) if (list[i].lang.toLowerCase() === want) return i;
+    return find((t) => t.lang.toLowerCase() === want);
   }
+  if (lang === null && defaultIndex !== undefined && defaultIndex >= 0) return find((t) => t.index === defaultIndex);
   return -1;
 }
 

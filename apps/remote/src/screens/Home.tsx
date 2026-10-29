@@ -11,7 +11,7 @@ import { usePullToRefresh } from '../usePullToRefresh';
 const REFRESH_AFTER_PLAYBACK_MS = 2000;
 
 export function Home() {
-  const { client, session, tv, playbackEnded, openConnectTv } = useApp();
+  const { client, session, tv, playbackEnded, libraryChanged, openConnectTv } = useApp();
   const u = session.userId;
   const resume = useAsync(() => client.resume(u, 40).then((items) => recentResumes(items, Date.now())), [client, u]);
   const nextUp = useAsync(() => client.nextUp(u, 12), [client, u]);
@@ -30,7 +30,7 @@ export function Home() {
     }, REFRESH_AFTER_PLAYBACK_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playbackEnded]);
+  }, [playbackEnded, libraryChanged]);
   const all = [resume, nextUp, movies, shows, library];
   const allDone = all.every((r) => !r.loading);
   const pageRef = useRef<HTMLDivElement>(null);

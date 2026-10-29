@@ -44,7 +44,7 @@ export function SubtitleTiming({ itemId }: { itemId: string }) {
   return (
     <>
       <button type="button" class="btn secondary" aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        <Icon name="captions" size={20} /> Subtitles {offset === 0 ? 'timing' : formatOffset(offset)}
+        <Icon name="captions" size={20} /> Sub {offset === 0 ? 'timing' : formatOffset(offset)}
       </button>
       {open
         ? createPortal(
