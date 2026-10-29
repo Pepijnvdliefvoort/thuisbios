@@ -1,6 +1,6 @@
 {
   "name": "@thuisbios/remote",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "type": "module",
   "description": "Thuisbios phone remote (PWA) that browses the library and controls the TV app",
