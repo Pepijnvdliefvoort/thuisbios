@@ -91,6 +91,12 @@ const SUB_LANG_KEY = 'thuisbios.remote.subtitleLang';
 export const loadSubtitleLang = (): string | null => read(SUB_LANG_KEY);
 export const saveSubtitleLang = (lang: string): void => write(SUB_LANG_KEY, lang);
 
+const AUDIO_LANG_KEY = 'thuisbios.remote.audioLang';
+
+/** The audio language last picked in the player; null when never chosen. */
+export const loadAudioLang = (): string | null => read(AUDIO_LANG_KEY) || null;
+export const saveAudioLang = (lang: string): void => write(AUDIO_LANG_KEY, lang);
+
 const PLAYER_VOLUME_KEY = 'thuisbios.remote.playerVolume';
 
 /** The desktop player's volume (0 to 1) as last set; null when never set. */

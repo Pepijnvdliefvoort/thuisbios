@@ -5,6 +5,7 @@ import {
   playCommand,
   relativeSeekTicks,
   seekCommand,
+  streamIndexCommand,
   subtitleOffsetCommand,
   transportCommand,
   viewCommand,
@@ -51,6 +52,10 @@ export interface TvApi {
   skip(deltaSeconds: number): void;
   /** Sets the subtitle timing of an item on the TV to an absolute offset in ms (positive = later). */
   setSubtitleOffset(itemId: string, ms: number): void;
+  /** Switches the TV to this audio stream (Jellyfin stream index); it restarts the stream at the same spot. */
+  setAudioTrack(index: number): void;
+  /** Switches the TV's subtitles to this stream (Jellyfin stream index), or off with -1. */
+  setSubtitleTrack(index: number): void;
   /** Tells the TV not to start the next episode after this item. */
   cancelAutoplay(itemId: string): void;
 }
@@ -148,7 +153,7 @@ export function useTv(
     return np ? extrapolatePosition(np, Date.now(), np.item.RunTimeTicks) : 0;
   };
 
-  const optimistic = (patch: { isPaused?: boolean; positionTicks?: number }) =>
+  const optimistic = (patch: { isPaused?: boolean; positionTicks?: number; audioIndex?: number; subtitleIndex?: number }) =>
     setNowPlaying((np) => (np ? applyOptimistic(np, patch, Date.now()) : np));
 
   const clearDisconnected = () => {
@@ -215,6 +220,14 @@ export function useTv(
       void run((s) => seekCommand(s, target));
     },
     setSubtitleOffset: (itemId, ms) => void run((s) => subtitleOffsetCommand(s, itemId, ms)),
+    setAudioTrack: (index) => {
+      optimistic({ audioIndex: index });
+      void run((s) => streamIndexCommand(s, 'SetAudioStreamIndex', index));
+    },
+    setSubtitleTrack: (index) => {
+      optimistic({ subtitleIndex: index });
+      void run((s) => streamIndexCommand(s, 'SetSubtitleStreamIndex', index));
+    },
     cancelAutoplay: (itemId) => void run((s) => autoplayCancelCommand(s, itemId)),
   };
 }

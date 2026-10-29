@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOptimistic, extrapolatePosition, HOLD_MS, mergePoll, toNowPlaying, type NowPlaying } from './nowPlaying';
+import { applyOptimistic, extrapolatePosition, HOLD_MS, mergePoll, toNowPlaying, TRACK_HOLD_MS, type NowPlaying } from './nowPlaying';
 
 const sec = 10_000_000;
 const np = (over: Partial<NowPlaying> = {}): NowPlaying => ({
@@ -36,6 +36,29 @@ describe('toNowPlaying', () => {
       42,
     );
     expect(r).toMatchObject({ positionTicks: 5, isPaused: true, canSeek: false, reportedAt: 42 });
+  });
+});
+
+describe('track selection', () => {
+  it('reads the stream indexes the TV reports', () => {
+    const r = toNowPlaying(
+      { Id: 's', DeviceId: 'd', NowPlayingItem: { Id: 'a', Name: 'A' }, PlayState: { AudioStreamIndex: 2, SubtitleStreamIndex: -1 } },
+      0,
+    );
+    expect(r).toMatchObject({ audioIndex: 2, subtitleIndex: -1 });
+    expect(toNowPlaying({ Id: 's', DeviceId: 'd', NowPlayingItem: { Id: 'a', Name: 'A' } }, 0)?.audioIndex).toBeUndefined();
+  });
+  it('shows a picked track at once and keeps it against a stale poll', () => {
+    const o = applyOptimistic(np({ audioIndex: 1 }), { audioIndex: 3 }, 5000);
+    expect(o).toMatchObject({ audioIndex: 3, holdUntil: 5000 + TRACK_HOLD_MS });
+    expect(mergePoll(o, np({ audioIndex: 1 }), 6000)?.audioIndex).toBe(3);
+    expect(mergePoll(o, np({ audioIndex: 3 }), 5000 + TRACK_HOLD_MS)?.audioIndex).toBe(3);
+    expect(mergePoll(o, np({ audioIndex: 1 }), 5000 + TRACK_HOLD_MS)?.audioIndex).toBe(1);
+  });
+  it('does not treat the TV restarting its stream as the end of playback', () => {
+    const o = applyOptimistic(np(), { audioIndex: 3 }, 5000);
+    expect(mergePoll(o, null, 6000)).toBe(o);
+    expect(mergePoll(o, null, 5000 + TRACK_HOLD_MS)).toBeNull();
   });
 });
 

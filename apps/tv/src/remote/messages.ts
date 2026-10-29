@@ -19,6 +19,10 @@ export type RemoteCommand =
   | { type: 'display'; itemId: string }
   | { type: 'subtitleOffset'; itemId: string; ms: number }
   | { type: 'autoplayCancel'; itemId: string }
+  /** Jellyfin's SetAudioStreamIndex: `index` is the stream index of the audio to play. */
+  | { type: 'audioStream'; index: number }
+  /** Jellyfin's SetSubtitleStreamIndex: `index` is the stream index of the subtitles, -1 for none. */
+  | { type: 'subtitleStream'; index: number }
   | { type: 'disconnect' };
 
 /** A parsed socket message: a keep-alive request or a command for the screens. */
@@ -67,10 +71,18 @@ function parseAutoplayCancel(text: unknown): RemoteCommand | null {
   return itemId ? { type: 'autoplayCancel', itemId } : null;
 }
 
+/** Reads a stream index argument (Jellyfin sends it as a string); null when it is not a whole number in range. */
+function parseStreamIndex(raw: unknown, allowOff: boolean): number | null {
+  const text = typeof raw === 'number' ? String(raw) : raw;
+  if (typeof text !== 'string' || !/^-?\d+$/.test(text)) return null;
+  const n = Number(text);
+  return n >= (allowOff ? -1 : 0) && n < 1000 ? n : null;
+}
+
 /** Capabilities posted to `/Sessions/Capabilities/Full` so the phone lists this TV as controllable. */
 export const REMOTE_CAPABILITIES = {
   PlayableMediaTypes: ['Video'],
-  SupportedCommands: ['DisplayContent', 'DisplayMessage'],
+  SupportedCommands: ['DisplayContent', 'DisplayMessage', 'SetAudioStreamIndex', 'SetSubtitleStreamIndex'],
   SupportsMediaControl: true,
   SupportsPersistentIdentifier: false,
 };
@@ -130,6 +142,12 @@ export function parseSocketMessage(raw: string): SocketMessage | null {
         const parsed = parseSubtitleOffset(data.Arguments.Text) || parseAutoplayCancel(data.Arguments.Text);
         return parsed ? { type: 'command', command: parsed } : null;
       }
+      if (data.Name === 'SetAudioStreamIndex' || data.Name === 'SetSubtitleStreamIndex') {
+        const audio = data.Name === 'SetAudioStreamIndex';
+        const index = parseStreamIndex(data.Arguments.Index, !audio);
+        if (index === null) return null;
+        return { type: 'command', command: audio ? { type: 'audioStream', index } : { type: 'subtitleStream', index } };
+      }
       if (data.Name !== 'DisplayContent') return null;
       const id = data.Arguments.ItemId;
       return typeof id === 'string' && id !== '' ? { type: 'command', command: { type: 'display', itemId: id } } : null;
@@ -166,6 +184,10 @@ export function describeCommand(c: RemoteCommand): string {
       return `Subtitles ${formatOffset(c.ms)}`;
     case 'autoplayCancel':
       return 'Cancel autoplay';
+    case 'audioStream':
+      return `Audio stream ${c.index}`;
+    case 'subtitleStream':
+      return c.index < 0 ? 'Subtitles off' : `Subtitle stream ${c.index}`;
     default:
       return `DisplayContent ${c.itemId}`;
   }

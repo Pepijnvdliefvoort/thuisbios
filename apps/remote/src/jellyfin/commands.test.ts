@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AUTOPLAY_CANCEL_PREFIX, DISCONNECT_TEXT, autoplayCancelCommand, SUBTITLE_OFFSET_PREFIX, disconnectCommand, playCommand, relativeSeekTicks, seekCommand, subtitleOffsetCommand, transportCommand, viewCommand } from './commands';
+import { AUTOPLAY_CANCEL_PREFIX, DISCONNECT_TEXT, autoplayCancelCommand, SUBTITLE_OFFSET_PREFIX, disconnectCommand, playCommand, relativeSeekTicks, seekCommand, streamIndexCommand, subtitleOffsetCommand, transportCommand, viewCommand } from './commands';
 
 describe('command URLs', () => {
   it('builds Play on TV', () => {
@@ -46,6 +46,17 @@ describe('command URLs', () => {
       body: { Header: 'Thuisbios', Text: 'thuisbios:autoplay-cancel:abc', TimeoutMs: 1000 },
     });
     expect(AUTOPLAY_CANCEL_PREFIX).toBe('thuisbios:autoplay-cancel:');
+  });
+  it('builds the standard audio and subtitle track commands with a string index', () => {
+    expect(streamIndexCommand('S 1', 'SetAudioStreamIndex', 2)).toEqual({
+      method: 'POST',
+      path: '/Sessions/S%201/Command',
+      body: { Name: 'SetAudioStreamIndex', Arguments: { Index: '2' } },
+    });
+    expect(streamIndexCommand('S1', 'SetSubtitleStreamIndex', -1).body).toEqual({
+      Name: 'SetSubtitleStreamIndex',
+      Arguments: { Index: '-1' },
+    });
   });
   it('builds seek', () => {
     expect(seekCommand('S1', 600000000).path).toBe('/Sessions/S1/Playing/Seek?seekPositionTicks=600000000');

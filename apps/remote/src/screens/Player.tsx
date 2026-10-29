@@ -5,8 +5,9 @@ import { NextEpisodeCard } from '../components/NextEpisodeCard';
 import { useApp } from '../context';
 import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscreen';
 import { artUrl } from '../jellyfin/art';
+import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
 import { playerKeyAction, stepVolume } from '../playerKeys';
-import { getDeviceId, loadPlayerVolume, loadSubtitleLang, loadSubtitleOffset, savePlayerVolume, saveSubtitleLang } from '../storage';
+import { getDeviceId, loadAudioLang, loadPlayerVolume, loadSubtitleLang, loadSubtitleOffset, saveAudioLang, savePlayerVolume, saveSubtitleLang } from '../storage';
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
 import { nextArmedAt, nextEpisodeCard, planNextEpisode } from '../jellyfin/nextEpisode';
@@ -37,8 +38,12 @@ interface Loaded {
   url: string;
   mediaSourceId: string;
   playSessionId?: string;
-  /** Kept to list the subtitle tracks. */
+  /** Kept to list the audio and subtitle tracks. */
   source: MediaSource;
+  /** Jellyfin stream index of the audio this stream plays; null when the source lists no audio. */
+  audioIndex: number | null;
+  /** Where the stream was asked to start (ticks): the resume point, or the spot an audio switch left. */
+  startTicks: number;
 }
 
 /**
@@ -48,6 +53,10 @@ interface Loaded {
  * HLS playlist is still full length (segments before the start are simply not made), so the video's
  * currentTime is the position in the whole item and reports need no offset. Every method therefore
  * seeks to the start position itself once the metadata is known (hls.js through `startPosition`).
+ *
+ * Audio: a browser cannot pick another audio stream out of a file, so a switch asks for PlaybackInfo again with
+ * AudioStreamIndex (and direct play off, so the server remuxes or transcodes) and restarts the stream at the
+ * current position. The old play session reports Stopped and the new one Started, as for any new stream.
  *
  * The video is always inline with our own controls and subtitles (see PlayerControls). iPhone cannot go
  * fullscreen or lock the orientation, so when the viewport is portrait the whole stage is turned 90° with CSS
@@ -96,6 +105,13 @@ export function Player({
   // Our own subtitles: the chosen track (-1 = off) and its parsed cues.
   const [subSel, setSubSel] = useState(-1);
   const [cues, setCues] = useState<Cue[]>([]);
+  // Audio: the stream asked for (null = the server's default), and where a restart should resume.
+  const [audioSel, setAudioSel] = useState<number | null>(null);
+  const restartTicks = useRef(startTicks);
+  const picked = useRef(false);
+  const subPicked = useRef(false);
+  // Last playing position, for reports after the video has been reset.
+  const lastTime = useRef(ticksToSeconds(startTicks));
   // Next episode autoplay: the card, and the hooks into the reporting effect below.
   const next = useNextEpisode(client, session.userId, item);
   const [cancelled, setCancelled] = useState(false);
@@ -159,6 +175,16 @@ export function Player({
       alive = false;
     };
   }, [loaded, tracks, subSel]);
+  const audioTracks = useMemo(() => (loaded ? listAudio(loaded.source) : []), [loaded]);
+  const chooseAudio = (index: number) => {
+    const el = video.current;
+    if (el && el.currentTime > 0) restartTicks.current = secondsToTicks(el.currentTime);
+    else restartTicks.current = secondsToTicks(lastTime.current);
+    setBuffering(true);
+    setAudioSel(index);
+    const track = audioTracks.filter((t) => t.index === index)[0];
+    if (track && track.lang) saveAudioLang(track.lang);
+  };
   const chooseSubtitle = (index: number) => {
     setSubSel(index);
     // '' remembers "off". A track without a language cannot be matched later, so it is not remembered.
@@ -313,11 +339,34 @@ export function Player({
     const probe = document.createElement('video');
     const profile = buildPhoneProfile((mime) => probe.canPlayType(mime) !== '');
     client
-      .playbackInfo(session.userId, item.Id, profile, startTicks)
+      .playbackInfo(session.userId, item.Id, profile, {
+        startTicks: restartTicks.current,
+        audioStreamIndex: audioSel === null ? undefined : audioSel,
+        directPlay: audioSel === null ? undefined : false,
+      })
       .then((info) => {
         if (cancelled) return;
         const source = info.MediaSources[0];
-        const selection = source && selectPlayMethod(source, { itemId: item.Id, deviceId: getDeviceId(), playSessionId: info.PlaySessionId });
+        const audio = source ? listAudio(source) : [];
+        const defaultAudio = defaultAudioIndex(audio);
+        // First answer: if the remembered audio language is not the default one, ask again for that track.
+        if (source && !picked.current) {
+          picked.current = true;
+          const want = audioSel === null ? pickInitialAudio(audio, loadAudioLang()) : null;
+          if (want !== null) {
+            setAudioSel(want);
+            return;
+          }
+        }
+        const chosen = audioSel !== null ? audioSel : defaultAudio;
+        const selection =
+          source &&
+          selectPlayMethod(source, {
+            itemId: item.Id,
+            deviceId: getDeviceId(),
+            playSessionId: info.PlaySessionId,
+            audioStreamIndex: audioSel !== null && audioSel !== defaultAudio ? audioSel : undefined,
+          });
         if (!source || !selection) {
           setError(true);
           return;
@@ -328,8 +377,13 @@ export function Player({
           mediaSourceId: source.Id,
           playSessionId: info.PlaySessionId,
           source,
+          audioIndex: chosen,
+          startTicks: restartTicks.current,
         });
-        setSubSel(pickInitialSubtitle(listSubtitles(source), loadSubtitleLang()));
+        if (!subPicked.current) {
+          subPicked.current = true;
+          setSubSel(pickInitialSubtitle(listSubtitles(source), loadSubtitleLang()));
+        }
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -337,13 +391,13 @@ export function Player({
     return () => {
       cancelled = true;
     };
-  }, [client, session, item.Id]);
+  }, [client, session, item.Id, audioSel]);
 
   // Attach the stream: native playback, or hls.js where the browser cannot play HLS itself.
   useEffect(() => {
     const el = video.current;
     if (!loaded || !el) return;
-    const startSeconds = ticksToSeconds(startTicks);
+    const startSeconds = ticksToSeconds(loaded.startTicks);
     const seekToStart = () => {
       if (startSeconds > 0) el.currentTime = startSeconds;
     };
@@ -394,9 +448,11 @@ export function Player({
       itemId: item.Id,
       mediaSourceId: loaded.mediaSourceId,
       playSessionId: loaded.playSessionId,
-      positionTicks: secondsToTicks(el.currentTime),
+      // A destroyed hls.js player resets the video to 0; the last time seen keeps the resume point.
+      positionTicks: secondsToTicks(el.currentTime > 0 ? el.currentTime : lastTime.current),
       playMethod: loaded.selection.method,
       isPaused: el.paused,
+      ...(loaded.audioIndex !== null ? { audioStreamIndex: loaded.audioIndex } : {}),
     });
     const send = () => {
       if (started && !stopped) client.reportProgress(report()).catch(() => undefined);
@@ -527,7 +583,11 @@ export function Player({
             autoPlay
             preload="auto"
             poster={(mouse ? artUrl(client.serverUrl, item, 'backdrop', 1920, 1080) : artUrl(client.serverUrl, item, 'backdrop', 780, 440)) || undefined}
-            onTimeUpdate={(e) => setNow((e.target as HTMLVideoElement).currentTime)}
+            onTimeUpdate={(e) => {
+              const t = (e.target as HTMLVideoElement).currentTime;
+              if (t > 0) lastTime.current = t;
+              setNow(t);
+            }}
             onPlay={() => setPaused(false)}
             onPause={() => setPaused(true)}
             onVolumeChange={mouse ? (e) => syncVolume(e.target as HTMLVideoElement) : undefined}
@@ -558,11 +618,14 @@ export function Player({
             rotated={rotated}
             tracks={tracks}
             selected={subSel}
+            audioTracks={audioTracks}
+            audioSelected={loaded ? loaded.audioIndex : null}
             onBack={onBack}
             onTogglePlay={togglePlay}
             onSkip={skipBy}
             onSeek={seekTo}
             onSelectSubtitle={chooseSubtitle}
+            onSelectAudio={chooseAudio}
             onBusy={setBusy}
             onInteract={interact}
             desktop={

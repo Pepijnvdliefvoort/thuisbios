@@ -7,12 +7,18 @@ export interface NowPlaying {
   reportedAt: number;
   isPaused: boolean;
   canSeek: boolean;
+  /** Jellyfin stream index of the audio the TV plays; undefined until it reports one. */
+  audioIndex?: number;
+  /** Jellyfin stream index of the subtitles shown, -1 for none; undefined until reported. */
+  subtitleIndex?: number;
   /** While `now < holdUntil`, a poll must not overwrite the optimistic pause state / position. */
   holdUntil: number;
 }
 
 /** How long (ms) an optimistic change is protected from stale polls. */
 export const HOLD_MS = 2500;
+/** Longer for a track change: an audio switch restarts the TV's stream, which briefly reports nothing playing. */
+export const TRACK_HOLD_MS = 8000;
 
 /**
  * Current position: the last report plus elapsed wall time while playing, clamped to 0..runtime.
@@ -38,6 +44,8 @@ export function toNowPlaying(session: RemoteSession | null, now: number): NowPla
     reportedAt: now,
     isPaused: !!ps.IsPaused,
     canSeek: ps.CanSeek !== false,
+    audioIndex: typeof ps.AudioStreamIndex === 'number' ? ps.AudioStreamIndex : undefined,
+    subtitleIndex: typeof ps.SubtitleStreamIndex === 'number' ? ps.SubtitleStreamIndex : undefined,
     holdUntil: 0,
   };
 }
@@ -45,7 +53,7 @@ export function toNowPlaying(session: RemoteSession | null, now: number): NowPla
 /** Applies a local change right away (play/pause flip, scrubber jump) and protects it for HOLD_MS. */
 export function applyOptimistic(
   np: NowPlaying,
-  patch: { isPaused?: boolean; positionTicks?: number },
+  patch: { isPaused?: boolean; positionTicks?: number; audioIndex?: number; subtitleIndex?: number },
   now: number,
 ): NowPlaying {
   const position =
@@ -55,15 +63,26 @@ export function applyOptimistic(
   return {
     ...np,
     isPaused: patch.isPaused !== undefined ? patch.isPaused : np.isPaused,
+    audioIndex: patch.audioIndex !== undefined ? patch.audioIndex : np.audioIndex,
+    subtitleIndex: patch.subtitleIndex !== undefined ? patch.subtitleIndex : np.subtitleIndex,
     positionTicks: position,
     reportedAt: now,
-    holdUntil: now + HOLD_MS,
+    holdUntil: now + (patch.audioIndex !== undefined || patch.subtitleIndex !== undefined ? TRACK_HOLD_MS : HOLD_MS),
   };
 }
 
-/** Merges a fresh poll into the previous state, keeping a still-protected optimistic change of the same item. */
+/** Merges a fresh poll into the previous state, keeping a still-protected optimistic change of the same item (and the item itself while it is protected). */
 export function mergePoll(prev: NowPlaying | null, polled: NowPlaying | null, now: number): NowPlaying | null {
-  if (!polled) return null;
+  // Inside the window "nothing playing" is the TV restarting its stream, not the end of playback.
+  if (!polled) return prev && now < prev.holdUntil ? prev : null;
   if (!prev || prev.item.Id !== polled.item.Id || now >= prev.holdUntil) return polled;
-  return { ...polled, isPaused: prev.isPaused, positionTicks: prev.positionTicks, reportedAt: prev.reportedAt, holdUntil: prev.holdUntil };
+  return {
+    ...polled,
+    isPaused: prev.isPaused,
+    audioIndex: prev.audioIndex,
+    subtitleIndex: prev.subtitleIndex,
+    positionTicks: prev.positionTicks,
+    reportedAt: prev.reportedAt,
+    holdUntil: prev.holdUntil,
+  };
 }

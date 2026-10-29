@@ -174,6 +174,11 @@ player turns the picture sideways by itself. This works with rotation lock on. i
 status bar and home indicator in their upright places, and swipe gestures such as Control Center stay
 upright. The phone reports its progress to Jellyfin, so it counts toward Resume watching.
 
+The CC button opens an "Audio & subtitles" menu. Items with two or more audio tracks get an Audio
+section: picking one asks the server for that track (a remux or transcode, because a browser cannot
+switch audio inside a file) and continues from the same spot. The app remembers the audio language
+you picked and uses it the next time when the item has that language.
+
 The app also works in a desktop browser (a wide window with a mouse). The tabs move to a top bar,
 rows get arrow buttons, and Play and Resume use the app's own player on that computer even when a TV is
 connected ("Play on TV" sits next to them). The player has volume and fullscreen buttons and these keys:
@@ -183,7 +188,7 @@ fullscreen. Phones keep their own layout.
 
 The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
 remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on
-TV" and Disconnect (sign out).
+TV", audio and subtitle track choice and Disconnect (sign out).
 
 Every request uses the configured absolute server URL and there is no service worker, so the app can
 be wrapped with Capacitor later. A volume button (Now Playing and the TV sheet) opens a bottom sheet
@@ -202,6 +207,11 @@ Now Playing also has a "Subtitles" button that opens a sheet to shift the subtit
 0.1 s or 0.5 s (positive is later). The phone sends the absolute offset for the playing item as a private
 Jellyfin display message (`thuisbios:subtitle-offset:<itemId>:<ms>`), the TV shifts the WebVTT cues and
 remembers the offset per item. It only works for text subtitles.
+
+Now Playing also has an "Audio & subtitles" button that lists the audio and subtitle tracks of what the
+TV plays, with the current ones checked (the TV reports them in its progress). Tapping a track sends
+Jellyfin's standard `SetAudioStreamIndex` or `SetSubtitleStreamIndex` command to the TV. The TV switches
+text subtitles at once and restarts the stream at the same position for another audio track.
 
 The same relay serves title requests under `/api/requests`: when a search finds nothing, anyone signed
 in can request a movie or show (just a title; picking a suggestion adds year, type and poster), and the Requests tab shows their

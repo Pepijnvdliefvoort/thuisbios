@@ -34,6 +34,10 @@ export interface PlaybackReport {
   positionTicks: number;
   playMethod: PlayMethod;
   isPaused?: boolean;
+  /** Jellyfin stream index of the audio being played; the phone shows it as the checked track. */
+  audioStreamIndex?: number;
+  /** Jellyfin stream index of the subtitles shown, -1 for none. */
+  subtitleStreamIndex?: number;
 }
 
 /** Fields every list request asks for, so tiles, the hero and the details page need no second fetch. */
@@ -68,7 +72,8 @@ export interface JellyfinClient {
   imageUrl(itemId: string, tag: string | undefined, maxHeight: number): string;
   /** Image resized by the server to exactly `width` x `height` (logos are only limited to that box). */
   imageUrlSized(itemId: string, type: ImageKind, tag: string, width: number, height: number): string;
-  playbackInfo(userId: string, itemId: string, forceTranscode: boolean): Promise<PlaybackInfoResponse>;
+  /** `audioStreamIndex` asks for another audio stream than the default; that needs a remux or transcode. */
+  playbackInfo(userId: string, itemId: string, forceTranscode: boolean, audioStreamIndex?: number): Promise<PlaybackInfoResponse>;
   reportStart(report: PlaybackReport): Promise<void>;
   reportProgress(report: PlaybackReport): Promise<void>;
   reportStopped(report: PlaybackReport): Promise<void>;
@@ -98,6 +103,8 @@ export function createClient(options: ClientOptions): JellyfinClient {
     PlayMethod: r.playMethod,
     IsPaused: !!r.isPaused,
     CanSeek: true,
+    ...(r.audioStreamIndex !== undefined ? { AudioStreamIndex: r.audioStreamIndex } : {}),
+    ...(r.subtitleStreamIndex !== undefined ? { SubtitleStreamIndex: r.subtitleStreamIndex } : {}),
   });
 
   return {
@@ -172,23 +179,27 @@ export function createClient(options: ClientOptions): JellyfinClient {
       `${serverUrl}/Items/${encodeURIComponent(itemId)}/Images/Primary?maxHeight=${maxHeight}&quality=80${
         tag ? `&tag=${encodeURIComponent(tag)}` : ''
       }`,
-    playbackInfo: (userId, itemId, forceTranscode) => {
+    playbackInfo: (userId, itemId, forceTranscode, audioStreamIndex) => {
       const profile = buildDeviceProfile();
       const direct = !forceTranscode;
+      // The original file only has its default audio: another stream needs a remux (DirectStream) or a transcode.
+      const directPlay = direct && audioStreamIndex === undefined;
       const query = [
         `UserId=${encodeURIComponent(userId)}`,
         `MaxStreamingBitrate=${profile.MaxStreamingBitrate}`,
-        `EnableDirectPlay=${direct}`,
+        `EnableDirectPlay=${directPlay}`,
         `EnableDirectStream=${direct}`,
         'EnableTranscoding=true',
+        ...(audioStreamIndex !== undefined ? [`AudioStreamIndex=${audioStreamIndex}`] : []),
       ].join('&');
       return request<PlaybackInfoResponse>('POST', `/Items/${encodeURIComponent(itemId)}/PlaybackInfo?${query}`, {
         UserId: userId,
         MaxStreamingBitrate: profile.MaxStreamingBitrate,
-        EnableDirectPlay: direct,
+        EnableDirectPlay: directPlay,
         EnableDirectStream: direct,
         EnableTranscoding: true,
         AutoOpenLiveStream: false,
+        ...(audioStreamIndex !== undefined ? { AudioStreamIndex: audioStreamIndex } : {}),
         DeviceProfile: profile,
       });
     },

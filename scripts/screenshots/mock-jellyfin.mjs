@@ -125,6 +125,15 @@ function nextUpFor(seriesId) {
 // The fake TV is playing this episode at ~40%.
 const TV_ITEM = 'series-e-s1e5';
 
+// Streams every item "has", for the audio and subtitle sheet: two audio tracks and two text subtitles.
+const STREAMS = [
+  { Type: 'Video', Index: 0, Codec: 'h264' },
+  { Type: 'Audio', Index: 1, Language: 'eng', Codec: 'ac3', Channels: 6, IsDefault: true },
+  { Type: 'Audio', Index: 2, Language: 'nld', Codec: 'aac', Channels: 2 },
+  { Type: 'Subtitle', Index: 3, Language: 'eng', Codec: 'subrip', IsTextSubtitleStream: true },
+  { Type: 'Subtitle', Index: 4, Language: 'nld', Codec: 'subrip', IsTextSubtitleStream: true, IsForced: true },
+];
+
 function sessions() {
   const np = items.get(TV_ITEM);
   return [
@@ -139,7 +148,7 @@ function sessions() {
       SupportsRemoteControl: true,
       PlayableMediaTypes: ['Audio', 'Video'],
       NowPlayingItem: strip(np),
-      PlayState: { PositionTicks: Math.round(np.RunTimeTicks * 0.4), IsPaused: false, CanSeek: true },
+      PlayState: { PositionTicks: Math.round(np.RunTimeTicks * 0.4), IsPaused: false, CanSeek: true, AudioStreamIndex: 1, SubtitleStreamIndex: 3 },
     },
   ];
 }
@@ -344,7 +353,9 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
     if ((m = /^\/Users\/[^/]+\/Items$/.exec(path))) return json(queryItems(q));
     if ((m = /^\/Users\/[^/]+\/Items\/([^/]+)$/.exec(path)) || (m = /^\/Items\/([^/]+)$/.exec(path))) {
       const it = items.get(m[1]);
-      return it ? json(strip(it)) : send(404, { error: 'not found' });
+      if (!it) return send(404, { error: 'not found' });
+      const withSources = (q.get('Fields') || '').includes('MediaSources');
+      return json(withSources ? { ...strip(it), MediaSources: [{ Id: it.Id, MediaStreams: STREAMS }] } : strip(it));
     }
     if ((m = /^\/Users\/[^/]+\/PlayedItems\/[^/]+$/.exec(path))) return json({ Played: true });
     if (/^\/MediaSegments\/[^/]+$/.test(path)) return json({ Items: [], TotalRecordCount: 0 });

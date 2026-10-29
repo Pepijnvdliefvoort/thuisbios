@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { clientInfo } from '../clientInfo';
 import type { JellyfinClient, PlaybackReport } from '../jellyfin/client';
 import {
+  defaultAudioIndex,
   describePlayback,
   resolveStreamUrl,
   secondsToTicks,
@@ -64,6 +65,8 @@ interface Loaded {
   debug: DebugInfo;
   source: MediaSource;
   playSessionId?: string;
+  /** Jellyfin stream index of the audio this stream plays; null when the source lists no audio. */
+  audioIndex: number | null;
 }
 
 const PROGRESS_MS = 10000;
@@ -95,6 +98,11 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
   const [notice, setNotice] = useState('');
   const [remoteNote, setRemoteNote] = useState({ text: '', on: false });
   const [subSel, setSubSel] = useState(-1);
+  // The audio stream asked for by the phone (null = the server's default). Changing it restarts the stream.
+  const [audioSel, setAudioSel] = useState<number | null>(null);
+  const subPicked = useRef(false);
+  /** Jellyfin stream index of the subtitles shown (-1 for none), for the progress reports. */
+  const subIndexRef = useRef(-1);
   const [bubbleView, setBubbleView] = useState<Bubble | null>(null);
   const errorRef = useRef('');
   errorRef.current = error;
@@ -233,32 +241,48 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
     setStatus('loading');
     startedRef.current = false;
     client
-      .playbackInfo(session.userId, item.Id, forceTranscode)
+      .playbackInfo(session.userId, item.Id, forceTranscode, audioSel === null ? undefined : audioSel)
       .then((info) => {
         if (!alive) return;
         const source = info.MediaSources[0];
         if (!source) throw new Error(info.ErrorCode ? `Server says: ${info.ErrorCode}` : 'No media source');
-        const params = { itemId: item.Id, deviceId: clientInfo().deviceId, playSessionId: info.PlaySessionId };
+        const fileDefault = defaultAudioIndex(source);
+        const params = {
+          itemId: item.Id,
+          deviceId: clientInfo().deviceId,
+          playSessionId: info.PlaySessionId,
+          audioStreamIndex: audioSel !== null && audioSel !== fileDefault ? audioSel : undefined,
+        };
         const selection = selectPlayMethod(source, params, forceTranscode);
         if (!selection) throw new Error(info.ErrorCode ? `Cannot play: ${info.ErrorCode}` : 'Server offers no playable stream');
-        setSubSel(pickInitialSubtitle(listSubtitles(source)));
+        // Only the first load picks a subtitle; a restart for another audio stream keeps the viewer's choice.
+        if (!subPicked.current) {
+          subPicked.current = true;
+          setSubSel(pickInitialSubtitle(listSubtitles(source)));
+        }
         setLoaded({
           src: resolveStreamUrl(session.serverUrl, selection.url, session.token),
           debug: describePlayback(source, selection),
           source,
           playSessionId: info.PlaySessionId,
+          audioIndex: audioSel !== null ? audioSel : (source.DefaultAudioStreamIndex ?? fileDefault),
         });
       })
       .catch((e: Error) => alive && setError(e.message));
     return () => {
       alive = false;
     };
-  }, [client, session, item.Id, forceTranscode]);
+  }, [client, session, item.Id, forceTranscode, audioSel]);
 
   // Subtitles: fetch the WebVTT text once per track, then attach it as a blob URL (avoids cross-origin
   // <track> issues). The timing offset is applied to the text, so changing it needs no refetch.
   const subs = loaded ? listSubtitles(loaded.source) : [];
   const imageOnly = loaded ? hasOnlyImageSubtitles(loaded.source) : false;
+  subIndexRef.current = subs[subSel] ? subs[subSel].index : -1;
+  // The phone shows the checked subtitle track from the progress reports: send one when it changes.
+  useEffect(() => {
+    pushProgress.current();
+  }, [subSel]);
   const [vttText, setVttText] = useState<string | null>(null);
   const [subOffset, setSubOffset] = useState(() => getSubtitleOffset(item.Id));
   useEffect(() => setSubOffset(getSubtitleOffset(item.Id)), [item.Id]);
@@ -332,6 +356,8 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
         positionTicks: secondsToTicks(now.seconds),
         playMethod: loaded.debug.method,
         isPaused: now.paused,
+        audioStreamIndex: loaded.audioIndex === null ? undefined : loaded.audioIndex,
+        subtitleStreamIndex: subIndexRef.current,
       };
     };
     client.reportStart(report()).catch(() => undefined);
@@ -389,6 +415,26 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
       setSubOffset(command.ms);
       setSubtitleOffset(item.Id, command.ms);
       showRemoteNote(command.ms === 0 ? 'Subtitles in sync' : `Subtitles ${formatOffset(command.ms)}`);
+      return;
+    }
+    if (command.type === 'subtitleStream') {
+      // -1 is off. An index that is not a text subtitle (image subtitles) cannot be shown.
+      const at = command.index < 0 ? -1 : subs.map((t) => t.index).indexOf(command.index);
+      if (command.index >= 0 && at < 0) {
+        showRemoteNote('Subtitles n/a');
+        return;
+      }
+      setSubSel(at);
+      showRemoteNote(at < 0 ? 'Subtitles off' : `Subtitles: ${subs[at].label}`);
+      return;
+    }
+    if (command.type === 'audioStream') {
+      const known = loaded && (loaded.source.MediaStreams ?? []).some((s) => s.Type === 'Audio' && s.Index === command.index);
+      if (!known || (loaded && loaded.audioIndex === command.index)) return;
+      // The stream restarts for the new audio: resume at the spot we are at.
+      startRef.current = pickPlayback(video.current, lastPlayback.current).seconds;
+      setAudioSel(command.index);
+      showRemoteNote('Switching audio');
       return;
     }
     if (command.type !== 'playstate') return;
