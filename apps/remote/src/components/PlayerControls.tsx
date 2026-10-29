@@ -1,8 +1,20 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { formatClock } from '../jellyfin/format';
 import type { SubtitleTrack } from '../jellyfin/subtitles';
 import { scrubFraction } from '../scrub';
 import { Icon } from './Icon';
+
+/** Extras for a mouse: volume, fullscreen and hover time on the scrub bar. Absent on a phone. */
+export interface DesktopControls {
+  /** 0 to 1. */
+  volume: number;
+  muted: boolean;
+  fullscreen: boolean;
+  canFullscreen: boolean;
+  onVolume(volume: number): void;
+  onToggleMute(): void;
+  onToggleFullscreen(): void;
+}
 
 interface Props {
   eyebrow: string;
@@ -28,6 +40,7 @@ interface Props {
   onBusy(busy: boolean): void;
   /** Any touch on the controls, so the hide timer restarts. */
   onInteract(): void;
+  desktop?: DesktopControls;
 }
 
 /** Streaming-style overlay: top bar, centre buttons and a bottom bar with the scrub bar and subtitle picker. */
@@ -35,6 +48,9 @@ export function PlayerControls(p: Props) {
   const [panel, setPanel] = useState(false);
   // While dragging: the time under the finger. The video only seeks on release.
   const [preview, setPreview] = useState<number | null>(null);
+  // Mouse: the fraction of the bar under the pointer, for the time tooltip.
+  const [hover, setHover] = useState<number | null>(null);
+  const d = p.desktop;
 
   const total = p.duration > 0 ? p.duration : 0;
   const shown = preview !== null ? preview : p.position;
@@ -49,6 +65,7 @@ export function PlayerControls(p: Props) {
     p.onBusy(true);
   };
   const onMove = (e: PointerEvent) => {
+    if (d && e.pointerType === 'mouse') setHover(fractionOf(e));
     if (preview !== null) setPreview(fractionOf(e) * total);
   };
   const onUp = (e: PointerEvent) => {
@@ -61,6 +78,22 @@ export function PlayerControls(p: Props) {
     setPreview(null);
     p.onBusy(panel);
   };
+
+  // Esc closes the subtitle menu first (before the player's own Esc handling sees it).
+  useEffect(() => {
+    if (!panel || !d) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      setPanel(false);
+      p.onBusy(false);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [panel, !!d]);
+
+  const tipAt = preview !== null && total > 0 ? preview / total : hover;
 
   const togglePanel = () => {
     setPanel(!panel);
@@ -112,6 +145,11 @@ export function PlayerControls(p: Props) {
           </div>
         ) : null}
         <div class="pc-row">
+          {d ? (
+            <button type="button" class="pc-btn pc-small" onClick={p.onTogglePlay} aria-label={p.paused ? 'Play' : 'Pause'}>
+              <Icon name={p.paused ? 'play' : 'pause'} size={28} />
+            </button>
+          ) : null}
           <span class="pc-time">{formatClock(shown)}</span>
           <div
             class={'pc-scrub' + (preview !== null ? ' dragging' : '')}
@@ -124,14 +162,38 @@ export function PlayerControls(p: Props) {
             onPointerMove={onMove}
             onPointerUp={onUp}
             onPointerCancel={onCancel}
+            onPointerLeave={d ? () => setHover(null) : undefined}
           >
             <div class="pc-track">
               <i class="pc-buffered" style={{ width: pct(p.buffered) }} />
               <i class="pc-played" style={{ width: pct(shown) }} />
             </div>
             <i class="pc-thumb" style={{ left: pct(shown) }} />
+            {d && tipAt !== null && total > 0 ? (
+              <span class="pc-tip" style={{ left: `${Math.max(0, Math.min(1, tipAt)) * 100}%` }}>
+                {formatClock(Math.max(0, Math.min(1, tipAt)) * total)}
+              </span>
+            ) : null}
           </div>
           <span class="pc-time">{total > 0 ? `-${formatClock(total - shown)}` : ''}</span>
+          {d ? (
+            <div class="pc-vol">
+              <button type="button" class="pc-btn pc-small" onClick={d.onToggleMute} aria-label={d.muted ? 'Unmute' : 'Mute'}>
+                <Icon name={d.muted || d.volume === 0 ? 'volumeMute' : d.volume < 0.4 ? 'volumeDown' : 'volumeUp'} size={26} />
+              </button>
+              <input
+                type="range"
+                class="pc-vol-slider"
+                min={0}
+                max={100}
+                step={1}
+                value={d.muted ? 0 : Math.round(d.volume * 100)}
+                style={{ '--fill': `${d.muted ? 0 : Math.round(d.volume * 100)}%` }}
+                aria-label="Volume"
+                onInput={(e) => d.onVolume(Number((e.target as HTMLInputElement).value) / 100)}
+              />
+            </div>
+          ) : null}
           <button
             type="button"
             class={'pc-btn pc-cc' + (p.selected >= 0 ? ' on' : '')}
@@ -141,6 +203,11 @@ export function PlayerControls(p: Props) {
           >
             <Icon name="captions" />
           </button>
+          {d && d.canFullscreen ? (
+            <button type="button" class="pc-btn pc-small" onClick={d.onToggleFullscreen} aria-label={d.fullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
+              <Icon name={d.fullscreen ? 'exitFullscreen' : 'fullscreen'} size={26} />
+            </button>
+          ) : null}
         </div>
       </div>
 

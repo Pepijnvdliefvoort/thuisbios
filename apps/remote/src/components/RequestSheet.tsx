@@ -30,6 +30,15 @@ export function RequestSheet({ initialTitle, onClose }: { initialTitle: string; 
 
   useScrollLock();
 
+  // Esc closes the sheet.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   useEffect(() => {
     if (!picked && sent === null) input.current?.focus();
   }, [picked, sent]);

@@ -480,3 +480,175 @@ button.rs-row:active { background: var(--surface-2); }
 /* "Request it" links in Search */
 .request-link { min-height: 44px; padding: 0 16px; color: var(--muted); font-size: 14px; text-decoration: underline; }
 .empty .request-link { color: var(--fg); font-weight: 600; margin-top: 8px; }
+
+/* ==========================================================================
+   Desktop: a wide window with a mouse. Everything below is inside these media queries, so a phone (coarse
+   pointer) never matches and keeps the rules above. Same condition as DESKTOP_QUERY in useDesktop.ts.
+   ========================================================================== */
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  :root { --gutter: 40px; --desk-top: 64px; }
+
+  /* Focus: clear outlines for keyboard users (the mouse never shows them) */
+  :focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  input:focus-visible { outline: none; }
+  .card:focus-visible { outline: none; }
+  .card:focus-visible .card-art { outline: 3px solid var(--fg); outline-offset: 3px; }
+
+  /* Top navigation bar (replaces the bottom tab bar). A plain flex item above the scroller: it creates no stacking context, so sheets inside it still cover the page. */
+  .topbar {
+    flex: none; display: flex; align-items: center; gap: 32px; height: var(--desk-top);
+    padding: 0 max(var(--gutter), calc((100% - 1600px) / 2 + var(--gutter)));
+    background: var(--bg); border-bottom: 1px solid var(--surface-2);
+  }
+  .topbar-tabs { display: flex; gap: 4px; }
+  .topbar-tabs button {
+    display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 20px;
+    color: var(--muted); font-weight: 600;
+  }
+  .topbar-tabs button:hover { color: var(--fg); background: var(--surface); }
+  .topbar-tabs button.active { color: var(--fg); background: var(--surface-2); }
+  .topbar .badge { position: static; margin-left: 2px; }
+  .topbar .chip { margin-left: auto; max-width: 280px; }
+  .chip:hover { background: var(--surface-2); }
+  .scroller { padding-bottom: 104px; }
+  .back { top: calc(var(--desk-top) + 12px); left: 24px; }
+  .back:hover { background: rgba(0, 0, 0, 0.8); }
+  .toast { top: calc(var(--desk-top) + 12px); }
+
+  /* Floating mini player, bottom centre */
+  .mini-dock { position: fixed; left: 50%; bottom: 20px; z-index: 30; width: min(640px, calc(100% - 2 * var(--gutter))); transform: translateX(-50%); }
+  .mini { height: 72px; margin: 0; border: 1px solid var(--surface-2); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5); }
+  .mini-art { width: 40px; height: 60px; }
+  .mini-open { gap: 14px; padding-left: 10px; }
+  .mini-open:hover .mini-title { text-decoration: underline; }
+  .mini-play { width: 64px; }
+  .mini-play:hover { background: var(--surface-2); }
+
+  /* Content: centred, capped width */
+  .page { max-width: 1600px; margin: 0 auto; }
+  .requests { max-width: calc(760px + 2 * var(--gutter)); }
+  .page-title { font-size: 26px; padding-top: 24px; padding-bottom: 8px; }
+  .connect-card { max-width: 640px; }
+
+  /* Generic controls: hover states */
+  .btn { transition: background-color 0.12s; }
+  .btn.primary:hover:not(:disabled) { background: #fff; }
+  .btn.secondary:hover:not(:disabled) { background: #2f2f3d; }
+  .btn.ghost:hover { color: var(--fg); }
+  .pill:hover:not(.active) { background: var(--surface-2); color: var(--fg); }
+  .segmented button:hover:not(.active) { color: var(--fg); }
+  .req-btn:hover:not(:disabled) { background: #2f2f3d; }
+  .req-btn.primary:hover:not(:disabled) { background: #fff; }
+  .tv-item:hover { background: #2a2a37; }
+  .request-link:hover, .rs-link:hover, .rs-change:hover, .rs-cancel:hover { color: var(--fg); }
+
+  /* Rows: bigger cards, arrows instead of swiping */
+  .row { margin: 24px 0 32px; }
+  .row h2 { font-size: 22px; margin-bottom: 12px; }
+  /* Vertical padding leaves room for the hover scale and the focus outline; the negative margin keeps the spacing. */
+  .row-scroll { gap: 16px; padding-top: 12px; padding-bottom: 12px; margin: -12px 0; }
+  .row-wrap { position: relative; }
+  .card-poster { width: 180px; }
+  .card-thumb { width: 320px; }
+  .card-title { margin-top: 8px; font-size: 15px; }
+  .card-sub { font-size: 13px; }
+  .card-art { transition: transform 0.18s ease; }
+  .card:hover .card-art { transform: scale(1.04); }
+  .row-arrow {
+    position: absolute; z-index: 2; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: rgba(11, 11, 16, 0.9); border: 1px solid rgba(255, 255, 255, 0.28); color: var(--fg);
+    opacity: 0; transition: opacity 0.15s ease;
+  }
+  .row-wrap:hover .row-arrow, .row-arrow:focus-visible { opacity: 1; }
+  .row-arrow:hover { background: var(--fg); color: #111; }
+  .row-arrow.prev { left: 6px; }
+  .row-arrow.next { right: 6px; }
+  .row-arrow.next .icon { transform: rotate(180deg); }
+  .row-poster .row-arrow { top: calc(12px + 135px - 24px); }
+  .row-thumb .row-arrow { top: calc(12px + 90px - 24px); }
+
+  /* Grid (Library, Search) */
+  .grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 28px 16px; padding-top: 16px; }
+  .searchbox { padding-top: 16px; }
+  .searchbox input[type="search"] { max-width: 560px; }
+  .segmented { max-width: 360px; margin-top: 16px; }
+
+  /* Details: wide backdrop, poster beside the title and the buttons */
+  .hero { aspect-ratio: auto; height: 58vh; min-height: 360px; max-height: 70vh; }
+  .hero-fade { background: linear-gradient(to bottom, rgba(11, 11, 16, 0) 30%, rgba(11, 11, 16, 0.65) 70%, var(--bg) 100%); }
+  .details-content { max-width: 1600px; margin: 0 auto; }
+  .details-head {
+    position: relative; display: grid; grid-template-columns: 220px minmax(0, 1fr); grid-template-rows: 1fr auto;
+    column-gap: 32px; align-items: end; padding: 0 var(--gutter); margin-top: -220px;
+  }
+  .details-main { display: contents; }
+  .poster { grid-column: 1; grid-row: 1 / span 2; width: 220px; height: 330px; border-radius: 10px; }
+  .details-text { grid-column: 2; grid-row: 1; padding-bottom: 8px; }
+  .details h1 { font-size: 40px; }
+  .eyebrow { font-size: 16px; }
+  .meta { font-size: 16px; margin-top: 6px; }
+  .actions { grid-column: 2; grid-row: 2; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0 0; }
+  .actions .btn { width: auto; min-width: 140px; }
+  .actions .next-ep, .actions .hint { flex-basis: 100%; }
+  .overview { max-width: calc(70ch + 2 * var(--gutter)); padding-top: 28px; font-size: 17px; line-height: 1.55; }
+  .genres { padding-top: 12px; font-size: 15px; }
+  .episodes { padding-top: 36px; }
+  .episodes h2 { font-size: 22px; }
+  .seasons { flex-wrap: wrap; overflow: visible; padding-top: 14px; padding-bottom: 14px; }
+  .ep-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); gap: 8px 24px; padding: 0 calc(var(--gutter) - 8px); }
+  .ep { padding: 10px 8px; border-bottom: 0; border-radius: 10px; }
+  .ep:hover { background: var(--surface); }
+  .ep.current { padding-left: 12px; }
+  .ep-art { width: 200px; }
+  .ep-title { font-size: 16px; }
+  .ep-sub { font-size: 14px; }
+  .ep-play { width: 52px; height: 52px; }
+  .ep-play:hover { background: var(--fg); color: #111; }
+
+  /* Sheets and dialogs: centred modal instead of a bottom sheet */
+  .sheet-backdrop { align-items: center; justify-content: center; padding: 24px; animation: vol-fade 150ms ease-out both; }
+  .sheet { max-width: 440px; max-height: calc(100vh - 48px); overflow-y: auto; border-radius: 16px; padding: 24px; animation: dlg-in 180ms ease-out both; }
+  .request-sheet { max-width: 520px; height: min(600px, calc(100vh - 48px)); max-height: calc(100vh - 48px); padding-bottom: 0; overflow: hidden; }
+  .volume-backdrop.out .volume-sheet { animation: dlg-out 150ms ease-in both; }
+  .vol-grab { display: none; }
+  @keyframes dlg-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
+  @keyframes dlg-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(12px) scale(0.98); } }
+}
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  .sheet-backdrop, .sheet, .volume-backdrop.out .volume-sheet { animation-duration: 1ms; }
+}
+
+/* Player with a mouse (any window size): hidden cursor, volume, fullscreen and the scrub tooltip. The elements only exist when the player has a mouse. */
+@media (hover: hover) and (pointer: fine) {
+  .player-stage.idle { cursor: none; }
+  .player-subs.raised { transform: translateY(-84px); }
+  .pc-title h1 { font-size: 20px; }
+  .pc-btn:hover { background: rgba(255, 255, 255, 0.14); }
+  .pc-btn:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+  .pc-small { width: 40px; height: 40px; }
+  .pc-time { min-width: 52px; }
+  .pc-scrub { cursor: pointer; }
+  .pc-track { transition: transform 0.12s ease; }
+  .pc-scrub:hover .pc-track { transform: scaleY(1.6); }
+  .pc-scrub:hover .pc-thumb { transform: scale(1.3); }
+  .pc-scrub.dragging .pc-track { transform: scaleY(1.6); }
+  .pc-tip {
+    position: absolute; bottom: 34px; padding: 3px 8px; border-radius: 6px; transform: translateX(-50%); pointer-events: none;
+    background: rgba(20, 20, 24, 0.95); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .pc-vol { display: flex; align-items: center; flex: none; }
+  .pc-vol-slider {
+    --fill: 100%;
+    width: 84px; height: 24px; margin: 0 8px 0 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer;
+  }
+  .pc-vol-slider::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, #fff var(--fill), rgba(255, 255, 255, 0.3) var(--fill)); }
+  .pc-vol-slider::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.3); }
+  .pc-vol-slider::-moz-range-progress { height: 4px; border-radius: 2px; background: #fff; }
+  .pc-vol-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; border-radius: 50%; background: #fff; border: 0; }
+  .pc-vol-slider::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 0; }
+  .pc-vol-slider:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .pc-panel button:hover { background: rgba(255, 255, 255, 0.12); }
+}
+@media (hover: hover) and (pointer: fine) and (max-width: 640px) {
+  .pc-vol-slider { display: none; }
+}

@@ -98,6 +98,13 @@ function VolumeSheet({ volume, toast, onClose }: { volume: ReturnType<typeof cre
     setClosing(true);
     setTimeout(onClose, CLOSE_MS);
   };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

@@ -1,21 +1,32 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { useApp } from '../context';
 import { Icon } from './Icon';
 import { VolumeControls } from './VolumeControls';
 
-/** Header chip showing the connected TV; tap to pick another one. */
-export function TvChip({ onSignOut }: { onSignOut: () => void }) {
+/**
+ * Header chip showing the connected TV; tap to pick another one. `bare` leaves out the header and brand,
+ * for use inside the desktop top bar.
+ */
+export function TvChip({ onSignOut, bare = false }: { onSignOut: () => void; bare?: boolean }) {
   const { tv, session, openConnectTv, toast } = useApp();
   const [open, setOpen] = useState(false);
   const connect = () => {
     setOpen(false);
     openConnectTv();
   };
+  // Esc closes the sheet, unless the volume sheet on top of it is open (that one is closed first).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.querySelector('.volume-backdrop')) setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
   const connected = !!tv.tv;
   const name = tv.tv ? tv.tv.DeviceName || 'TV' : tv.loaded ? 'No TV' : 'Looking for TV';
-  return (
-    <header class="header">
-      <span class="brand">Thuisbios</span>
+  const content = (
+    <>
       <button type="button" class="chip" onClick={() => setOpen(true)} aria-haspopup="dialog">
         <span class={`dot ${connected ? 'on' : ''}`} />
         <span class="chip-name">{name}</span>
@@ -85,6 +96,13 @@ export function TvChip({ onSignOut }: { onSignOut: () => void }) {
           </div>
         </div>
       ) : null}
+    </>
+  );
+  if (bare) return content;
+  return (
+    <header class="header">
+      <span class="brand">Thuisbios</span>
+      {content}
     </header>
   );
 }

@@ -2,16 +2,19 @@ import { useApp } from '../context';
 import { artUrl } from '../jellyfin/art';
 import { episodeLabel, progressFraction } from '../jellyfin/format';
 import type { BaseItem } from '../jellyfin/types';
+import { isDesktop } from '../useDesktop';
 import { Img } from './Img';
 
 export type CardShape = 'poster' | 'thumb';
 
 const SIZES = { poster: [240, 360], thumb: [480, 270] } as const; // 2x of the CSS size
+/** The cards are bigger in a desktop window (about 180 and 320 px wide). */
+const DESKTOP_SIZES = { poster: [360, 540], thumb: [640, 360] } as const;
 
 /** Tile with art, optional progress bar and a one- or two-line caption. */
 export function MediaCard({ item, shape }: { item: BaseItem; shape: CardShape }) {
   const { client, openItem } = useApp();
-  const [w, h] = SIZES[shape];
+  const [w, h] = (isDesktop() ? DESKTOP_SIZES : SIZES)[shape];
   const isEpisode = item.Type === 'Episode';
   const title = isEpisode && shape === 'thumb' ? item.SeriesName || item.Name : item.Name;
   const sub = isEpisode
