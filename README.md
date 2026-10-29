@@ -203,12 +203,12 @@ level instead. The TV address and pairing token live in
 the TV once. Follow [docs/remote/setup.md](docs/remote/setup.md) to run it on the PC and add it to
 the phone's home screen.
 
-Now Playing also has a "Subtitles" button that opens a sheet to shift the subtitle timing in steps of
+Now Playing also has a "Sub timing" button that opens a sheet to shift the subtitle timing in steps of
 0.1 s or 0.5 s (positive is later). The phone sends the absolute offset for the playing item as a private
 Jellyfin display message (`thuisbios:subtitle-offset:<itemId>:<ms>`), the TV shifts the WebVTT cues and
 remembers the offset per item. It only works for text subtitles.
 
-Now Playing also has an "Audio & subtitles" button that lists the audio and subtitle tracks of what the
+Now Playing also has an "Audio & subs" button (next to "Sub timing") that lists the audio and subtitle tracks of what the
 TV plays, with the current ones checked (the TV reports them in its progress). Tapping a track sends
 Jellyfin's standard `SetAudioStreamIndex` or `SetSubtitleStreamIndex` command to the TV. The TV switches
 text subtitles at once and restarts the stream at the same position for another audio track.
