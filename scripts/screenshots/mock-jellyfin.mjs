@@ -276,6 +276,15 @@ function queryItems(q) {
   if (sort === 'DatePlayed') list.sort((a, b) => Date.parse(userData(b).LastPlayedDate || 0) - Date.parse(userData(a).LastPlayedDate || 0));
   else if (sort === 'DateCreated') list.sort((a, b) => (desc ? 1 : -1) * ((a.created ?? 0) - (b.created ?? 0)));
   else if (sort === 'SortName') list.sort((a, b) => a.Name.localeCompare(b.Name));
+  else if (sort) {
+    const key = { 'PremiereDate,ProductionYear,SortName': 'ProductionYear', 'CommunityRating,SortName': 'CommunityRating', 'Runtime,SortName': 'RunTimeTicks', 'DateCreated,SortName': 'created' }[sort];
+    if (key) list.sort((a, b) => (desc ? -1 : 1) * ((a[key] ?? 0) - (b[key] ?? 0)));
+  }
+  if ((q.get('Filters') || '').includes('IsUnplayed')) list = list.filter((i) => !userData(i).Played);
+  const genre = q.get('Genres');
+  if (genre) list = list.filter((i) => (i.Genres || []).includes(genre));
+  const years = (q.get('Years') || '').split(',').filter(Boolean).map(Number);
+  if (years.length) list = list.filter((i) => years.includes(i.ProductionYear));
   const limit = parseInt(q.get('Limit') || '', 10);
   const total = list.length;
   if (limit > 0) list = list.slice(0, limit);
@@ -350,6 +359,11 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       return json({ Items: seasons.map(strip), TotalRecordCount: seasons.length });
     }
     if ((m = /^\/Shows\/([^/]+)\/Episodes$/.exec(path))) return json(episodesQuery(m[1], q));
+    if (path === '/Genres') {
+      const type = q.get('IncludeItemTypes');
+      const names = [...new Set([...items.values()].filter((i) => i.Type === type).flatMap((i) => i.Genres || []))].sort();
+      return json({ Items: names.map((Name) => ({ Id: `genre-${Name}`, Name })), TotalRecordCount: names.length });
+    }
     if ((m = /^\/Users\/[^/]+\/Items$/.exec(path))) return json(queryItems(q));
     if ((m = /^\/Users\/[^/]+\/Items\/([^/]+)$/.exec(path)) || (m = /^\/Items\/([^/]+)$/.exec(path))) {
       const it = items.get(m[1]);
