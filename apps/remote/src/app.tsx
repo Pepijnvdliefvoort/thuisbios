@@ -122,6 +122,7 @@ function Shell({
 
   // Counts playback endings so Home can refresh its Resume watching row.
   const [playbackEnded, setPlaybackEnded] = useState(0);
+  const [libraryChanged, setLibraryChanged] = useState(0);
   const playing: PlaybackState = {
     tv: !!tv.nowPlaying,
     phone: nav.stack.length > 0 && nav.stack[nav.stack.length - 1].kind === 'player',
@@ -155,6 +156,8 @@ function Shell({
     tv,
     requests,
     playbackEnded,
+    libraryChanged,
+    refreshLibrary: () => setLibraryChanged((n) => n + 1),
     toast,
     openItem: (id) => {
       remember();

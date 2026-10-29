@@ -7,6 +7,7 @@ import { artUrl } from '../jellyfin/art';
 import { chooseSeasonId } from '../jellyfin/seasons';
 import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from '../jellyfin/format';
 import type { BaseItem } from '../jellyfin/types';
+import { allWatched, isWatched, watchedToggle, type WatchedScope } from '../jellyfin/watched';
 import { useAsync, useRegisterReload, type Reloaders } from '../useAsync';
 import { useDesktop } from '../useDesktop';
 import { usePullToRefresh } from '../usePullToRefresh';
@@ -17,29 +18,45 @@ export const resumeTicks = (item: BaseItem): number => {
   return t > 100_000_000 ? t : 0; // under 10 s counts as "not started"
 };
 
+/** Marks an item (or a season or series, which Jellyfin applies to all episodes) watched or unwatched, then refreshes. */
+function useSetWatched(refresh: () => Promise<unknown>) {
+  const { client, session, toast, refreshLibrary } = useApp();
+  return async (id: string, played: boolean): Promise<boolean> => {
+    try {
+      if (played) await client.markPlayed(session.userId, id);
+      else await client.markUnplayed(session.userId, id);
+    } catch {
+      toast("Couldn't update watched state");
+      return false;
+    }
+    await refresh();
+    refreshLibrary();
+    return true;
+  };
+}
+
 export function Details({ id, onBack }: { id: string; onBack: () => void }) {
   const { client, session } = useApp();
   const item = useAsync(() => client.item(session.userId, id), [client, session.userId, id]);
   // Children (next episode, seasons, episodes) register their reloads here so a pull refreshes them too.
   const reloaders = useRef(new Set<() => Promise<void>>());
   const pageRef = useRef<HTMLDivElement>(null);
-  const pull = usePullToRefresh(pageRef, () =>
-    Promise.all([item.reload(), ...Array.from(reloaders.current, (reload) => reload())]),
-  );
+  const refresh = () => Promise.all([item.reload(), ...Array.from(reloaders.current, (reload) => reload())]);
+  const pull = usePullToRefresh(pageRef, refresh);
   return (
     <div class="details" ref={pageRef}>
       <PullSpinner pull={pull} />
       <button type="button" class="back" onClick={onBack} aria-label="Back">
         <Icon name="back" />
       </button>
-      {item.data ? <DetailsBody item={item.data} reloaders={reloaders} /> : null}
+      {item.data ? <DetailsBody item={item.data} reloaders={reloaders} refresh={refresh} /> : null}
       {item.loading && !item.data ? <p class="hint pad-top">Loading...</p> : null}
       {item.error ? <p class="empty pad-top">Couldn't load this item.</p> : null}
     </div>
   );
 }
 
-function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders }) {
+function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: Reloaders; refresh: () => Promise<unknown> }) {
   const { client, session, tv, toast, openItem, playHere } = useApp();
   const desktop = useDesktop();
   const isSeries = item.Type === 'Series';
@@ -60,6 +77,18 @@ function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders
   const resume = playItem ? resumeTicks(playItem) : 0;
   const noTv = !tv.tv;
   const disabled = !playItem;
+
+  // The tapped state shows at once; it is dropped when the refreshed item arrives (or the change failed).
+  const [pending, setPending] = useState<boolean | null>(null);
+  const setWatched = useSetWatched(refresh);
+  const scope: WatchedScope = isSeries ? 'series' : 'item';
+  const watched = pending !== null ? pending : isWatched(item);
+  const toggle = watchedToggle(scope, watched);
+  const toggleWatched = async () => {
+    setPending(toggle.next);
+    await setWatched(item.Id, toggle.next);
+    setPending(null);
+  };
 
   const send = async (action: Promise<boolean>) => {
     if (await action) toast('Sent to TV');
@@ -132,9 +161,20 @@ function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders
                 <Icon name="tv" size={20} /> {resume > 0 ? 'Resume on TV' : 'Play on TV'}
               </button>
             ) : null}
-            <button type="button" class="btn secondary" disabled={noTv} onClick={() => void send(tv.show(item))}>
-              <Icon name="eye" size={20} /> Show on TV
-            </button>
+            <div class="action-row">
+              <button type="button" class="btn secondary" disabled={noTv} onClick={() => void send(tv.show(item))}>
+                <Icon name="eye" size={20} /> Show on TV
+              </button>
+              <button
+                type="button"
+                class={watched ? 'btn secondary is-watched' : 'btn secondary'}
+                aria-pressed={watched}
+                title={watched ? 'Tap to mark unwatched' : undefined}
+                onClick={() => void toggleWatched()}
+              >
+                <Icon name={watched ? 'watched' : 'unwatched'} size={20} /> {toggle.label}
+              </button>
+            </div>
             {noTv && !desktop ? <p class="hint small">No TV connected, so this plays on your phone.</p> : null}
           </div>
         </div>
@@ -149,6 +189,7 @@ function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders
             currentEpisodeId={playItem ? playItem.Id : undefined}
             onOpen={openItem}
             reloaders={reloaders}
+            refresh={refresh}
           />
         ) : null}
         {isEpisode && item.SeriesId ? (
@@ -159,6 +200,7 @@ function DetailsBody({ item, reloaders }: { item: BaseItem; reloaders: Reloaders
             onEpisodePage
             onOpen={openItem}
             reloaders={reloaders}
+            refresh={refresh}
           />
         ) : null}
       </div>
@@ -173,6 +215,7 @@ function Episodes({
   onEpisodePage = false,
   onOpen,
   reloaders,
+  refresh,
 }: {
   seriesId: string;
   initialSeasonId?: string;
@@ -181,6 +224,7 @@ function Episodes({
   onEpisodePage?: boolean;
   onOpen: (id: string) => void;
   reloaders: Reloaders;
+  refresh: () => Promise<unknown>;
 }) {
   const { client, session, tv, toast, playHere } = useApp();
   const desktop = useDesktop();
@@ -192,6 +236,19 @@ function Episodes({
     () => (seasonId ? client.episodes(session.userId, seriesId, seasonId) : Promise.resolve([])),
     [client, session.userId, seriesId, seasonId],
   );
+  // Taps that are not confirmed by a refresh yet, by episode id.
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+  const setWatched = useSetWatched(refresh);
+  const list = episodes.data || [];
+  const isPlayed = (ep: BaseItem) => (ep.Id in pending ? pending[ep.Id] : isWatched(ep));
+  const seasonToggle = watchedToggle('season', allWatched(list, pending));
+  const change = async (id: string, next: boolean, affected: BaseItem[]) => {
+    const marks: Record<string, boolean> = {};
+    affected.forEach((ep) => (marks[ep.Id] = next));
+    setPending((p) => ({ ...p, ...marks }));
+    await setWatched(id, next);
+    setPending({});
+  };
   useRegisterReload(reloaders, seasons.reload);
   useRegisterReload(reloaders, episodes.reload);
   return (
@@ -213,12 +270,19 @@ function Episodes({
           ))}
         </div>
       ) : null}
+      {seasonId && list.length > 0 ? (
+        <div class="season-tools">
+          <button type="button" class="btn-small" onClick={() => void change(seasonId, seasonToggle.next, list)}>
+            <Icon name={seasonToggle.next ? 'unwatched' : 'watched'} size={18} /> {seasonToggle.label}
+          </button>
+        </div>
+      ) : null}
       {episodes.loading && !episodes.data ? <p class="hint">Loading...</p> : null}
       <ul class="ep-list">
-        {(episodes.data || []).map((ep) => {
+        {list.map((ep) => {
           const progress = progressFraction(ep.UserData, ep.RunTimeTicks);
           const from = resumeTicks(ep);
-          const played = !!(ep.UserData && ep.UserData.Played);
+          const played = isPlayed(ep);
           const current = ep.Id === currentEpisodeId;
           return (
             <li key={ep.Id} class={current ? 'ep current' : 'ep'}>
@@ -246,6 +310,15 @@ function Episodes({
                     {formatRuntime(ep.RunTimeTicks)}
                   </span>
                 </span>
+              </button>
+              <button
+                type="button"
+                class={played ? 'ep-watch on' : 'ep-watch'}
+                aria-pressed={played}
+                aria-label={played ? `Mark ${ep.Name} unwatched` : `Mark ${ep.Name} watched`}
+                onClick={() => void change(ep.Id, !played, [ep])}
+              >
+                <Icon name={played ? 'watched' : 'unwatched'} size={22} />
               </button>
               <button
                 type="button"

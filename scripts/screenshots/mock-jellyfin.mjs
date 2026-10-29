@@ -346,7 +346,16 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       const it = items.get(m[1]);
       return it ? json(strip(it)) : send(404, { error: 'not found' });
     }
-    if ((m = /^\/Users\/[^/]+\/PlayedItems\/[^/]+$/.exec(path))) return json({ Played: true });
+    if ((m = /^\/Users\/[^/]+\/PlayedItems\/([^/]+)$/.exec(path))) {
+      // Marks the item and, for a season or series, its episodes (like Jellyfin).
+      const played = req.method !== 'DELETE';
+      const hit = (i) => i.Id === m[1] || i.SeasonId === m[1] || (i.Type === 'Episode' && i.SeriesId === m[1]);
+      for (const i of items.values()) {
+        if (!hit(i)) continue;
+        i.UserData = played ? { ...i.UserData, Played: true, PlaybackPositionTicks: 0, LastPlayedDate: new Date().toISOString() } : { PlaybackPositionTicks: 0, Played: false };
+      }
+      return json({ Played: played });
+    }
     if (/^\/MediaSegments\/[^/]+$/.test(path)) return json({ Items: [], TotalRecordCount: 0 });
     if ((m = /^\/Items\/([^/]+)\/PlaybackInfo$/.exec(path))) {
       return json({ MediaSources: [{ Id: m[1], SupportsDirectPlay: false, SupportsTranscoding: false, MediaStreams: [] }], PlaySessionId: 'mock-play' });

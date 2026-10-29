@@ -155,7 +155,7 @@ screen. It connects the TV: scan the QR code on the TV (the link is
 TV's QR code with the camera (over plain HTTP it takes a photo; a live viewfinder needs HTTPS). It signs in to
 Jellyfin with just username and password (the server address is derived from the page host; "Change server" reveals it), browses the library (Home rows, Search, Library with
 Movies and Shows, with the app version at the bottom) and shows a details page with Play on TV, Resume on TV, Play from start and Show
-on TV; series and episode pages have a season selector and an episode list that marks watched episodes and the next or current one, and an episode page links back to its show. While the TV plays, a mini player bar and a
+on TV; series and episode pages have a season selector and an episode list that marks watched episodes and the next or current one, and an episode page links back to its show. Movies, episodes, seasons and whole series can be marked watched or unwatched from the details page. While the TV plays, a mini player bar and a
 Now Playing screen offer play/pause, a scrub slider, -10 s / +10 s, previous and next episode and
 stop. The remote finds the TV through the Jellyfin sessions API (the TV app registers as
 remote-controllable) and polls `/Sessions` every 2 seconds while the page is visible.
