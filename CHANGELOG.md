@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.6.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.5.1...v0.6.0) (2026-10-29)
+
+
+### Features
+
+* choose audio and subtitle tracks in the player and on the TV ([a0e78de](https://github.com/Pepijnvdliefvoort/thuisbios/commit/a0e78de9dbbcb45d840f339c124cb522917510cc))
+* choose audio and subtitle tracks in the player and on the TV ([b375114](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b37511463a9ff746736e4353dce1403697f3378a))
+* **remote:** desktop layout and keyboard-friendly player ([d1c504e](https://github.com/Pepijnvdliefvoort/thuisbios/commit/d1c504e345ce1ecfb962e4a4de755ac96be767dd))
+* **remote:** mark movies, episodes and seasons watched or unwatched ([bc7a651](https://github.com/Pepijnvdliefvoort/thuisbios/commit/bc7a651f85a7265c910bb319bb469b1dd016658f))
+* **remote:** mark movies, episodes and seasons watched or unwatched ([b60b8b2](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b60b8b278181179374ac7a7e01d5b1cc4129b13a))
+* **remote:** sort and filter the library ([f9f96ab](https://github.com/Pepijnvdliefvoort/thuisbios/commit/f9f96abeae1bb98852fd913d215a743d056e26da))
+* **remote:** sort and filter the library ([3ec87fc](https://github.com/Pepijnvdliefvoort/thuisbios/commit/3ec87fcc5ddadff18c1c4e1c64c0df1c62b10afb))
+
+
+### Bug Fixes
+
+* friendlier codec names and a one-row tools layout on Now Playing ([59b4706](https://github.com/Pepijnvdliefvoort/thuisbios/commit/59b4706a1da3e3ee3887533ad2b1330c90adb751))
+* **remote:** correct hls.js timeline shift when Jellyfin remuxes ([74a5061](https://github.com/Pepijnvdliefvoort/thuisbios/commit/74a506145207072fed0c4672401f2cd5b7d15b76))
+* **remote:** keep page ends clear of the desktop mini player ([92ef694](https://github.com/Pepijnvdliefvoort/thuisbios/commit/92ef694b41cc54102ea9ef0c0c43ff27f9d2980a))
+* **remote:** re-encode video for HLS so subtitles stay in sync ([7d19a63](https://github.com/Pepijnvdliefvoort/thuisbios/commit/7d19a63f245757cba9583ca45510803de85f6b7d))
+* **remote:** stop burning subtitles into the phone player ([ba7e0f8](https://github.com/Pepijnvdliefvoort/thuisbios/commit/ba7e0f88e77636cc628f4ebabb29e5e03fb9a146))
+* **remote:** stop burning subtitles into the phone player ([e18bfe7](https://github.com/Pepijnvdliefvoort/thuisbios/commit/e18bfe7a671f0871b7ff5cf5f7d140cd0933390d))
+
+
+### Documentation
+
+* describe the desktop browser use of the phone app ([13fdfd5](https://github.com/Pepijnvdliefvoort/thuisbios/commit/13fdfd5a1bdda10c766f46cb8afcdb4bda95d219))
+* name the Now Playing track buttons ([f15f9f5](https://github.com/Pepijnvdliefvoort/thuisbios/commit/f15f9f58278687a38109f1d91b763fb83ed0d9f4))
+
 ## [0.5.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.5.0...v0.5.1) (2026-10-29)
 
 
