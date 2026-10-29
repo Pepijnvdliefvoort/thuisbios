@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.4.1...v0.5.0) (2026-10-29)
+
+
+### Features
+
+* **remote:** show app version at the bottom of the Library page ([61ff1ed](https://github.com/Pepijnvdliefvoort/thuisbios/commit/61ff1ed6e5e366c3dd2e0f07e6194e9398388b8a))
+* **remote:** show app version at the bottom of the Library page ([1300ef4](https://github.com/Pepijnvdliefvoort/thuisbios/commit/1300ef445e02e5ccaa90e16a34c91bed7f1eb9c7))
+
+
+### Bug Fixes
+
+* **remote:** stop iOS 26 edge blur and keep the tab bar on screen ([f2ae9a9](https://github.com/Pepijnvdliefvoort/thuisbios/commit/f2ae9a97b7163398929d25de201c6bf6cd5d3f36))
+* **remote:** stop iOS 26 edge blur and keep the tab bar on screen ([9913483](https://github.com/Pepijnvdliefvoort/thuisbios/commit/99134838c6a8838fead0e145b7f47fb02b3ae0d8))
+
 ## [0.4.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.4.0...v0.4.1) (2026-10-27)
 
 
