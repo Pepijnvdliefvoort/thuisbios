@@ -13,10 +13,14 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  --top-clear: 0px;
+  --ui-top: calc(var(--safe-top) + var(--top-clear));
   --gutter: 16px;
   color-scheme: dark;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* iOS Home Screen apps: (1) the system blur covers the status bar plus ~40pt below it, so --top-clear keeps UI out of that band; (2) the page is ~status-bar-height shorter than the screen until it is screen-tall, so html gets a min-height (capped, so it never scrolls when the inset is 0). */
+@media (display-mode: standalone) { :root { --top-clear: 40px; } html { min-height: min(100lvh, calc(100% + env(safe-area-inset-top))); } }
 html, body { margin: 0; background: var(--bg); color: var(--fg); }
 html, body { overscroll-behavior: none; height: 100%; overflow: hidden; }
 #app { height: 100%; }
@@ -31,8 +35,8 @@ button:disabled { cursor: default; }
 h1, h2, p { margin: 0; }
 .icon { display: block; flex: none; }
 
-/* App shell: a fixed-height frame; only .scroller scrolls, the tab bar stays put. --app-h (viewport.ts) is the real visible height (never taller, or the tab bar clips). The solid background lets iOS 26 skip its edge blur. */
-.shell { position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); overflow: hidden; display: flex; flex-direction: column; background: var(--bg); }
+/* App shell: a fixed frame; only .scroller scrolls, the tab bar stays put. It follows the real viewport (top/bottom 0); the standalone html min-height makes iOS give it the full screen. */
+.shell { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); }
 .scroller {
   flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: none;
   padding-left: var(--safe-left);
@@ -50,7 +54,7 @@ html.scroll-locked .scroller { overflow-y: hidden; }
 /* Header (scrolls away with the page) */
 .header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: var(--safe-top) var(--gutter) 4px;
+  padding: var(--ui-top) var(--gutter) 4px;
   background: var(--bg);
 }
 .brand { font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
@@ -126,7 +130,7 @@ html.scroll-locked .scroller { overflow-y: hidden; }
 .progress i { display: block; height: 100%; background: var(--accent); }
 
 /* Search and library */
-.searchbox { padding: 4px var(--gutter) 8px; position: sticky; top: var(--safe-top); background: var(--bg); z-index: 5; }
+.searchbox { padding: 4px var(--gutter) 8px; position: sticky; top: var(--ui-top); background: var(--bg); z-index: 5; }
 input[type="search"], input[type="text"], input[type="url"], input[type="password"] {
   width: 100%; min-height: 48px; padding: 0 14px; font: inherit; font-size: 16px; color: var(--fg);
   background: var(--surface); border: 2px solid transparent; border-radius: var(--radius); appearance: none; -webkit-appearance: none;
@@ -155,7 +159,7 @@ input:focus { outline: none; border-color: var(--accent); }
 /* Sits at the top, just below the status bar, so it never covers the tab bar or mini player. Transform and opacity only. */
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 50;
-  top: calc(var(--safe-top) + 8px); animation: toast-in 200ms ease-out both;
+  top: calc(var(--ui-top) + 8px); animation: toast-in 200ms ease-out both;
   background: #fff; color: #111; padding: 10px 18px; border-radius: 22px; font-weight: 600; font-size: 14px; max-width: 90vw;
 }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
@@ -163,7 +167,7 @@ input:focus { outline: none; border-color: var(--accent); }
 
 /* Details */
 .back {
-  position: fixed; top: calc(var(--safe-top) + 8px); left: calc(var(--safe-left) + 8px); z-index: 15;
+  position: fixed; top: calc(var(--ui-top) + 8px); left: calc(var(--safe-left) + 8px); z-index: 15;
   width: 44px; height: 44px; border-radius: 50%; background: rgba(0, 0, 0, 0.55);
   display: flex; align-items: center; justify-content: center;
 }
@@ -201,12 +205,12 @@ input:focus { outline: none; border-color: var(--accent); }
 .ep-play:disabled { opacity: 0.35; }
 
 /* Now playing */
-.nowplaying { height: 100%; padding: calc(var(--safe-top) + 64px) var(--gutter) 8px; display: flex; flex-direction: column; gap: 16px; max-width: 520px; margin: 0 auto; }
+.nowplaying { height: 100%; padding: calc(var(--ui-top) + 64px) var(--gutter) 8px; display: flex; flex-direction: column; gap: 16px; max-width: 520px; margin: 0 auto; }
 .nowplaying > * { flex: none; }
 /* The art keeps 16:9 when there is room and shrinks when the screen is short. */
 .nowplaying > .np-art { flex: 0 1 auto; min-height: 0; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; }
 .np-art img { min-height: 0; }
-@media (max-height: 700px) { .nowplaying { padding-top: calc(var(--safe-top) + 56px); gap: 8px; } }
+@media (max-height: 700px) { .nowplaying { padding-top: calc(var(--ui-top) + 56px); gap: 8px; } }
 .np-text h1 { font-size: 22px; line-height: 1.2; }
 .np-sub { color: var(--muted); margin-top: 2px; }
 .scrub input[type="range"] {
@@ -277,7 +281,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .vol-slider:disabled { opacity: 0.4; }
 
 /* Sign in */
-.signin { height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); overflow-y: auto; overscroll-behavior: none; display: flex; flex-direction: column; max-width: 420px; margin: 0 auto; padding: calc(var(--safe-top) + 24px) calc(var(--gutter) + var(--safe-right)) calc(var(--safe-bottom) + 24px) calc(var(--gutter) + var(--safe-left)); }
+.signin { height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); overflow-y: auto; overscroll-behavior: none; display: flex; flex-direction: column; max-width: 420px; margin: 0 auto; padding: calc(var(--ui-top) + 24px) calc(var(--gutter) + var(--safe-right)) calc(var(--safe-bottom) + 24px) calc(var(--gutter) + var(--safe-left)); }
 .signin::before, .signin::after { content: ''; flex: 1 0 0; }
 .signin-logo { font-size: 38px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
 .signin-lead { color: var(--muted); margin: 4px 0 24px; }
@@ -289,7 +293,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .signin-banner { background: var(--surface); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; margin: 12px 0 0; font-weight: 600; }
 
 /* Connect TV */
-.connect { min-height: 100%; display: flex; justify-content: center; padding: calc(var(--safe-top) + 72px) var(--gutter) calc(var(--safe-bottom) + 24px); }
+.connect { min-height: 100%; display: flex; justify-content: center; padding: calc(var(--ui-top) + 72px) var(--gutter) calc(var(--safe-bottom) + 24px); }
 .connect-body { width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
 .connect-body form { width: 100%; display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
 .connect h1 { font-size: 26px; line-height: 1.2; }
@@ -332,7 +336,7 @@ input:focus { outline: none; border-color: var(--accent); }
 
 /* Pull to refresh */
 .ptr {
-  position: fixed; top: var(--safe-top); left: 50%; z-index: 30; width: 36px; height: 36px; margin-left: -18px;
+  position: fixed; top: var(--ui-top); left: 50%; z-index: 30; width: 36px; height: 36px; margin-left: -18px;
   display: flex; align-items: center; justify-content: center; border-radius: 50%;
   background: var(--surface-2); pointer-events: none; will-change: transform, opacity;
   transition: transform 0.2s ease, opacity 0.2s ease;
@@ -344,7 +348,7 @@ input:focus { outline: none; border-color: var(--accent); }
 
 /* Player (plays on the phone): full screen, no scrolling. The stage is the landscape canvas. */
 .player { position: fixed; inset: 0; z-index: 20; background: #000; overflow: hidden; }
-.player-error { padding-top: calc(var(--safe-top) + 60px); }
+.player-error { padding-top: calc(var(--ui-top) + 60px); }
 .player-stage {
   position: absolute; inset: 0; overflow: hidden; background: #000; container-type: size;
   /* Safe areas along the stage's own edges. */
