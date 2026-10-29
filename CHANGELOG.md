@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.5.0...v0.5.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **remote:** keep the header out of the iOS blur and fill the screen ([d75370c](https://github.com/Pepijnvdliefvoort/thuisbios/commit/d75370c90c8d7e5c4c89a68856fd8332f4c75b7d))
+* **remote:** keep the header out of the iOS blur and fill the screen ([4133a46](https://github.com/Pepijnvdliefvoort/thuisbios/commit/4133a46265445d9201fa893f17e99d72e453f5a3))
+
+
+### Documentation
+
+* **remote:** drop outdated edge blur note on the shell ([a5bb822](https://github.com/Pepijnvdliefvoort/thuisbios/commit/a5bb822ec5d0cbfb0c19170fcf96370ac93e5ada))
+
 ## [0.5.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.4.1...v0.5.0) (2026-10-29)
 
 
