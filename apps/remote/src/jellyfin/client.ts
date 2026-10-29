@@ -215,6 +215,8 @@ export function createClient(options: ClientOptions): JellyfinClient {
         `EnableDirectPlay=${directPlay}`,
         'EnableDirectStream=true',
         'EnableTranscoding=true',
+        // Never remux the video into HLS: copied segments do not line up with the playlist, so our subtitles drift.
+        'AllowVideoStreamCopy=false',
         ...(startTicks ? [`StartTimeTicks=${startTicks}`] : []),
         ...(audioStreamIndex !== undefined ? [`AudioStreamIndex=${audioStreamIndex}`] : []),
         ...(subtitleStreamIndex !== null ? [`SubtitleStreamIndex=${subtitleStreamIndex}`] : []),
@@ -225,6 +227,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
         EnableDirectPlay: directPlay,
         EnableDirectStream: true,
         EnableTranscoding: true,
+        AllowVideoStreamCopy: false,
         AutoOpenLiveStream: false,
         ...(startTicks ? { StartTimeTicks: startTicks } : {}),
         ...(audioStreamIndex !== undefined ? { AudioStreamIndex: audioStreamIndex } : {}),

@@ -63,8 +63,19 @@ export function selectPlayMethod(source: MediaSource, params: StreamParams): Pla
 
 function transcodeSelection(url: string, source: MediaSource, audio: number | undefined, sub: number): PlaySelection {
   const hls = source.TranscodingSubProtocol === 'hls' || /\.m3u8(\?|$)/i.test(url);
-  const withSub = withSubtitleStreamIndex(url, sub);
+  const withSub = withNoVideoStreamCopy(withSubtitleStreamIndex(url, sub));
   return { method: 'Transcode', url: audio === undefined ? withSub : withAudioStreamIndex(withSub, audio), hls };
+}
+
+/**
+ * Forces AllowVideoStreamCopy=false on a transcode URL (replacing any value): a re-encoded HLS stream has exact
+ * segment timing, a remuxed one does not, and our subtitle overlay would drift. Only for transcode URLs.
+ */
+export function withNoVideoStreamCopy(url: string): string {
+  const [path, query = ''] = url.split('?');
+  const kept = query.split('&').filter((pair) => pair !== '' && pair.split('=')[0].toLowerCase() !== 'allowvideostreamcopy');
+  kept.push('AllowVideoStreamCopy=false');
+  return `${path}?${kept.join('&')}`;
 }
 
 /** Makes sure a stream URL asks for this audio stream (the server normally adds it itself; this is the safety net). */

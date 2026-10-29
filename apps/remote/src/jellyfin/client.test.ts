@@ -107,11 +107,11 @@ describe('client', () => {
     await client.playbackInfo('u1', 'i1', profile);
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(
-      'http://pc/Items/i%201/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=true&EnableDirectStream=true&EnableTranscoding=true&StartTimeTicks=600000000&SubtitleStreamIndex=-1',
+      'http://pc/Items/i%201/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=true&EnableDirectStream=true&EnableTranscoding=true&AllowVideoStreamCopy=false&StartTimeTicks=600000000&SubtitleStreamIndex=-1',
     );
     expect(init.method).toBe('POST');
     const body = JSON.parse(init.body as string);
-    expect(body).toMatchObject({ UserId: 'u1', StartTimeTicks: 600000000, EnableTranscoding: true, SubtitleStreamIndex: -1 });
+    expect(body).toMatchObject({ UserId: 'u1', StartTimeTicks: 600000000, EnableTranscoding: true, AllowVideoStreamCopy: false, SubtitleStreamIndex: -1 });
     expect(body.DeviceProfile.Name).toBe(profile.Name);
     expect((fetchFn.mock.calls[1] as unknown as [string])[0]).not.toContain('StartTimeTicks');
     expect(JSON.parse((fetchFn.mock.calls[1] as unknown as [string, RequestInit])[1].body as string)).not.toHaveProperty('StartTimeTicks');
@@ -123,7 +123,7 @@ describe('client', () => {
     await client.playbackInfo('u1', 'i1', buildPhoneProfile(() => false), { audioStreamIndex: 3, directPlay: false });
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(
-      'http://pc/Items/i1/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=false&EnableDirectStream=true&EnableTranscoding=true&AudioStreamIndex=3&SubtitleStreamIndex=-1',
+      'http://pc/Items/i1/PlaybackInfo?UserId=u1&MaxStreamingBitrate=20000000&EnableDirectPlay=false&EnableDirectStream=true&EnableTranscoding=true&AllowVideoStreamCopy=false&AudioStreamIndex=3&SubtitleStreamIndex=-1',
     );
     expect(JSON.parse(init.body as string)).toMatchObject({ AudioStreamIndex: 3, EnableDirectPlay: false, SubtitleStreamIndex: -1 });
   });

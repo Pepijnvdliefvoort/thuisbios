@@ -66,6 +66,10 @@ interface Loaded {
  * Subtitles: text tracks are drawn by us (WebVTT) and never need a new stream. PlaybackInfo always asks for
  * SubtitleStreamIndex=-1, or else Jellyfin burns in the item's default track. An image track (PGS, dvdsub) can only be
  * burned in: choosing one restarts the stream like an audio switch, and so does leaving it for a text track or Off.
+ * PlaybackInfo also always sends AllowVideoStreamCopy=false: when only the audio needs transcoding Jellyfin would
+ * otherwise remux the video into HLS, and those keyframe-cut segments do not line up with the playlist times, so
+ * our overlay drifts by seconds. A video re-encode lines them up exactly (the hls.js shift is then 0). Direct play
+ * is unaffected.
  *
  * The video is always inline with our own controls and subtitles (see PlayerControls). iPhone cannot go
  * fullscreen or lock the orientation, so when the viewport is portrait the whole stage is turned 90° with CSS
