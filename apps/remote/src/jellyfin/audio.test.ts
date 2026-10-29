@@ -19,7 +19,7 @@ describe('audioLabel', () => {
     expect(audioLabel(source.MediaStreams![2], 2)).toBe('Dutch · AAC 2.0');
   });
   it('uses the title or a number when there is no language', () => {
-    expect(audioLabel(source.MediaStreams![3], 3)).toBe('Commentary · EAC3 2.0');
+    expect(audioLabel(source.MediaStreams![3], 3)).toBe('Commentary · E-AC3 2.0');
     expect(audioLabel({ Type: 'Audio' }, 2)).toBe('Audio 2');
   });
 });

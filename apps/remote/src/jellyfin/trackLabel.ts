@@ -41,3 +41,24 @@ export function joinLabel(stream: MediaStream, extra: string[], fallback: string
   for (const e of extra) if (e) parts.push(e);
   return parts.join(' \u00b7 ');
 }
+
+const CODEC_NAMES: Record<string, string> = {
+  subrip: 'SRT',
+  srt: 'SRT',
+  ass: 'ASS',
+  ssa: 'SSA',
+  webvtt: 'VTT',
+  mov_text: 'Text',
+  pgssub: 'PGS',
+  hdmv_pgs_subtitle: 'PGS',
+  dvd_subtitle: 'DVD',
+  dvdsub: 'DVD',
+  eac3: 'E-AC3',
+  truehd: 'TrueHD',
+};
+
+/** Friendly codec name: "subrip" to "SRT", "eac3" to "E-AC3", anything else upper case. '' when unknown. */
+export function codecName(codec: string | undefined): string {
+  const raw = (codec || '').toLowerCase();
+  return CODEC_NAMES[raw] || raw.toUpperCase();
+}

@@ -59,7 +59,7 @@ export function TrackPicker({ itemId }: { itemId: string }) {
   return (
     <>
       <button type="button" class="btn secondary" aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        <Icon name="captions" size={20} /> Audio &amp; subtitles
+        <Icon name="captions" size={20} /> Audio &amp; subs
       </button>
       {open
         ? createPortal(

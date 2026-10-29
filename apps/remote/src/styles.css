@@ -207,6 +207,8 @@ input:focus { outline: none; border-color: var(--accent); }
 /* Now playing */
 .nowplaying { height: 100%; padding: calc(var(--ui-top) + 64px) var(--gutter) 8px; display: flex; flex-direction: column; gap: 16px; max-width: 520px; margin: 0 auto; }
 .nowplaying > * { flex: none; }
+.np-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.np-tools .btn { padding: 0 8px; white-space: nowrap; }
 /* The art keeps 16:9 when there is room and shrinks when the screen is short. */
 .nowplaying > .np-art { flex: 0 1 auto; min-height: 0; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; }
 .np-art img { min-height: 0; }

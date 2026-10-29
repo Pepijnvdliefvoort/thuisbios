@@ -149,8 +149,10 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
           <Icon name="next" size={30} />
         </button>
       </div>
-      <TrackPicker itemId={item.Id} />
-      <SubtitleTiming itemId={item.Id} />
+      <div class="np-tools">
+        <TrackPicker itemId={item.Id} />
+        <SubtitleTiming itemId={item.Id} />
+      </div>
       <VolumeControls />
       <button type="button" class="btn secondary stop" onClick={() => {
           stopRequested.current = true;

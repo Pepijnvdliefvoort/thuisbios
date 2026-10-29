@@ -1,4 +1,4 @@
-import { channelLayout, joinLabel } from './trackLabel';
+import { channelLayout, codecName, joinLabel } from './trackLabel';
 import type { MediaSource, MediaStream } from './types';
 
 export interface AudioTrack {
@@ -12,7 +12,7 @@ export interface AudioTrack {
 
 /** "English · AC3 5.1 · Default" for one audio stream; `n` numbers streams that carry no language or title. */
 export function audioLabel(stream: MediaStream, n: number): string {
-  const codec = (stream.Codec || '').toUpperCase();
+  const codec = codecName(stream.Codec);
   const format = [codec, channelLayout(stream.Channels)].filter(Boolean).join(' ');
   return joinLabel(stream, [format, stream.IsDefault ? 'Default' : ''], `Audio ${n}`);
 }

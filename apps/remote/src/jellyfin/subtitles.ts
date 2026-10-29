@@ -1,4 +1,4 @@
-import { joinLabel } from './trackLabel';
+import { codecName, joinLabel } from './trackLabel';
 import type { MediaSource, MediaStream } from './types';
 
 export interface SubtitleTrack {
@@ -17,12 +17,9 @@ export interface Cue {
   text: string;
 }
 
-const CODEC_NAMES: Record<string, string> = { subrip: 'SRT', webvtt: 'VTT', mov_text: 'TX3G' };
-
 /** "English · SRT · Forced" for one subtitle stream; `n` numbers streams that carry no language or title. */
 export function subtitleLabel(stream: MediaStream, n: number): string {
-  const raw = (stream.Codec || '').toLowerCase();
-  const codec = CODEC_NAMES[raw] || raw.toUpperCase();
+  const codec = codecName(stream.Codec);
   return joinLabel(stream, [codec, stream.IsForced ? 'Forced' : '', stream.IsDefault ? 'Default' : ''], `Subtitle ${n}`);
 }
 
