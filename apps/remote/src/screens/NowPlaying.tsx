@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { SubtitleTiming } from '../components/SubtitleTiming';
+import { TrackPicker } from '../components/TrackPicker';
 import { VolumeControls } from '../components/VolumeControls';
 import { Img } from '../components/Img';
 import { NextEpisodeCard } from '../components/NextEpisodeCard';
@@ -148,7 +149,10 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
           <Icon name="next" size={30} />
         </button>
       </div>
-      <SubtitleTiming itemId={item.Id} />
+      <div class="np-tools">
+        <TrackPicker itemId={item.Id} />
+        <SubtitleTiming itemId={item.Id} />
+      </div>
       <VolumeControls />
       <button type="button" class="btn secondary stop" onClick={() => {
           stopRequested.current = true;

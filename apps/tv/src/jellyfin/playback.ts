@@ -12,6 +12,8 @@ export interface StreamParams {
   itemId: string;
   deviceId: string;
   playSessionId?: string;
+  /** A non-default audio stream was chosen: the original file would play its default audio, so DirectPlay is skipped. */
+  audioStreamIndex?: number;
 }
 
 /** URL for a direct (static) stream of the original file. */
@@ -36,6 +38,14 @@ export function selectPlayMethod(
   forceTranscode = false,
 ): PlaySelection | null {
   const transcodeUrl = source.TranscodingUrl;
+  const audio = params.audioStreamIndex;
+  // The server has to remux or transcode to play another audio stream than the file's default.
+  if (!forceTranscode && audio !== undefined) {
+    if (source.SupportsDirectStream && source.DirectStreamUrl) {
+      return { method: 'DirectStream', url: withAudioStreamIndex(source.DirectStreamUrl, audio), hls: false };
+    }
+    if (transcodeUrl) return transcodeSelection(transcodeUrl, source, audio);
+  }
   if (!forceTranscode) {
     if (source.SupportsDirectPlay) {
       return { method: 'DirectPlay', url: buildStaticUrl(source, params), hls: false };
@@ -45,11 +55,29 @@ export function selectPlayMethod(
       return { method: 'DirectStream', url, hls: false };
     }
   }
-  if (transcodeUrl) {
-    const hls = source.TranscodingSubProtocol === 'hls' || /\.m3u8(\?|$)/i.test(transcodeUrl);
-    return { method: 'Transcode', url: transcodeUrl, hls };
-  }
+  if (transcodeUrl) return transcodeSelection(transcodeUrl, source, audio);
   return null;
+}
+
+function transcodeSelection(url: string, source: MediaSource, audio: number | undefined): PlaySelection {
+  const hls = source.TranscodingSubProtocol === 'hls' || /\.m3u8(\?|$)/i.test(url);
+  return { method: 'Transcode', url: audio === undefined ? url : withAudioStreamIndex(url, audio), hls };
+}
+
+/** Makes sure a stream URL asks for this audio stream (the server normally adds it itself; this is the safety net). */
+export function withAudioStreamIndex(url: string, index: number): string {
+  const [path, query = ''] = url.split('?');
+  const kept = query.split('&').filter((pair) => pair !== '' && pair.split('=')[0].toLowerCase() !== 'audiostreamindex');
+  kept.push(`AudioStreamIndex=${index}`);
+  return `${path}?${kept.join('&')}`;
+}
+
+/** Stream index of the audio a file plays by default: the default-flagged stream, else the first. Null without audio. */
+export function defaultAudioIndex(source: MediaSource): number | null {
+  const audio = (source.MediaStreams ?? []).filter((s) => s.Type === 'Audio' && s.Index !== undefined);
+  const flagged = audio.filter((s) => s.IsDefault)[0];
+  const pick = flagged ?? audio[0];
+  return pick && pick.Index !== undefined ? pick.Index : null;
 }
 
 /** Makes a server-relative URL absolute and adds the access token (a <video> cannot send headers). */

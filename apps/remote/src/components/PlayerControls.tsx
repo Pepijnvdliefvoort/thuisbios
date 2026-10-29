@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import type { AudioTrack } from '../jellyfin/audio';
 import { formatClock } from '../jellyfin/format';
 import type { SubtitleTrack } from '../jellyfin/subtitles';
 import { scrubFraction } from '../scrub';
@@ -31,11 +32,16 @@ interface Props {
   tracks: SubtitleTrack[];
   /** Index into `tracks`, -1 for Off. */
   selected: number;
+  /** Audio streams of the item; the Audio section of the menu only shows with 2 or more. */
+  audioTracks: AudioTrack[];
+  /** Jellyfin stream index of the audio playing; null when unknown. */
+  audioSelected: number | null;
   onBack(): void;
   onTogglePlay(): void;
   onSkip(seconds: number): void;
   onSeek(seconds: number): void;
   onSelectSubtitle(index: number): void;
+  onSelectAudio(index: number): void;
   /** Reports whether the user is busy with the bar or the subtitle panel, which keeps the controls up. */
   onBusy(busy: boolean): void;
   /** Any touch on the controls, so the hide timer restarts. */
@@ -43,7 +49,7 @@ interface Props {
   desktop?: DesktopControls;
 }
 
-/** Streaming-style overlay: top bar, centre buttons and a bottom bar with the scrub bar and subtitle picker. */
+/** Streaming-style overlay: top bar, centre buttons and a bottom bar with the scrub bar and the audio and subtitle menu. */
 export function PlayerControls(p: Props) {
   const [panel, setPanel] = useState(false);
   // While dragging: the time under the finger. The video only seeks on release.
@@ -79,7 +85,7 @@ export function PlayerControls(p: Props) {
     p.onBusy(panel);
   };
 
-  // Esc closes the subtitle menu first (before the player's own Esc handling sees it).
+  // Esc closes the audio and subtitle menu first (before the player's own Esc handling sees it).
   useEffect(() => {
     if (!panel || !d) return;
     const onKey = (e: KeyboardEvent) => {
@@ -99,11 +105,20 @@ export function PlayerControls(p: Props) {
     setPanel(!panel);
     p.onBusy(!panel);
   };
-  const pick = (index: number) => {
-    p.onSelectSubtitle(index);
+  const closePanel = () => {
     setPanel(false);
     p.onBusy(false);
   };
+  const pick = (index: number) => {
+    p.onSelectSubtitle(index);
+    closePanel();
+  };
+  const pickAudio = (index: number) => {
+    // The current track needs no restart of the stream.
+    if (index !== p.audioSelected) p.onSelectAudio(index);
+    closePanel();
+  };
+  const showAudio = p.audioTracks.length >= 2;
 
   return (
     <div class={'pc' + (p.visible ? ' show' : '') + (p.buffering ? ' buffering' : '')} onPointerDown={p.onInteract}>
@@ -132,7 +147,19 @@ export function PlayerControls(p: Props) {
 
       <div class="pc-bottom">
         {panel ? (
-          <div class="pc-panel" role="menu" aria-label="Subtitles">
+          <div class="pc-panel" role="menu" aria-label={showAudio ? 'Audio and subtitles' : 'Subtitles'}>
+            {showAudio ? (
+              <>
+                <p class="pc-panel-h">Audio</p>
+                {p.audioTracks.map((t) => (
+                  <button key={t.index} type="button" role="menuitemradio" aria-checked={p.audioSelected === t.index} onClick={() => pickAudio(t.index)}>
+                    <span class="pc-check">{p.audioSelected === t.index ? <Icon name="check" size={20} /> : null}</span>
+                    {t.label}
+                  </button>
+                ))}
+                <p class="pc-panel-h">Subtitles</p>
+              </>
+            ) : null}
             <button type="button" role="menuitemradio" aria-checked={p.selected < 0} onClick={() => pick(-1)}>
               <span class="pc-check">{p.selected < 0 ? <Icon name="check" size={20} /> : null}</span>Off
             </button>
@@ -198,7 +225,7 @@ export function PlayerControls(p: Props) {
             type="button"
             class={'pc-btn pc-cc' + (p.selected >= 0 ? ' on' : '')}
             onClick={togglePanel}
-            aria-label="Subtitles"
+            aria-label={showAudio ? 'Audio and subtitles' : 'Subtitles'}
             aria-expanded={panel}
           >
             <Icon name="captions" />

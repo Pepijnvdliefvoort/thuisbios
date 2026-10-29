@@ -139,6 +139,19 @@ input:focus { outline: none; border-color: var(--accent); }
 .segmented { display: flex; margin: 8px var(--gutter) 4px; background: var(--surface); border-radius: var(--radius); padding: 3px; }
 .segmented button { flex: 1; min-height: 40px; border-radius: 8px; color: var(--muted); font-weight: 600; }
 .segmented button.active { background: var(--surface-2); color: var(--fg); }
+.lib-bar { display: flex; gap: 8px; margin: 8px var(--gutter) 4px; }
+.lib-btn { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 10px 0 14px; border-radius: 20px; background: var(--surface); font-weight: 600; font-size: 14px; border: 2px solid transparent; }
+.lib-btn.active { border-color: var(--accent); }
+.lib-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px var(--gutter) 0; }
+.lib-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 16px; background: var(--surface-2); font-size: 14px; }
+.lib-clear { min-height: 32px; padding: 0 8px; color: var(--muted); font-size: 14px; }
+.lib-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.lib-empty p { margin: 0; }
+.lib-empty .btn { width: auto; }
+.lib-sheet { max-height: 85vh; overflow-y: auto; overscroll-behavior: contain; }
+.lib-group { margin: 8px 0 0; font-size: 14px; color: var(--muted); font-weight: 600; }
+.lib-actions { display: flex; gap: 8px; }
+.lib-sheet .tv-item .icon { margin-left: auto; color: var(--accent); }
 
 /* Bottom bars */
 .bottom { flex: none; background: var(--bg); padding-bottom: max(0px, calc(var(--safe-bottom) - 14px)); }
@@ -217,6 +230,8 @@ input:focus { outline: none; border-color: var(--accent); }
 /* Now playing */
 .nowplaying { height: 100%; padding: calc(var(--ui-top) + 64px) var(--gutter) 8px; display: flex; flex-direction: column; gap: 16px; max-width: 520px; margin: 0 auto; }
 .nowplaying > * { flex: none; }
+.np-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.np-tools .btn { padding: 0 8px; white-space: nowrap; }
 /* The art keeps 16:9 when there is room and shrinks when the screen is short. */
 .nowplaying > .np-art { flex: 0 1 auto; min-height: 0; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; }
 .np-art img { min-height: 0; }
@@ -276,6 +291,8 @@ input:focus { outline: none; border-color: var(--accent); }
 .sub-value { margin: 0; text-align: center; font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .sub-steps { margin-top: 0; }
 .sub-steps .vol-step { font-size: 16px; font-weight: 600; }
+.track-sheet { max-height: 85vh; max-height: 85dvh; overflow-y: auto; overscroll-behavior: contain; }
+.track-h { margin: 4px 0 0; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
 .vol-hint { margin: 0; text-align: center; color: var(--muted); font-size: 13px; }
 .vol-slider {
   --fill: 0%;
@@ -431,6 +448,8 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 .pc-panel button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #fff; text-align: left; }
 .pc-panel button:active { background: rgba(255, 255, 255, 0.12); }
+.pc-panel-h { margin: 0; padding: 8px 12px 2px; color: rgba(255, 255, 255, 0.6); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.pc-panel-h:not(:first-child) { margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 12px; }
 .pc-check { flex: none; width: 20px; height: 20px; }
 .pc-loading { position: absolute; top: 50%; left: 50%; display: flex; flex-direction: column; align-items: center; gap: 8px; margin: -36px 0 0 -40px; width: 80px; font-size: 13px; }
 .pc-spinner { width: 36px; height: 36px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; animation: ptr-spin 0.8s linear infinite; }
@@ -586,6 +605,8 @@ button.rs-row:active { background: var(--surface-2); }
   .searchbox { padding-top: 16px; }
   .searchbox input[type="search"] { max-width: 560px; }
   .segmented { max-width: 360px; margin-top: 16px; }
+  .lib-btn:hover, .lib-chip:hover { background: var(--surface-2); }
+  .lib-clear:hover { color: var(--fg); }
 
   /* Details: wide backdrop, poster beside the title and the buttons */
   .hero { aspect-ratio: auto; height: 58vh; min-height: 360px; max-height: 70vh; }

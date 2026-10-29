@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildStaticUrl,
+  defaultAudioIndex,
   describePlayback,
   readQueryParam,
   resolveStreamUrl,
   secondsToTicks,
   selectPlayMethod,
+  withAudioStreamIndex,
 } from './playback';
 import type { MediaSource } from './types';
 
@@ -101,5 +103,45 @@ describe('describePlayback', () => {
     expect(d.audio).toBe('dts -> ac3 6ch');
     expect(d.video).toBe('hevc 10-bit HDR10');
     expect(d.container).toBe('mkv -> ts');
+  });
+});
+
+describe('audio stream choice', () => {
+  const all: MediaSource = {
+    ...base,
+    SupportsDirectPlay: true,
+    SupportsDirectStream: true,
+    DirectStreamUrl: '/Videos/x/stream.mkv?a=b',
+    TranscodingUrl: '/videos/item1/master.m3u8?VideoCodec=h264',
+  };
+
+  it('skips direct play for a non-default audio stream and asks the remux for it', () => {
+    expect(selectPlayMethod(all, { ...params, audioStreamIndex: 3 })).toEqual({
+      method: 'DirectStream',
+      url: '/Videos/x/stream.mkv?a=b&AudioStreamIndex=3',
+      hls: false,
+    });
+  });
+
+  it('transcodes with the audio stream when there is no remux url', () => {
+    const s = selectPlayMethod({ ...all, SupportsDirectStream: false }, { ...params, audioStreamIndex: 3 });
+    expect(s).toMatchObject({ method: 'Transcode', url: '/videos/item1/master.m3u8?VideoCodec=h264&AudioStreamIndex=3', hls: true });
+  });
+
+  it('keeps the default order without a chosen audio stream, or when transcoding is forced', () => {
+    expect(selectPlayMethod(all, params)?.method).toBe('DirectPlay');
+    expect(selectPlayMethod(all, { ...params, audioStreamIndex: 3 }, true)?.url).toContain('AudioStreamIndex=3');
+  });
+
+  it('replaces an audio stream parameter the server already put in the url', () => {
+    expect(withAudioStreamIndex('/a/master.m3u8?X=1&audioStreamIndex=1&Y=2', 2)).toBe('/a/master.m3u8?X=1&Y=2&AudioStreamIndex=2');
+    expect(withAudioStreamIndex('/a/master.m3u8', 2)).toBe('/a/master.m3u8?AudioStreamIndex=2');
+  });
+
+  it('finds the default audio stream: flagged, else first, else null', () => {
+    const src = (streams: MediaSource['MediaStreams']): MediaSource => ({ Id: 's', MediaStreams: streams });
+    expect(defaultAudioIndex(src([{ Type: 'Video', Index: 0 }, { Type: 'Audio', Index: 1 }, { Type: 'Audio', Index: 2, IsDefault: true }]))).toBe(2);
+    expect(defaultAudioIndex(src([{ Type: 'Video', Index: 0 }, { Type: 'Audio', Index: 1 }]))).toBe(1);
+    expect(defaultAudioIndex(src([{ Type: 'Video', Index: 0 }]))).toBeNull();
   });
 });

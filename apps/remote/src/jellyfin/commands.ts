@@ -53,6 +53,18 @@ export function seekCommand(sessionId: string, positionTicks: number): Command {
   return { method: 'POST', path: `/Sessions/${enc(sessionId)}/Playing/Seek?seekPositionTicks=${ticks(positionTicks)}` };
 }
 
+/**
+ * Jellyfin's standard GeneralCommand to pick a track: `SetAudioStreamIndex` or `SetSubtitleStreamIndex`.
+ * `index` is the Jellyfin stream index, sent as a string; -1 turns subtitles off.
+ */
+export function streamIndexCommand(sessionId: string, name: 'SetAudioStreamIndex' | 'SetSubtitleStreamIndex', index: number): Command {
+  return {
+    method: 'POST',
+    path: `/Sessions/${enc(sessionId)}/Command`,
+    body: { Name: name, Arguments: { Index: String(Math.round(index)) } },
+  };
+}
+
 /** Tells the TV to sign out, via Jellyfin's "display message" endpoint (the TV recognises the text). */
 export function disconnectCommand(sessionId: string): Command {
   return {

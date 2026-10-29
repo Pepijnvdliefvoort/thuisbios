@@ -1,4 +1,5 @@
 import { createDeviceId } from './jellyfin/auth';
+import { parseView, type LibraryType, type LibraryView } from './jellyfin/libraryQuery';
 import type { Session } from './jellyfin/types';
 
 const SESSION_KEY = 'thuisbios.remote.session';
@@ -91,6 +92,12 @@ const SUB_LANG_KEY = 'thuisbios.remote.subtitleLang';
 export const loadSubtitleLang = (): string | null => read(SUB_LANG_KEY);
 export const saveSubtitleLang = (lang: string): void => write(SUB_LANG_KEY, lang);
 
+const AUDIO_LANG_KEY = 'thuisbios.remote.audioLang';
+
+/** The audio language last picked in the player; null when never chosen. */
+export const loadAudioLang = (): string | null => read(AUDIO_LANG_KEY) || null;
+export const saveAudioLang = (lang: string): void => write(AUDIO_LANG_KEY, lang);
+
 const PLAYER_VOLUME_KEY = 'thuisbios.remote.playerVolume';
 
 /** The desktop player's volume (0 to 1) as last set; null when never set. */
@@ -99,3 +106,16 @@ export function loadPlayerVolume(): number | null {
   return isFinite(v) && v >= 0 && v <= 1 ? v : null;
 }
 export const savePlayerVolume = (volume: number): void => write(PLAYER_VOLUME_KEY, String(Math.round(volume * 100) / 100));
+
+const libraryViewKey = (type: LibraryType): string => `thuisbios.remote.libraryView.${type}`;
+
+/** The sort and filters last used in the Library for a type (defaults when none or unreadable). */
+export function loadLibraryView(type: LibraryType): LibraryView {
+  try {
+    return parseView(JSON.parse(read(libraryViewKey(type)) || 'null'), type);
+  } catch (e) {
+    return parseView(null, type);
+  }
+}
+
+export const saveLibraryView = (type: LibraryType, view: LibraryView): void => write(libraryViewKey(type), JSON.stringify(view));
