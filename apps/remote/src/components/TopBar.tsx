@@ -1,9 +1,9 @@
 import type { Tab } from '../nav';
 import { Icon } from './Icon';
 import { TABS } from './TabBar';
-import { TvChip } from './TvChip';
+import { HeaderActions } from './HeaderActions';
 
-/** Desktop navigation: brand, the four tabs and the TV chip in one bar along the top. `badge` as in TabBar. */
+/** Desktop navigation: brand, the four tabs and the TV and account buttons in one bar along the top. `badge` as in TabBar. */
 export function TopBar({ tab, onChange, badge = 0, onSignOut }: { tab: Tab; onChange: (tab: Tab) => void; badge?: number; onSignOut: () => void }) {
   return (
     <header class="topbar">
@@ -23,7 +23,7 @@ export function TopBar({ tab, onChange, badge = 0, onSignOut }: { tab: Tab; onCh
           </button>
         ))}
       </nav>
-      <TvChip bare onSignOut={onSignOut} />
+      <HeaderActions onSignOut={onSignOut} />
     </header>
   );
 }

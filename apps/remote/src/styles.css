@@ -53,16 +53,30 @@ html.scroll-locked .scroller { overflow-y: hidden; }
 
 /* Header (scrolls away with the page) */
 .header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: var(--ui-top) var(--gutter) 4px;
   background: var(--bg);
 }
-.brand { font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
-.chip {
-  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px;
-  background: var(--surface); border-radius: 22px; max-width: 60vw;
+.brand { flex: none; font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
+/* Header controls: TV button (pill) and account avatar */
+.header-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tv-btn {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border-radius: 18px;
+  background: var(--surface); color: var(--fg); font-size: 14px; font-weight: 600; min-width: 0;
 }
-.chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-btn .icon { flex: none; }
+.tv-btn-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+.tv-btn .dot { width: 8px; height: 8px; }
+.tv-btn.looking { color: var(--muted); }
+.tv-btn.is-connect { background: var(--fg); color: #111; font-weight: 700; }
+.tv-btn:active { transform: scale(0.97); }
+.tv-btn.looking:active { transform: none; }
+.account-btn, .avatar {
+  display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%;
+  background: var(--surface-2); color: var(--fg); font-weight: 800;
+}
+.account-btn { width: 36px; height: 36px; font-size: 15px; }
+.account-btn:active { transform: scale(0.95); }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: #5a5a66; flex: none; }
 .dot.on { background: var(--ok); }
 
@@ -80,12 +94,24 @@ html.scroll-locked .scroller { overflow-y: hidden; }
 .tv-item.selected { border-color: var(--accent); }
 .tv-name { font-weight: 600; }
 .tv-sub { color: var(--muted); margin-left: auto; font-size: 14px; }
-.signed-in { color: var(--muted); font-size: 14px; }
+
+/* TV and Account sheets */
+.sheet-head { display: flex; align-items: center; gap: 14px; padding-bottom: 4px; }
+.sheet-head-text { display: flex; flex-direction: column; min-width: 0; }
+.sheet-head-text strong { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-head-text span { color: var(--muted); font-size: 14px; }
+.sheet-label { color: var(--muted); font-size: 13px; font-weight: 600; margin: 4px 0 -4px; }
+.sheet-divider { height: 1px; background: var(--surface-2); margin: 4px 0; }
+.sheet-note { color: var(--muted); font-size: 13px; margin: 0; }
+.sheet-version { color: var(--muted); font-size: 12px; text-align: center; margin: 4px 0 0; }
+.btn.danger { background: var(--surface-2); color: #ff6b6b; }
+.btn.danger.solid { background: #d9363e; color: #fff; }
+.confirm-row { display: flex; gap: 8px; }
+.confirm-row .btn { flex: 1 1 0; width: auto; }
 
 /* Generic */
 .page { padding: 4px 0 0; }
 .hint, .empty { color: var(--muted); padding: 24px var(--gutter); text-align: center; }
-.app-version { color: var(--muted); padding: 24px var(--gutter) 8px; margin: 0; font-size: 12px; text-align: center; }
 .hint.small { padding: 4px 0; font-size: 14px; text-align: left; }
 .pad-top { padding-top: 80px; }
 .btn {
@@ -352,14 +378,6 @@ input:focus { outline: none; border-color: var(--accent); }
   padding: 16px max(var(--gutter), var(--safe-right)) calc(16px + var(--safe-bottom)) max(var(--gutter), var(--safe-left)); background: rgba(0, 0, 0, 0.7);
 }
 .scanner-hint { color: var(--fg); text-align: center; }
-.empty-tv { display: flex; flex-direction: column; gap: 4px; }
-.empty-tv .empty { padding: 8px 0 4px; }
-.connect-card { display: flex; align-items: center; gap: 12px; margin: 8px var(--gutter) 4px; padding: 14px; background: var(--surface); border-radius: 12px; border-left: 4px solid var(--accent); }
-.connect-card-icon { flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-2); display: flex; align-items: center; justify-content: center; }
-.connect-card-text { flex: 1; min-width: 0; }
-.connect-card-text h2 { font-size: 17px; }
-.connect-card-text p { color: var(--muted); font-size: 14px; }
-.connect-card-btn { width: auto; flex: none; min-height: 44px; }
 
 /* Pull to refresh */
 .ptr {
@@ -537,8 +555,10 @@ button.rs-row:active { background: var(--surface-2); }
   .topbar-tabs button:hover { color: var(--fg); background: var(--surface); }
   .topbar-tabs button.active { color: var(--fg); background: var(--surface-2); }
   .topbar .badge { position: static; margin-left: 2px; }
-  .topbar .chip { margin-left: auto; max-width: 280px; }
-  .chip:hover { background: var(--surface-2); }
+  .topbar .header-actions { margin-left: auto; }
+  .tv-btn-name { max-width: 240px; }
+  .tv-btn:hover:not(.looking), .account-btn:hover { background: var(--surface-2); }
+  .tv-btn.is-connect:hover { background: #fff; }
   .scroller { padding-bottom: 104px; }
   .back { top: calc(var(--desk-top) + 12px); left: 24px; }
   .back:hover { background: rgba(0, 0, 0, 0.8); }
@@ -559,7 +579,6 @@ button.rs-row:active { background: var(--surface-2); }
   .page { max-width: 1600px; margin: 0 auto; }
   .requests { max-width: calc(760px + 2 * var(--gutter)); }
   .page-title { font-size: 26px; padding-top: 24px; padding-bottom: 8px; }
-  .connect-card { max-width: 640px; }
 
   /* Generic controls: hover states */
   .btn { transition: background-color 0.12s; }
@@ -647,6 +666,14 @@ button.rs-row:active { background: var(--surface-2); }
   /* Sheets and dialogs: centred modal instead of a bottom sheet */
   .sheet-backdrop { align-items: center; justify-content: center; padding: 24px; animation: vol-fade 150ms ease-out both; }
   .sheet { max-width: 440px; max-height: calc(100vh - 48px); overflow-y: auto; border-radius: 16px; padding: 24px; animation: dlg-in 180ms ease-out both; }
+  /* Dropdown under the top bar for the TV and Account sheets, right-aligned with the bar's content */
+  .sheet-backdrop.menu { background: transparent; padding: 0; display: block; animation: none; }
+  .sheet.menu {
+    position: fixed; top: calc(var(--desk-top) + 8px); right: max(var(--gutter), calc((100vw - 1600px) / 2 + var(--gutter)));
+    width: 340px; max-width: calc(100vw - 24px); padding: 20px; border-radius: 14px; border: 1px solid var(--surface-2);
+    transform-origin: top right; animation: menu-in 140ms ease-out both;
+  }
+  @keyframes menu-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
   .request-sheet { max-width: 520px; height: min(600px, calc(100vh - 48px)); max-height: calc(100vh - 48px); padding-bottom: 0; overflow: hidden; }
   .volume-backdrop.out .volume-sheet { animation: dlg-out 150ms ease-in both; }
   .vol-grab { display: none; }
