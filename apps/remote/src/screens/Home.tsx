@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { Icon } from '../components/Icon';
 import { PullSpinner } from '../components/PullSpinner';
 import { Row } from '../components/Row';
 import { recentResumes } from '../jellyfin/resume';
@@ -11,7 +10,7 @@ import { usePullToRefresh } from '../usePullToRefresh';
 const REFRESH_AFTER_PLAYBACK_MS = 2000;
 
 export function Home() {
-  const { client, session, tv, playbackEnded, libraryChanged, openConnectTv } = useApp();
+  const { client, session, playbackEnded, libraryChanged } = useApp();
   const u = session.userId;
   const resume = useAsync(() => client.resume(u, 40).then((items) => recentResumes(items, Date.now())), [client, u]);
   const nextUp = useAsync(() => client.nextUp(u, 12), [client, u]);
@@ -39,20 +38,6 @@ export function Home() {
   return (
     <div class="page" ref={pageRef}>
       <PullSpinner pull={pull} />
-      {tv.loaded && !tv.tv ? (
-        <section class="connect-card">
-          <span class="connect-card-icon">
-            <Icon name="tv" size={28} />
-          </span>
-          <div class="connect-card-text">
-            <h2>Connect your TV</h2>
-            <p>Enter the code shown on the TV.</p>
-          </div>
-          <button type="button" class="btn primary connect-card-btn" onClick={openConnectTv}>
-            Connect
-          </button>
-        </section>
-      ) : null}
       <Row title="Resume watching" items={resume.data || []} shape="thumb" />
       <Row title="Next up" items={nextUp.data || []} shape="thumb" />
       <Row title="Recently added movies" items={movies.data || []} shape="poster" />

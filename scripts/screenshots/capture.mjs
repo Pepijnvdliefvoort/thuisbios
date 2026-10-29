@@ -81,7 +81,7 @@ const PHONE = {
 
 const session = { serverUrl: MOCK_URL, token: SAMPLE.token, userId: SAMPLE.user.Id, userName: SAMPLE.user.Name };
 
-/** A signed-in phone page. `noTv` hides the fake TV session, so the app offers "Connect your TV". */
+/** A signed-in phone page. `noTv` hides the fake TV session, so the app offers "Connect TV". */
 async function phonePage(browser, { noTv = false } = {}) {
   const context = await browser.newContext(PHONE);
   await context.addInitScript(([key, value, serverKey, server]) => {
@@ -162,8 +162,8 @@ async function main() {
 
     if (want('phone-connect')) {
       const page = await phonePage(browser, { noTv: true });
-      await page.waitForSelector('.connect-card-btn');
-      await page.locator('.connect-card-btn').click();
+      await page.waitForSelector('.tv-btn.is-connect');
+      await page.locator('.tv-btn.is-connect').click();
       await page.waitForSelector('.code-input');
       await page.locator('.code-input').pressSequentially('48291', { delay: 30 });
       await settle(page, 300);
