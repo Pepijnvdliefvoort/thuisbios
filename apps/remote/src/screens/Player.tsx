@@ -11,6 +11,7 @@ import { getDeviceId, loadAudioLang, loadPlayerVolume, loadSubtitleLang, loadSub
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
 import { nextArmedAt, nextEpisodeCard, planNextEpisode } from '../jellyfin/nextEpisode';
+import { mpegTsShift } from '../jellyfin/hlsTimeline';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { createThrottle, resolveStreamUrl, selectPlayMethod, type PlaySelection } from '../jellyfin/playback';
 import { activeCueText, listSubtitles, parseVtt, pickInitialSubtitle, subtitleVttUrl, type Cue } from '../jellyfin/subtitles';
@@ -51,8 +52,12 @@ interface Loaded {
  *
  * Start position: a transcode is requested with StartTimeTicks, so the server begins encoding there. Jellyfin's
  * HLS playlist is still full length (segments before the start are simply not made), so the video's
- * currentTime is the position in the whole item and reports need no offset. Every method therefore
- * seeks to the start position itself once the metadata is known (hls.js through `startPosition`).
+ * currentTime is the position in the whole item. Every method therefore seeks to the start position itself
+ * once the metadata is known (hls.js through `startPosition`).
+ *
+ * Position everywhere in this component is time in the original file. With hls.js the video's timeline can be
+ * a few seconds off from it (a remux starts at the keyframe before the requested point, see hlsTimeline.ts), so
+ * `toMedia` / `toVideo` convert with `shift`. It is 0 for native playback.
  *
  * Audio: a browser cannot pick another audio stream out of a file, so a switch asks for PlaybackInfo again with
  * AudioStreamIndex (and direct play off, so the server remuxes or transcodes) and restarts the stream at the
@@ -119,6 +124,10 @@ export function Player({
   const picked = useRef(false);
   // Last playing position, for reports after the video has been reset.
   const lastTime = useRef(ticksToSeconds(startTicks));
+  // Seconds from the video's currentTime to the original file time (hls.js only, see hlsTimeline.ts).
+  const shift = useRef(0);
+  const toMedia = (t: number) => t + shift.current;
+  const toVideo = (position: number) => position - shift.current;
   // Next episode autoplay: the card, and the hooks into the reporting effect below.
   const next = useNextEpisode(client, session.userId, item);
   const [cancelled, setCancelled] = useState(false);
@@ -189,7 +198,7 @@ export function Player({
   /** Notes the current position so the new stream starts there, and shows the loading state. */
   const prepareRestart = () => {
     const el = video.current;
-    if (el && el.currentTime > 0) restartTicks.current = secondsToTicks(el.currentTime);
+    if (el && el.currentTime > 0) restartTicks.current = secondsToTicks(toMedia(el.currentTime));
     else restartTicks.current = secondsToTicks(lastTime.current);
     setBuffering(true);
   };
@@ -235,18 +244,18 @@ export function Player({
     if (!el) return;
     const max = duration > 0 ? duration : seconds;
     const to = Math.max(0, Math.min(max, seconds));
-    el.currentTime = to;
+    el.currentTime = toVideo(to);
     setNow(to);
   };
   const skipBy = (delta: number) => {
     const el = video.current;
-    if (el) seekTo(el.currentTime + delta);
+    if (el) seekTo(toMedia(el.currentTime) + delta);
   };
   const syncBuffered = (el: HTMLVideoElement) => {
     const r = el.buffered;
     let end = 0;
     for (let i = 0; i < r.length; i++) if (r.start(i) <= el.currentTime + 0.5 && r.end(i) > end) end = r.end(i);
-    setBuffered(end);
+    setBuffered(toMedia(end));
   };
   const syncDuration = (el: HTMLVideoElement) => {
     setDuration(isFinite(el.duration) && el.duration > 0 ? el.duration : ticksToSeconds(item.RunTimeTicks || 0));
@@ -426,6 +435,7 @@ export function Player({
     const el = video.current;
     if (!loaded || !el) return;
     const startSeconds = ticksToSeconds(loaded.startTicks);
+    shift.current = 0;
     const seekToStart = () => {
       if (startSeconds > 0) el.currentTime = startSeconds;
     };
@@ -447,6 +457,17 @@ export function Player({
           hls = instance;
           instance.on(Hls.Events.ERROR, (_event, data) => {
             if (data.fatal) setError(true);
+          });
+          // The first segment fixes the shift. `startPosition` was in video time, so once the shift is known seek to
+          // where the resume point really is. Only the first event: the user cannot have seeked before any data.
+          let corrected = false;
+          instance.on(Hls.Events.INIT_PTS_FOUND, (_event, data) => {
+            shift.current = mpegTsShift(data.initPTS, data.timescale);
+            if (corrected) return;
+            corrected = true;
+            if (startSeconds > 0 && shift.current !== 0) {
+              el.currentTime = Math.max(0, toVideo(startSeconds));
+            }
           });
           instance.loadSource(loaded.url);
           instance.attachMedia(el);
@@ -477,7 +498,7 @@ export function Player({
       mediaSourceId: loaded.mediaSourceId,
       playSessionId: loaded.playSessionId,
       // A destroyed hls.js player resets the video to 0; the last time seen keeps the resume point.
-      positionTicks: secondsToTicks(el.currentTime > 0 ? el.currentTime : lastTime.current),
+      positionTicks: secondsToTicks(el.currentTime > 0 ? toMedia(el.currentTime) : lastTime.current),
       playMethod: loaded.selection.method,
       isPaused: el.paused,
       ...(loaded.audioIndex !== null ? { audioStreamIndex: loaded.audioIndex } : {}),
@@ -556,7 +577,7 @@ export function Player({
     const el = video.current;
     if (!intro || !el) return;
     const end = ticksToSeconds(intro.endTicks);
-    el.currentTime = end;
+    el.currentTime = toVideo(end);
     setNow(end);
   };
 
@@ -613,8 +634,9 @@ export function Player({
             preload="auto"
             poster={(mouse ? artUrl(client.serverUrl, item, 'backdrop', 1920, 1080) : artUrl(client.serverUrl, item, 'backdrop', 780, 440)) || undefined}
             onTimeUpdate={(e) => {
-              const t = (e.target as HTMLVideoElement).currentTime;
-              if (t > 0) lastTime.current = t;
+              const v = (e.target as HTMLVideoElement).currentTime;
+              const t = Math.max(0, duration > 0 ? Math.min(duration, toMedia(v)) : toMedia(v));
+              if (v > 0) lastTime.current = t;
               setNow(t);
             }}
             onPlay={() => setPaused(false)}
