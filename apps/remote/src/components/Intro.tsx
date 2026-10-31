@@ -1,104 +1,91 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { makeStreaks } from '../introStreaks';
+import { CX, CY, halfPath, highlightPath, LAYERS, makeParticles, makeTunnel, OPENING, VIEW_H, VIEW_W } from '../introScene';
 import { isDesktop } from '../useDesktop';
 import { matchesQuery } from '../useMediaQuery';
 
 /** Whole intro length (ms); keep in sync with the intro- keyframes in styles.css. */
-const TOTAL_MS = 3900;
+const TOTAL_MS = 7600;
 /** Quick fade used when the intro is skipped. */
 const SKIP_MS = 150;
+/** The dive ends with the opening this many times wider than the window. */
+const DIVE_FILL = 1.25;
 
-const STREAKS = makeStreaks();
+const PARTICLES = makeParticles();
+const TUNNEL = makeTunnel();
+const WORD = 'THUISBIOSCOOP';
 
 /** Whether the intro plays at all: only in a desktop window, and not with reduced motion. */
 const shouldPlay = (): boolean => isDesktop() && !matchesQuery('(prefers-reduced-motion: reduce)');
 
-/** Where the real T's stem sits, in em, measured by drawing the glyph: stem edges, cap height. Rough values when no canvas. */
-function measureT(family: string, weight: string): { x0: number; x1: number; cap: number } {
-  const fallback = { x0: 0.21, x1: 0.38, cap: 0.72 };
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = 300;
-    canvas.height = 300;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return fallback;
-    ctx.font = `${weight} 100px ${family}`;
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#000';
-    ctx.fillText('T', 50, 200);
-    const { data } = ctx.getImageData(0, 0, 300, 300);
-    const solid = (x: number, y: number) => data[(y * 300 + x) * 4 + 3] > 128;
-    let top = -1;
-    for (let y = 0; y < 300 && top < 0; y++) for (let x = 0; x < 300; x++) if (solid(x, y)) { top = y; break; }
-    let x0 = -1;
-    let x1 = -1;
-    for (let x = 0; x < 300; x++) {
-      if (solid(x, 190)) {
-        if (x0 < 0) x0 = x;
-        x1 = x + 1;
-      }
-    }
-    if (top < 0 || x0 < 0) return fallback;
-    return { x0: (x0 - 50) / 100, x1: (x1 - 50) / 100, cap: (200 - top) / 100 };
-  } catch (e) {
-    return fallback;
-  }
+/** The layered emblem: nested mirrored petal pairs around a glowing opening. Static SVG; the CSS moves the parts. */
+function Emblem() {
+  return (
+    <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} aria-hidden="true" focusable="false">
+      <defs>
+        {LAYERS.map((l) => (
+          <linearGradient key={l.id} id={`intro-g-${l.id}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color={l.fill[1]} />
+            <stop offset="1" stop-color={l.fill[0]} />
+          </linearGradient>
+        ))}
+        <linearGradient id="intro-gloss" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffffff" stop-opacity="0.75" />
+          <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+        <radialGradient id="intro-core">
+          <stop offset="0" stop-color="#ffe3f6" />
+          <stop offset="0.3" stop-color="#ff4fb8" />
+          <stop offset="0.7" stop-color="#8a1fd0" />
+          <stop offset="1" stop-color="#2a0638" />
+        </radialGradient>
+        <radialGradient id="intro-halo">
+          <stop offset="0" stop-color="#ff6fd0" stop-opacity="0.8" />
+          <stop offset="1" stop-color="#b020ff" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+      <g transform={`translate(${CX} ${CY})`}>
+        <g class="e-core">
+          <g class="e-core-pulse">
+            <ellipse rx={OPENING.hw * 2.6} ry={OPENING.hh * 1.35} fill="url(#intro-halo)" />
+            <ellipse class="intro-opening" rx={OPENING.hw} ry={OPENING.hh} fill="url(#intro-core)" />
+          </g>
+        </g>
+        {LAYERS.map((l) =>
+          [1, -1].map((sgn) => (
+            <g key={`${l.id}${sgn}`} class="e-half" style={{ '--dx': l.dx, '--rot': l.rot, '--sgn': sgn }}>
+              <g transform={sgn === 1 ? undefined : 'scale(-1 1)'}>
+                <path d={halfPath(l.hw, l.hh)} fill={`url(#intro-g-${l.id})`} stroke={l.stroke} stroke-width="1.6" stroke-linejoin="round" />
+                <path d={highlightPath(l.hw, l.hh)} fill="none" stroke="url(#intro-gloss)" stroke-width="2.4" stroke-linecap="round" />
+              </g>
+            </g>
+          )),
+        )}
+      </g>
+    </svg>
+  );
 }
 
-/** Startup intro in a desktop window: the wordmark, a dive into the T, whose stem unravels into ribbons. A click or key skips it. */
+/** Startup intro in a desktop window: an emblem forms, the camera dives through it into a tunnel of light, then the wordmark. A click or key skips it. */
 export function Intro() {
   const [play] = useState(shouldPlay);
   const [state, setState] = useState<'playing' | 'skipped' | 'done'>(play ? 'playing' : 'done');
   const root = useRef<HTMLDivElement>(null);
-  const word = useRef<HTMLDivElement>(null);
-  const t = useRef<HTMLSpanElement>(null);
-  const base = useRef<HTMLElement>(null);
-  const stemEl = useRef<HTMLElement>(null);
+  const emblem = useRef<HTMLDivElement>(null);
 
-  // Measure the T and aim the camera at its stem: the glide (outer layer) brings the stem centre to the middle of the
-  // window, the zoom (inner layer) scales about that point. Layout offsets are used, so the entrance scale does not skew them.
+  // The dive scales about the opening, which sits at the middle of the window by construction. Its end scale is measured here:
+  // the opening ends up DIVE_FILL times as wide as the window.
   const aim = () => {
     const el = root.current;
-    const w = word.current;
-    const letter = t.current;
-    const mark = base.current;
-    const stem = stemEl.current;
-    if (!el || !w || !letter || !mark || !stem) return;
-    const cs = getComputedStyle(w);
-    const fs = parseFloat(cs.fontSize) || 100;
-    const m = measureT(cs.fontFamily, cs.fontWeight);
-    const pad = 0.012 * fs; // a little wider than the glyph, so no edge of the text shows beside it
-    const stemW = (m.x1 - m.x0) * fs + 2 * pad;
-    const capH = m.cap * fs;
-    const left = letter.offsetLeft + m.x0 * fs - pad;
-    const top = mark.offsetTop - capH;
-    stem.style.left = `${left}px`;
-    stem.style.top = `${top}px`;
-    stem.style.width = `${stemW}px`;
-    stem.style.height = `${capH}px`;
-    const ox = left + stemW / 2;
-    const oy = top + capH / 2;
-    const scale = Math.max((0.15 * el.clientWidth) / stemW, (1.15 * el.clientHeight) / capH);
-    el.style.setProperty('--ox', `${ox}px`);
-    el.style.setProperty('--oy', `${oy}px`);
-    el.style.setProperty('--gx', `${w.offsetWidth / 2 - ox}px`);
-    el.style.setProperty('--gy', `${w.offsetHeight / 2 - oy}px`);
-    el.style.setProperty('--s', String(scale));
-    el.style.setProperty('--stem-w', `${stemW * scale}px`);
+    const em = emblem.current;
+    if (!el || !em) return;
+    const openW = (em.offsetWidth * 2 * OPENING.hw) / VIEW_W;
+    if (openW > 0) el.style.setProperty('--s', String((DIVE_FILL * el.clientWidth) / openW));
   };
   useLayoutEffect(aim, []);
-
-  // Fonts may arrive late, and the window may be resized while the intro plays: measure again.
   useEffect(() => {
     if (!play) return;
-    let live = true;
-    const fonts = (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts;
-    if (fonts) fonts.ready.then(() => live && aim()).catch(() => undefined);
     window.addEventListener('resize', aim);
-    return () => {
-      live = false;
-      window.removeEventListener('resize', aim);
-    };
+    return () => window.removeEventListener('resize', aim);
   }, []);
 
   useEffect(() => {
@@ -129,44 +116,48 @@ export function Intro() {
         if (e.animationName === 'intro-out') setState('done');
       }}
     >
-      <div class="intro-zoom">
-        <div class="intro-scale">
-          <div class="intro-word" ref={word}>
-            <span class="intro-t" ref={t}>
-              <span class="intro-t-ch">T</span>
-              <b class="intro-base" ref={base} />
-            </span>
-            <span class="intro-rest">huisbios</span>
-            <i class="intro-stem" ref={stemEl} />
+      <div class="intro-cinema">
+        <div class="intro-curtain l" />
+        <div class="intro-curtain r" />
+        <div class="intro-floor" />
+        <div class="intro-vignette" />
+      </div>
+      <div class="intro-emblem" ref={emblem}>
+        <div class="intro-glow" />
+        <div class="intro-emblem-in">
+          <Emblem />
+        </div>
+        {PARTICLES.map((p, i) => (
+          <i
+            key={i}
+            class="intro-p"
+            style={{ '--sx': p.sx, '--sy': p.sy, '--ex': p.ex, '--ey': p.ey, '--size': `${p.size}px`, '--delay': `${p.delay}ms`, '--dur': `${p.dur}ms`, '--c': p.c }}
+          />
+        ))}
+      </div>
+      <div class="intro-tunnel">
+        {TUNNEL.rings.map((r, i) => (
+          <i key={i} class="intro-ring" style={{ '--delay': `${r.delay}ms`, '--c': r.c }} />
+        ))}
+        {TUNNEL.streaks.map((s, i) => (
+          <i key={i} class="intro-rush" style={{ '--a': s.angle, '--r0': s.r0, '--r1': s.r1, '--len': s.len, '--w': `${s.w}px`, '--delay': `${s.delay}ms`, '--dur': `${s.dur}ms`, '--c': s.c }} />
+        ))}
+        {TUNNEL.dust.map((s, i) => (
+          <i key={i} class="intro-rush dust" style={{ '--a': s.angle, '--r0': s.r0, '--r1': s.r1, '--len': s.len, '--w': `${s.w}px`, '--delay': `${s.delay}ms`, '--dur': `${s.dur}ms`, '--c': s.c }} />
+        ))}
+      </div>
+      <div class="intro-logo">
+        <div class="intro-logo-in">
+          <div class="intro-word">
+            {WORD}
+            <div class="intro-sweep">
+              <div class="intro-sweep-band">
+                <div class="intro-sweep-copy">{WORD}</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      <div class="intro-camera">
-        {[0, 1, 2].map((depth) => (
-          <div key={depth} class={`intro-layer d${depth}`}>
-            {STREAKS.filter((s) => s.depth === depth).map((s, i) => (
-              <i
-                key={i}
-                class="intro-ribbon"
-                style={{
-                  '--x': `${s.x}vw`,
-                  '--f': String(s.x0),
-                  '--w': `${s.w}px`,
-                  '--delay': `${s.delay}ms`,
-                  '--dur': `${s.dur}ms`,
-                  '--c': s.c,
-                  '--o': String(s.o),
-                  '--life': `${s.life}ms`,
-                  '--life-delay': `${s.lifeDelay}ms`,
-                }}
-              >
-                <b />
-              </i>
-            ))}
-          </div>
-        ))}
-      </div>
-      <div class="intro-dark" />
     </div>
   );
 }
