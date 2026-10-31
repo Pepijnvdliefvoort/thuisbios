@@ -189,7 +189,9 @@ rows get arrow buttons, and Play and Resume use the app's own player on that com
 connected ("Play on TV" sits next to them). The player has volume and fullscreen buttons and these keys:
 Space or K play/pause, Left/Right or J/L -10 s/+10 s, Up/Down volume, M mute, F fullscreen,
 C subtitles on/off and Esc to leave. A click on the picture plays or pauses, a double click toggles
-fullscreen. Phones keep their own layout.
+fullscreen. Hovering a poster shows a play button that starts playback directly (a click elsewhere on the
+card opens the details), and a short intro animation plays when the page loads (click or press a key to
+skip; it is off with reduced motion). Phones keep their own layout.
 
 The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
 remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on

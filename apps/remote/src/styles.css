@@ -684,6 +684,63 @@ button.rs-row:active { background: var(--surface-2); }
   .sheet-backdrop, .sheet, .volume-backdrop.out .volume-sheet { animation-duration: 1ms; }
 }
 
+/* Desktop: play button on a poster hover. The card sits in .card-cell; the zone covers the art and lets clicks through except on the button. */
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .card-cell { position: relative; flex: none; min-width: 0; }
+  .card-shade { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.35); opacity: 0; transition: opacity 0.18s ease; pointer-events: none; }
+  .card-cell:hover .card-art, .card-cell:focus-within .card-art { transform: scale(1.04); }
+  .card-cell:hover .card-shade, .card-cell:focus-within .card-shade { opacity: 1; }
+  .card-play-zone { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .card-cell-poster .card-play-zone { aspect-ratio: 2 / 3; }
+  .card-cell-thumb .card-play-zone { aspect-ratio: 16 / 9; }
+  .card-play {
+    display: flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--fg); pointer-events: auto;
+    background: rgba(11, 11, 16, 0.72); border: 2px solid rgba(255, 255, 255, 0.85);
+    opacity: 0; transform: scale(0.85); transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+  .card-cell-poster .card-play { width: 56px; height: 56px; }
+  .card-cell-thumb .card-play { width: 64px; height: 64px; }
+  .card-play .icon { margin-left: 3px; }
+  .card-cell:hover .card-play, .card-cell:focus-within .card-play, .card-play:focus-visible { opacity: 1; transform: scale(1); }
+  .card-play:hover { background: var(--fg); color: #111; transform: scale(1.08); }
+  .card-play:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+}
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  .card-art, .card-shade, .card-play { transition-duration: 1ms; }
+}
+
+/* Desktop: startup intro (see components/Intro.tsx). Total 2600 ms; keep TOTAL_MS there in sync. */
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .intro { position: fixed; inset: 0; z-index: 100; background: var(--bg); overflow: hidden; animation: intro-out 600ms ease-in 2000ms both; }
+  .intro-skip { animation: intro-skip 150ms ease-out both; }
+  .intro-stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; animation: intro-fly 600ms ease-in 2000ms both; }
+  .intro-word {
+    font-size: clamp(56px, 9vw, 140px); font-weight: 800; letter-spacing: 0.04em; color: var(--fg);
+    text-shadow: 0 0 24px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 2px rgba(255, 255, 255, 0.6);
+    animation: intro-word 1500ms ease-in-out both;
+  }
+  .intro-streak {
+    position: absolute; top: calc(50% - var(--h) / 2); left: calc(50% + var(--x) - var(--w) / 2); width: var(--w); height: var(--h);
+    background: linear-gradient(to bottom, transparent, var(--c) 50%, transparent);
+    opacity: 0; transform: scaleY(0); transform-origin: center;
+    animation: intro-streak 1300ms ease-out calc(950ms + var(--delay)) both;
+  }
+  @keyframes intro-word {
+    0% { opacity: 0; transform: scale(0.92); }
+    40% { opacity: 1; transform: scale(1); }
+    60% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.2, 0.05); }
+  }
+  @keyframes intro-streak {
+    0% { opacity: 0; transform: translateX(0) scaleY(0); }
+    30% { opacity: 1; transform: translateX(0) scaleY(1); }
+    100% { opacity: 0; transform: translateX(var(--dx)) scaleY(1); }
+  }
+  @keyframes intro-fly { from { transform: none; } to { transform: scale(1.15); } }
+  @keyframes intro-out { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes intro-skip { from { opacity: 1; } to { opacity: 0; } }
+}
+
 /* Player with a mouse (any window size): hidden cursor, volume, fullscreen and the scrub tooltip. The elements only exist when the player has a mouse. */
 @media (hover: hover) and (pointer: fine) {
   .player-stage.idle { cursor: none; }
