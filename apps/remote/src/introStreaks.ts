@@ -1,24 +1,23 @@
-/** One light streak of the startup intro. Distances are in vw/vh, times in ms. */
+/** One ribbon of the startup intro. Distances are in vw, times in ms. */
 export interface Streak {
-  /** Horizontal offset from the centre (vw). */
+  /** Final horizontal offset from the centre (vw). */
   x: number;
+  /** Starting offset inside the T's stem (vw). */
+  x0: number;
   /** Width (px). */
   w: number;
-  /** Height (vh). */
-  h: number;
-  /** Start delay within the streak phase (ms). */
+  /** Start delay within the fan-out phase (ms). */
   delay: number;
-  /** How far it sweeps outward (vw), proportional to its offset. */
-  dx: number;
   /** Colour. */
   c: string;
 }
 
-export const STREAK_COUNT = 32;
+export const STREAK_COUNT = 48;
 
-const COLORS = ['var(--accent)', '#ff8a3d', '#ff4fa3', '#ffffff'];
+/** Half the stem width the ribbons start in (vw). */
+const STEM_HALF = 7.5;
 
-/** Small seeded generator, so every load (and every screenshot) gets the same streaks. */
+/** Small seeded generator, so every load (and every screenshot) gets the same ribbons. */
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -30,19 +29,22 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-/** The streaks for the intro: deterministic for a given seed. */
+/**
+ * The ribbons for the intro, left to right: deterministic for a given seed. Their colours run through the
+ * spectrum, and they keep their order, so they never cross while fanning out.
+ */
 export function makeStreaks(count: number = STREAK_COUNT, seed = 20240601): Streak[] {
   const rand = mulberry32(seed);
   const streaks: Streak[] = [];
   for (let i = 0; i < count; i++) {
-    const x = Math.round((rand() * 2 - 1) * 480) / 10; // -48 .. 48
+    const slot = (i + 0.5) / count; // 0 .. 1 across
+    const hue = Math.round((slot * 330 + (rand() - 0.5) * 24 + 360) % 360);
     streaks.push({
-      x,
-      w: 2 + Math.round(rand() * 12), // 2 .. 14
-      h: 30 + Math.round(rand() * 60), // 30 .. 90
+      x: Math.round((slot * 2 - 1) * 480 + (rand() - 0.5) * 8) / 10, // about -48 .. 48
+      x0: Math.round((slot * 2 - 1) * STEM_HALF * 10) / 10,
+      w: 2 + Math.round(rand() * 14), // 2 .. 16
       delay: Math.round(rand() * 250),
-      dx: Math.round(x * 90) / 100,
-      c: COLORS[Math.floor(rand() * COLORS.length)],
+      c: `hsl(${hue} 90% 55%)`,
     });
   }
   return streaks;
