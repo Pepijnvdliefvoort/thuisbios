@@ -55,8 +55,9 @@ export function Intro() {
   const base = useRef<HTMLElement>(null);
   const stemEl = useRef<HTMLElement>(null);
 
-  // Aim the zoom at the real stem of the T and lay a copy of it over the glyph. Layout offsets are used, so the entrance scale does not skew them.
-  useLayoutEffect(() => {
+  // Measure the T and aim the camera at its stem: the glide (outer layer) brings the stem centre to the middle of the
+  // window, the zoom (inner layer) scales about that point. Layout offsets are used, so the entrance scale does not skew them.
+  const aim = () => {
     const el = root.current;
     const w = word.current;
     const letter = t.current;
@@ -66,23 +67,38 @@ export function Intro() {
     const cs = getComputedStyle(w);
     const fs = parseFloat(cs.fontSize) || 100;
     const m = measureT(cs.fontFamily, cs.fontWeight);
-    const stemW = (m.x1 - m.x0) * fs;
+    const pad = 0.012 * fs; // a little wider than the glyph, so no edge of the text shows beside it
+    const stemW = (m.x1 - m.x0) * fs + 2 * pad;
     const capH = m.cap * fs;
-    const left = letter.offsetLeft + m.x0 * fs;
+    const left = letter.offsetLeft + m.x0 * fs - pad;
     const top = mark.offsetTop - capH;
     stem.style.left = `${left}px`;
     stem.style.top = `${top}px`;
     stem.style.width = `${stemW}px`;
     stem.style.height = `${capH}px`;
-    const scale = Math.max((0.15 * window.innerWidth) / stemW, (1.3 * window.innerHeight) / capH);
-    const tx = scale * (w.offsetWidth / 2 - (left + stemW / 2));
-    const ty = scale * (w.offsetHeight / 2 - (top + capH / 2));
+    const ox = left + stemW / 2;
+    const oy = top + capH / 2;
+    const scale = Math.max((0.15 * el.clientWidth) / stemW, (1.15 * el.clientHeight) / capH);
+    el.style.setProperty('--ox', `${ox}px`);
+    el.style.setProperty('--oy', `${oy}px`);
+    el.style.setProperty('--gx', `${w.offsetWidth / 2 - ox}px`);
+    el.style.setProperty('--gy', `${w.offsetHeight / 2 - oy}px`);
     el.style.setProperty('--s', String(scale));
-    el.style.setProperty('--tx', `${tx}px`);
-    el.style.setProperty('--ty', `${ty}px`);
-    el.style.setProperty('--tx2', `${tx * 1.3}px`);
-    el.style.setProperty('--ty2', `${ty * 1.3}px`);
     el.style.setProperty('--stem-w', `${stemW * scale}px`);
+  };
+  useLayoutEffect(aim, []);
+
+  // Fonts may arrive late, and the window may be resized while the intro plays: measure again.
+  useEffect(() => {
+    if (!play) return;
+    let live = true;
+    const fonts = (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts;
+    if (fonts) fonts.ready.then(() => live && aim()).catch(() => undefined);
+    window.addEventListener('resize', aim);
+    return () => {
+      live = false;
+      window.removeEventListener('resize', aim);
+    };
   }, []);
 
   useEffect(() => {
@@ -114,13 +130,15 @@ export function Intro() {
       }}
     >
       <div class="intro-zoom">
-        <div class="intro-word" ref={word}>
-          <span class="intro-t" ref={t}>
-            <span class="intro-t-ch">T</span>
-            <b class="intro-base" ref={base} />
-          </span>
-          <span class="intro-rest">huisbios</span>
-          <i class="intro-stem" ref={stemEl} />
+        <div class="intro-scale">
+          <div class="intro-word" ref={word}>
+            <span class="intro-t" ref={t}>
+              <span class="intro-t-ch">T</span>
+              <b class="intro-base" ref={base} />
+            </span>
+            <span class="intro-rest">huisbios</span>
+            <i class="intro-stem" ref={stemEl} />
+          </div>
         </div>
       </div>
       <div class="intro-camera">
