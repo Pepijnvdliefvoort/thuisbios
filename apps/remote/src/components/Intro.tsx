@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { CX, CY, halfPath, highlightPath, LAYERS, makeParticles, makeTunnel, OPENING, VIEW_H, VIEW_W } from '../introScene';
+import { CX, CY, GROUPS, halfPath, highlightPath, LAYERS, makeParticles, makeTunnel, OPENING, VIEW_H, VIEW_W, type Rush } from '../introScene';
 import { isDesktop } from '../useDesktop';
 import { matchesQuery } from '../useMediaQuery';
 
 /** Whole intro length (ms); keep in sync with the intro- keyframes in styles.css. */
-const TOTAL_MS = 7600;
+const TOTAL_MS = 9000;
 /** Quick fade used when the intro is skipped. */
 const SKIP_MS = 150;
 /** The dive ends with the opening this many times wider than the window. */
@@ -12,7 +12,13 @@ const DIVE_FILL = 1.25;
 
 const PARTICLES = makeParticles();
 const TUNNEL = makeTunnel();
-const WORD = 'THUISBIOSCOOP';
+
+/** Path of the plane with a hole in it: a huge rectangle and a circle (even-odd), in a 100 x 100 box. */
+const EXIT_PATH = 'M-200000 -200000H200000V200000H-200000ZM0 50A50 50 0 1 0 100 50A50 50 0 1 0 0 50Z';
+/** The same for the emblem: everything outside its opening is covered, so the tunnel only shows through it. */
+const IRIS_PATH = `M-3000 -3000H3000V3000H-3000ZM${-OPENING.hw} 0A${OPENING.hw} ${OPENING.hh} 0 1 0 ${OPENING.hw} 0A${OPENING.hw} ${OPENING.hh} 0 1 0 ${-OPENING.hw} 0Z`;
+
+const rushStyle = (s: Rush) => ({ '--a': s.angle, '--r0': s.r0, '--r1': s.r1, '--len': s.len, '--w': `${s.w}px`, '--delay': `${s.delay}ms`, '--dur': `${s.dur}ms`, '--c': s.c });
 
 /** Whether the intro plays at all: only in a desktop window, and not with reduced motion. */
 const shouldPlay = (): boolean => isDesktop() && !matchesQuery('(prefers-reduced-motion: reduce)');
@@ -32,22 +38,11 @@ function Emblem() {
           <stop offset="0" stop-color="#ffffff" stop-opacity="0.75" />
           <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
         </linearGradient>
-        <radialGradient id="intro-core">
-          <stop offset="0" stop-color="#ffe3f6" />
-          <stop offset="0.3" stop-color="#ff4fb8" />
-          <stop offset="0.7" stop-color="#8a1fd0" />
-          <stop offset="1" stop-color="#2a0638" />
-        </radialGradient>
-        <radialGradient id="intro-halo">
-          <stop offset="0" stop-color="#ff6fd0" stop-opacity="0.8" />
-          <stop offset="1" stop-color="#b020ff" stop-opacity="0" />
-        </radialGradient>
       </defs>
       <g transform={`translate(${CX} ${CY})`}>
         <g class="e-core">
           <g class="e-core-pulse">
-            <ellipse rx={OPENING.hw * 2.6} ry={OPENING.hh * 1.35} fill="url(#intro-halo)" />
-            <ellipse class="intro-opening" rx={OPENING.hw} ry={OPENING.hh} fill="url(#intro-core)" />
+            <ellipse class="intro-opening" rx={OPENING.hw} ry={OPENING.hh} fill="none" stroke="#ffb0e6" stroke-width="1.2" />
           </g>
         </g>
         {LAYERS.map((l) =>
@@ -88,10 +83,21 @@ export function Intro() {
     return () => window.removeEventListener('resize', aim);
   }, []);
 
+  // The app behind settles into place as the exit opens; the class is gone again when the intro ends or is skipped.
+  useEffect(() => {
+    if (!play) return;
+    const app = document.getElementById('app');
+    if (app && state === 'playing') app.classList.add('intro-settle');
+    return () => {
+      if (app) app.classList.remove('intro-settle');
+    };
+  }, [state]);
+
   useEffect(() => {
     if (state !== 'playing') return;
     const skip = () => setState('skipped');
-    const timer = setTimeout(() => setState('done'), TOTAL_MS + 50);
+    // Normally the exit animation's end finishes the intro; this only catches a browser that never reports it.
+    const timer = setTimeout(() => setState('done'), TOTAL_MS + 3000);
     window.addEventListener('keydown', skip, true);
     return () => {
       clearTimeout(timer);
@@ -113,16 +119,32 @@ export function Intro() {
       aria-hidden="true"
       onPointerDown={() => setState('skipped')}
       onAnimationEnd={(e) => {
-        if (e.animationName === 'intro-out') setState('done');
+        if (e.animationName === 'intro-exit') setState('done');
       }}
     >
-      <div class="intro-cinema">
-        <div class="intro-curtain l" />
-        <div class="intro-curtain r" />
-        <div class="intro-floor" />
-        <div class="intro-vignette" />
+      <svg class="intro-exit-cover" viewBox="0 0 100 100" focusable="false">
+        <path d={EXIT_PATH} fill="#000" fill-rule="evenodd" />
+      </svg>
+      <div class="intro-view">
+        {GROUPS.map((g, group) => (
+          <div key={group} class="intro-depth" style={{ '--k': g.k }}>
+            {TUNNEL.rings
+              .filter((r) => r.group === group)
+              .map((r, i) => (
+                <i key={i} class="intro-ring" style={{ '--delay': `${r.delay}ms`, '--dur': `${g.dur}ms`, '--s0': g.s0, '--s1': g.s1, '--c': r.c }} />
+              ))}
+            {group < 3
+              ? [...TUNNEL.streaks.filter((s) => s.group === group).map((s) => [s, false] as const), ...TUNNEL.dust.filter((s) => s.group === group).map((s) => [s, true] as const)].map(([s, dust], i) => (
+                  <i key={i} class={dust ? 'intro-rush dust' : 'intro-rush'} style={rushStyle(s)} />
+                ))
+              : null}
+          </div>
+        ))}
       </div>
       <div class="intro-emblem" ref={emblem}>
+        <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} aria-hidden="true" focusable="false">
+          <path transform={`translate(${CX} ${CY})`} d={IRIS_PATH} fill="#000" fill-rule="evenodd" />
+        </svg>
         <div class="intro-glow" />
         <div class="intro-emblem-in">
           <Emblem />
@@ -135,29 +157,7 @@ export function Intro() {
           />
         ))}
       </div>
-      <div class="intro-tunnel">
-        {TUNNEL.rings.map((r, i) => (
-          <i key={i} class="intro-ring" style={{ '--delay': `${r.delay}ms`, '--c': r.c }} />
-        ))}
-        {TUNNEL.streaks.map((s, i) => (
-          <i key={i} class="intro-rush" style={{ '--a': s.angle, '--r0': s.r0, '--r1': s.r1, '--len': s.len, '--w': `${s.w}px`, '--delay': `${s.delay}ms`, '--dur': `${s.dur}ms`, '--c': s.c }} />
-        ))}
-        {TUNNEL.dust.map((s, i) => (
-          <i key={i} class="intro-rush dust" style={{ '--a': s.angle, '--r0': s.r0, '--r1': s.r1, '--len': s.len, '--w': `${s.w}px`, '--delay': `${s.delay}ms`, '--dur': `${s.dur}ms`, '--c': s.c }} />
-        ))}
-      </div>
-      <div class="intro-logo">
-        <div class="intro-logo-in">
-          <div class="intro-word">
-            {WORD}
-            <div class="intro-sweep">
-              <div class="intro-sweep-band">
-                <div class="intro-sweep-copy">{WORD}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div class="intro-exit-rim" />
     </div>
   );
 }

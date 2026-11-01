@@ -95,7 +95,7 @@ export interface Particle {
 }
 
 /** Specks converging on the emblem's edges from scattered positions around it. */
-export function makeParticles(count = 90, seed = 7301): Particle[] {
+export function makeParticles(count = 56, seed = 7301): Particle[] {
   const rand = mulberry32(seed);
   const out: Particle[] = [];
   for (let i = 0; i < count; i++) {
@@ -118,14 +118,37 @@ export function makeParticles(count = 90, seed = 7301): Particle[] {
   return out;
 }
 
-/** A glowing ring that grows from the middle of the tunnel to beyond the screen. */
+/**
+ * A depth group of the tunnel. Far groups follow the camera path fully, near ones only partly (`k`), so the rings
+ * lag and slide against each other. `s0` to `s1` is the scale range its rings grow through, `start` when they begin.
+ */
+export interface Group {
+  k: number;
+  s0: number;
+  s1: number;
+  dur: number;
+  count: number;
+  start: number;
+}
+
+/** Far, middle and near groups of slow rings, then a fast group that takes over for the final stretch. */
+export const GROUPS: Group[] = [
+  { k: 1, s0: 0.03, s1: 0.45, dur: 1500, count: 6, start: 800 },
+  { k: 0.65, s0: 0.25, s1: 1, dur: 1500, count: 5, start: 800 },
+  { k: 0.3, s0: 0.6, s1: 1.8, dur: 1500, count: 4, start: 800 },
+  { k: 0.5, s0: 0.03, s1: 1.9, dur: 700, count: 5, start: 6000 },
+];
+
+/** A glowing ring that grows toward the camera inside its group. */
 export interface Ring {
+  group: number;
   delay: number;
   c: string;
 }
 
-/** A streak or speck rushing outward at an angle (distances in vmin / vmax, scale is the stretch). */
+/** A streak or speck rushing outward from the vanishing point (distances in vmin / vmax, `len` is the stretch). */
 export interface Rush {
+  group: number;
   angle: number;
   r0: number;
   r1: number;
@@ -134,6 +157,8 @@ export interface Rush {
   delay: number;
   dur: number;
   c: string;
+  /** Only runs in the fast final stretch. */
+  fast: boolean;
 }
 
 export interface Tunnel {
@@ -143,22 +168,32 @@ export interface Tunnel {
 }
 
 /** The tunnel's rings, radial streaks and rushing specks. */
-export function makeTunnel(rings = 10, streaks = 56, dust = 44, seed = 4410): Tunnel {
+export function makeTunnel(streaks = 28, dust = 20, seed = 4410): Tunnel {
   const rand = mulberry32(seed);
   const colour = () => TUNNEL[Math.floor(rand() * TUNNEL.length)];
-  const rush = (small: boolean): Rush => ({
-    angle: Math.round(rand() * 360),
-    r0: round1(range(rand, 1, 5)),
-    r1: Math.round(range(rand, 70, 120)),
-    len: small ? 1 : round1(range(rand, 2.5, 7)),
-    w: small ? Math.round(range(rand, 3, 6)) : round1(range(rand, 1, 3)),
-    delay: Math.round(rand() * 700),
-    dur: 800 + Math.round(rand() * 600),
-    c: colour(),
+  const rush = (small: boolean, i: number): Rush => {
+    const fast = i % 3 === 2;
+    const dur = (800 + Math.round(rand() * 600)) / (fast ? 2 : 1);
+    return {
+      group: Math.floor(rand() * 3),
+      angle: Math.round(rand() * 360),
+      r0: round1(range(rand, 1, 5)),
+      r1: Math.round(range(rand, 70, 120)),
+      len: small ? 1 : round1(range(rand, 2.5, 7)),
+      w: small ? Math.round(range(rand, 3, 6)) : round1(range(rand, 1, 3)),
+      delay: (fast ? 6000 : 1000) + Math.round(rand() * 700),
+      dur: Math.round(dur),
+      c: colour(),
+      fast,
+    };
+  };
+  const rings: Ring[] = [];
+  GROUPS.forEach((g, group) => {
+    for (let i = 0; i < g.count; i++) rings.push({ group, delay: g.start + Math.round((i * g.dur) / g.count), c: colour() });
   });
   return {
-    rings: Array.from({ length: rings }, (_, i) => ({ delay: i * 150, c: colour() })),
-    streaks: Array.from({ length: streaks }, () => rush(false)),
-    dust: Array.from({ length: dust }, () => rush(true)),
+    rings,
+    streaks: Array.from({ length: streaks }, (_, i) => rush(false, i)),
+    dust: Array.from({ length: dust }, (_, i) => rush(true, i)),
   };
 }

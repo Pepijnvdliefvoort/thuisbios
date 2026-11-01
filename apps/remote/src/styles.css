@@ -709,27 +709,36 @@ button.rs-row:active { background: var(--surface-2); }
   .card-art, .card-shade, .card-play { transition-duration: 1ms; }
 }
 
-/* Desktop: startup intro (see components/Intro.tsx), one continuous camera move, 7600 ms in all; keep TOTAL_MS there in sync.
-   An emblem forms from specks, unfolds, the camera dives through its glowing opening into a tunnel of light, then a dim
-   cinema hall and the wordmark. Only transform and opacity animate. */
+/* Desktop: startup intro (see components/Intro.tsx), one uninterrupted camera move, 9000 ms in all; keep TOTAL_MS there in sync.
+   An emblem forms and the camera creeps in, accelerates through its opening into a winding tunnel (a pseudo-3D ride on depth groups,
+   a vanishing point that follows a path, and banking), and leaves through a growing exit that shows the app, which settles into place.
+   Only transform and opacity animate. */
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  .intro { position: fixed; inset: 0; z-index: 100; background: #000; overflow: hidden; animation: intro-out 600ms ease-in 7000ms both; }
+  .intro { position: fixed; inset: 0; z-index: 100; overflow: hidden; }
   .intro-skip { animation: intro-skip 150ms ease-out both; }
-  .intro-cinema, .intro-tunnel { position: absolute; inset: 0; opacity: 0; }
+  #app.intro-settle { transform-origin: 50% 50%; animation: intro-settle 1000ms cubic-bezier(0.1, 0.6, 0.3, 1) 8000ms both; }
+
+  /* Exit: a plane with a round hole (shows the app behind the overlay) that grows by scale, and a bright rim around the hole. */
+  .intro-exit-cover, .intro-exit-rim { position: absolute; transform: scale(0.02); animation: intro-exit 3000ms linear 6000ms both; }
+  .intro-exit-cover { left: calc(50% - 4vmin); top: calc(50% - 4vmin); width: 8vmin; height: 8vmin; overflow: visible; }
+  .intro-exit-rim {
+    left: calc(50% - 4.8vmin); top: calc(50% - 4.8vmin); width: 9.6vmin; height: 9.6vmin; border-radius: 50%;
+    background: radial-gradient(closest-side, transparent 80%, rgba(255, 240, 252, 0.95) 84%, rgba(255, 92, 192, 0.8) 91%, transparent 100%);
+  }
 
   /* Emblem: its box is centred so the opening sits exactly in the middle of the window; the camera scales about that point. */
   .intro-emblem {
     --ew: min(46vh, 34vw);
     position: absolute; width: var(--ew); aspect-ratio: 200 / 240; left: calc(50% - var(--ew) / 2); top: calc(50% - var(--ew) * 0.6);
-    font-size: calc(var(--ew) / 100); transform-origin: 50% 50%; will-change: transform, opacity;
-    animation: intro-cam 4700ms both, intro-fade-out 500ms ease-in 4200ms both;
+    font-size: calc(var(--ew) / 100); transform-origin: 50% 50%; will-change: transform;
+    animation: intro-cam 3200ms both;
   }
-  .intro-emblem-in { position: absolute; inset: 0; opacity: 0; animation: intro-emblem-in 900ms ease-out 600ms both; }
   .intro-emblem svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .intro-emblem-in { position: absolute; inset: 0; opacity: 0; animation: intro-emblem-in 900ms ease-out 600ms both; }
   .intro-glow {
     position: absolute; left: -45%; right: -45%; top: -35%; bottom: -35%; opacity: 0;
     background: radial-gradient(closest-side, rgba(255, 60, 170, 0.55), rgba(150, 30, 200, 0.28) 45%, transparent 100%);
-    animation: intro-glow-in 1400ms ease-out 700ms both;
+    animation: intro-glow 2000ms ease-out 700ms both;
   }
   .e-half {
     transform-box: fill-box; transform-origin: 50% 100%;
@@ -744,60 +753,30 @@ button.rs-row:active { background: var(--surface-2); }
     animation: intro-particle var(--dur) cubic-bezier(0.3, 0.6, 0.3, 1) var(--delay) both;
   }
 
-  /* Tunnel: rings, streaks and specks rushing past the camera, turning slowly. */
-  .intro-tunnel { animation: intro-tunnel-spin 2800ms linear 4000ms both, intro-tunnel-fade 2200ms linear 4000ms both; }
+  /* Tunnel: the view banks, each depth group follows the vanishing point by its own share, rings and streaks keep spawning there. */
+  .intro-view { position: absolute; inset: 0; animation: intro-roll 3800ms ease-in-out 3200ms both, intro-fade-out 1000ms linear 7600ms both; }
+  .intro-depth { position: absolute; inset: 0; animation: intro-path 3800ms ease-in-out 3200ms both; }
   .intro-ring {
-    position: absolute; left: calc(50% - 50vw); top: calc(50% - 35vw); width: 100vw; height: 70vw; opacity: 0; will-change: transform, opacity;
+    position: absolute; left: calc(50% - 50vw); top: calc(50% - 35vw); width: 100vw; height: 70vw; opacity: 0;
     background: radial-gradient(closest-side, transparent 76%, var(--c) 88%, transparent 100%);
-    animation: intro-ring 1500ms cubic-bezier(0.5, 0, 0.9, 0.5) calc(4000ms + var(--delay)) 2 both;
+    animation: intro-ring var(--dur) cubic-bezier(0.5, 0, 0.9, 0.5) var(--delay) infinite both;
   }
   .intro-rush {
     position: absolute; left: 50%; top: 50%; width: 24vmin; height: var(--w); margin-top: calc(var(--w) / -2); opacity: 0;
     transform-origin: 0 50%;
     background: linear-gradient(to right, transparent, var(--c));
-    animation: intro-rush var(--dur) cubic-bezier(0.5, 0, 0.9, 0.5) calc(4100ms + var(--delay)) 2 both;
+    animation: intro-rush var(--dur) cubic-bezier(0.5, 0, 0.9, 0.5) var(--delay) infinite both;
   }
-  .intro-rush.dust { width: var(--w); border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); margin-top: calc(var(--w) / -2); }
-
-  /* Cinema: deep red low light, curtain folds, a floor glow and a vignette. */
-  .intro-cinema {
-    background: radial-gradient(ellipse at 50% 58%, #3a050f 0%, #17030a 55%, #060207 100%);
-    animation: intro-cinema-in 1000ms ease-out 5200ms both, intro-cinema-push 2400ms ease-out 5200ms both;
-  }
-  .intro-curtain {
-    position: absolute; top: 0; bottom: 0; width: 24vw;
-    background:
-      linear-gradient(to var(--edge), rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.8) 100%),
-      repeating-linear-gradient(90deg, #1a0308 0, #55081a 2.2vw, #1a0308 4.4vw);
-  }
-  .intro-curtain.l { left: 0; --edge: right; }
-  .intro-curtain.r { right: 0; --edge: left; }
-  .intro-floor { position: absolute; left: 0; right: 0; bottom: 0; height: 34vh; background: radial-gradient(ellipse at 50% 100%, rgba(229, 9, 20, 0.35), transparent 70%); }
-  .intro-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.8) 100%); }
-
-  /* Wordmark with a light sweep: a band that holds a bright copy of the text, moved against the band so the copy stays in place. */
-  .intro-logo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; animation: intro-logo-out 700ms ease-in 6900ms forwards; }
-  .intro-logo-in { animation: intro-logo-in 900ms cubic-bezier(0.2, 0.7, 0.2, 1) 5800ms both; }
-  .intro-word {
-    position: relative; display: block; white-space: nowrap; font-size: clamp(32px, 5vw, 96px); font-weight: 800; letter-spacing: 0.28em; margin-right: -0.28em;
-    color: #fff; text-shadow: 0 0 12px rgba(255, 120, 200, 0.8), 0 0 32px rgba(255, 40, 140, 0.6), 0 0 70px rgba(229, 9, 20, 0.55);
-  }
-  .intro-sweep { position: absolute; inset: 0; overflow: hidden; }
-  .intro-sweep-band {
-    position: absolute; top: 0; bottom: 0; left: 0; width: 20%; will-change: transform;
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 50%, transparent); mask-image: linear-gradient(to right, transparent, #000 50%, transparent);
-    animation: intro-sweep 1100ms ease-in-out 6300ms both;
-  }
-  .intro-sweep-copy { position: absolute; top: 0; left: 0; width: 500%; white-space: nowrap; color: #fff; text-shadow: none; animation: intro-sweep-copy 1100ms ease-in-out 6300ms both; will-change: transform; }
+  .intro-rush.dust { width: var(--w); border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
 
   @keyframes intro-emblem-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
-  @keyframes intro-glow-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes intro-glow { 0% { opacity: 0; } 50% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
   @keyframes intro-unfold {
     from { transform: none; }
     to { transform: translate(calc(var(--dx) * var(--sgn) * 1px), 0) rotate(calc(var(--rot) * var(--sgn) * 1deg)); }
   }
   @keyframes intro-core-in { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes intro-pulse { from { opacity: 0.78; } to { opacity: 1; } }
+  @keyframes intro-pulse { from { opacity: 0.7; } to { opacity: 1; } }
   @keyframes intro-particle {
     0% { opacity: 0; transform: translate(calc(var(--sx) * 1em), calc(var(--sy) * 1em)); }
     20% { opacity: 1; }
@@ -805,31 +784,48 @@ button.rs-row:active { background: var(--surface-2); }
     100% { opacity: 0.15; transform: translate(calc(var(--ex) * 1em), calc(var(--ey) * 1em)); }
   }
   @keyframes intro-cam {
-    0% { transform: scale(1); animation-timing-function: ease-in-out; }
-    55.3% { transform: scale(1.04); animation-timing-function: ease-in-out; }
-    76.6% { transform: scale(1.6); animation-timing-function: cubic-bezier(0.75, 0, 0.95, 0.45); }
-    91.5% { transform: scale(var(--s, 30)); }
+    0% { transform: scale(1); animation-timing-function: linear; }
+    62.5% { transform: scale(1.15); animation-timing-function: cubic-bezier(0.7, 0, 0.95, 0.5); }
     100% { transform: scale(var(--s, 30)); }
   }
   @keyframes intro-fade-out { from { opacity: 1; } to { opacity: 0; } }
-  @keyframes intro-tunnel-spin { from { transform: rotate(0deg); } to { transform: rotate(30deg); } }
-  @keyframes intro-tunnel-fade { 0% { opacity: 0; } 18% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes intro-path {
+    0% { transform: translate(0, 0); }
+    13% { transform: translate(0, calc(var(--k) * -30vh)); }
+    30% { transform: translate(0, calc(var(--k) * -18vh)); }
+    50% { transform: translate(calc(var(--k) * -28vw), calc(var(--k) * -8vh)); }
+    70% { transform: translate(calc(var(--k) * 30vw), calc(var(--k) * -4vh)); }
+    82% { transform: translate(calc(var(--k) * 8vw), calc(var(--k) * 16vh)); }
+    100% { transform: translate(0, 0); }
+  }
+  @keyframes intro-roll {
+    0% { transform: rotate(0deg); }
+    13% { transform: rotate(0deg); }
+    30% { transform: rotate(0deg); }
+    50% { transform: rotate(-12deg); }
+    70% { transform: rotate(15deg); }
+    82% { transform: rotate(3deg); }
+    100% { transform: rotate(0deg); }
+  }
   @keyframes intro-ring {
-    0% { opacity: 0; transform: scale(0.03); }
-    20% { opacity: 0.9; }
-    100% { opacity: 0; transform: scale(1.7); }
+    0% { opacity: 0; transform: scale(var(--s0)); }
+    15% { opacity: 0.9; }
+    100% { opacity: 0; transform: scale(var(--s1)); }
   }
   @keyframes intro-rush {
     0% { opacity: 0; transform: rotate(calc(var(--a) * 1deg)) translateX(calc(var(--r0) * 1vmin)) scaleX(0.15); }
     15% { opacity: 1; }
     100% { opacity: 0; transform: rotate(calc(var(--a) * 1deg)) translateX(calc(var(--r1) * 1vmax)) scaleX(var(--len)); }
   }
-  @keyframes intro-cinema-in { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes intro-cinema-push { from { transform: scale(1.08); } to { transform: none; } }
-  @keyframes intro-logo-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
-  @keyframes intro-logo-out { 0% { opacity: 1; transform: none; } 100% { opacity: 0; transform: scale(1.08); } }
-  @keyframes intro-sweep { from { transform: translateX(-100%); } to { transform: translateX(500%); } }
-  @keyframes intro-sweep-copy { from { transform: translateX(20%); } to { transform: translateX(-100%); } }
-  @keyframes intro-out { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes intro-exit {
+    0% { transform: scale(0.02); }
+    26.7% { transform: scale(0.12); }
+    46.7% { transform: scale(0.5); }
+    63.3% { transform: scale(2.5); }
+    80% { transform: scale(14); }
+    93.3% { transform: scale(40); }
+    100% { transform: scale(40); }
+  }
+  @keyframes intro-settle { from { transform: scale(1.15) rotate(-2deg); } to { transform: none; } }
   @keyframes intro-skip { from { opacity: 1; } to { opacity: 0; } }
 }
