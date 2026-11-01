@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.7.0...v0.8.0) (2026-11-01)
+
+
+### Features
+
+* **remote:** darker intro with continuous camera dolly and depth layers ([2963eae](https://github.com/Pepijnvdliefvoort/thuisbios/commit/2963eaeed6c44f51fc6164dcfe6aab0e8c7258e5))
+* **remote:** desktop intro animation and hover play button on cards ([c75a9ea](https://github.com/Pepijnvdliefvoort/thuisbios/commit/c75a9ea9c3de6aaec8fecbf0e727ef84797f6308))
+* **remote:** desktop intro animation and hover play button on cards ([e82eb91](https://github.com/Pepijnvdliefvoort/thuisbios/commit/e82eb91baa0b1921bd53512f83318488434ebeab))
+* **remote:** intro dives into the logo letter and splits into ribbons ([c7ba8a5](https://github.com/Pepijnvdliefvoort/thuisbios/commit/c7ba8a534dc1c0274339765965a50c1f8398a30a))
+* **remote:** intro rides a winding tunnel into the home screen ([ae753c7](https://github.com/Pepijnvdliefvoort/thuisbios/commit/ae753c76c1b357ea291917b1f9d41c95ad1b358b))
+* **remote:** new animated desktop intro with tunnel and cinema reveal ([1cd6765](https://github.com/Pepijnvdliefvoort/thuisbios/commit/1cd676577a8aea07075d5bc3e482774a50179e93))
+
+
+### Bug Fixes
+
+* **remote:** intro centres the T before zooming into it ([d63c88d](https://github.com/Pepijnvdliefvoort/thuisbios/commit/d63c88d474411f363c60b5ecfe21a2f34f7e16bd))
+
 ## [0.7.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.6.0...v0.7.0) (2026-10-29)
 
 
