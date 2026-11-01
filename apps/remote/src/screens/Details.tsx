@@ -4,6 +4,7 @@ import { PullSpinner } from '../components/PullSpinner';
 import { Img } from '../components/Img';
 import { useApp } from '../context';
 import { artUrl } from '../jellyfin/art';
+import { findPlayTarget, resumeTicks } from '../jellyfin/playTarget';
 import { chooseSeasonId } from '../jellyfin/seasons';
 import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from '../jellyfin/format';
 import type { BaseItem } from '../jellyfin/types';
@@ -11,12 +12,6 @@ import { allWatched, isWatched, watchedToggle, type WatchedScope } from '../jell
 import { useAsync, useRegisterReload, type Reloaders } from '../useAsync';
 import { useDesktop } from '../useDesktop';
 import { usePullToRefresh } from '../usePullToRefresh';
-
-/** Ticks to resume from: the saved position, ignored when it is basically the start. */
-export const resumeTicks = (item: BaseItem): number => {
-  const t = (item.UserData && item.UserData.PlaybackPositionTicks) || 0;
-  return t > 100_000_000 ? t : 0; // under 10 s counts as "not started"
-};
 
 /** Marks an item (or a season or series, which Jellyfin applies to all episodes) watched or unwatched, then refreshes. */
 function useSetWatched(refresh: () => Promise<unknown>) {
@@ -62,15 +57,10 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
   const isSeries = item.Type === 'Series';
   const isEpisode = item.Type === 'Episode';
   // For a series, "play" means the episode to watch next.
-  const target = useAsync<BaseItem | null>(async () => {
-    if (!isSeries) return item;
-    const up = await client.nextUp(session.userId, 1, item.Id);
-    if (up[0]) return up[0];
-    const seasons = await client.seasons(session.userId, item.Id);
-    if (!seasons[0]) return null;
-    const eps = await client.episodes(session.userId, item.Id, seasons[0].Id);
-    return eps[0] || null;
-  }, [client, session.userId, item.Id]);
+  const target = useAsync<BaseItem | null>(
+    () => findPlayTarget(client, session.userId, item),
+    [client, session.userId, item.Id],
+  );
 
   useRegisterReload(reloaders, target.reload);
   const playItem = target.data;
