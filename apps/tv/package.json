@@ -15,7 +15,7 @@
     "package": "node scripts/package.mjs"
   },
   "dependencies": {
-    "preact": "^11.0.2",
+    "preact": "^11.1.0",
     "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
