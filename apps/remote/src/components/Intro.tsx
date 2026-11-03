@@ -3,15 +3,16 @@ import { makeStreaks } from '../introStreaks';
 import { isDesktop } from '../useDesktop';
 import { matchesQuery } from '../useMediaQuery';
 
-/** Whole intro length (ms); keep in sync with the intro- keyframes in styles.css. */
-const TOTAL_MS = 3900;
+/** Whole intro length (ms) per mode; keep in sync with the intro- animations in styles.css (desktop and phone sections). */
+const TOTAL_MS = { desktop: 3900, phone: 1900 };
 /** Quick fade used when the intro is skipped. */
 const SKIP_MS = 150;
 
-const STREAKS = makeStreaks();
+/** Ribbons per mode: a phone is narrow and has a weaker chip, so it gets fewer. */
+const STREAKS = { desktop: makeStreaks(), phone: makeStreaks(24) };
 
-/** Whether the intro plays at all: only in a desktop window, and not with reduced motion. */
-const shouldPlay = (): boolean => isDesktop() && !matchesQuery('(prefers-reduced-motion: reduce)');
+/** Whether the intro plays at all: not with reduced motion. */
+const shouldPlay = (): boolean => !matchesQuery('(prefers-reduced-motion: reduce)');
 
 /** Where the real T's stem sits, in em, measured by drawing the glyph: stem edges, cap height. Rough values when no canvas. */
 function measureT(family: string, weight: string): { x0: number; x1: number; cap: number } {
@@ -45,8 +46,10 @@ function measureT(family: string, weight: string): { x0: number; x1: number; cap
   }
 }
 
-/** Startup intro in a desktop window: the wordmark, a dive into the T, whose stem unravels into ribbons. A click or key skips it. */
+/** Startup intro: the wordmark, a dive into the T, whose stem unravels into ribbons. Desktop plays the long version, a phone a quicker one. A click, tap or key skips it. */
 export function Intro() {
+  const [mode] = useState<'desktop' | 'phone'>(() => (isDesktop() ? 'desktop' : 'phone'));
+  const streaks = STREAKS[mode];
   const [play] = useState(shouldPlay);
   const [state, setState] = useState<'playing' | 'skipped' | 'done'>(play ? 'playing' : 'done');
   const root = useRef<HTMLDivElement>(null);
@@ -104,7 +107,7 @@ export function Intro() {
   useEffect(() => {
     if (state !== 'playing') return;
     const skip = () => setState('skipped');
-    const timer = setTimeout(() => setState('done'), TOTAL_MS + 50);
+    const timer = setTimeout(() => setState('done'), TOTAL_MS[mode] + 50);
     window.addEventListener('keydown', skip, true);
     return () => {
       clearTimeout(timer);
@@ -122,7 +125,7 @@ export function Intro() {
   return (
     <div
       ref={root}
-      class={state === 'skipped' ? 'intro intro-skip' : 'intro'}
+      class={`intro${mode === 'phone' ? ' intro-phone' : ''}${state === 'skipped' ? ' intro-skip' : ''}`}
       aria-hidden="true"
       onPointerDown={() => setState('skipped')}
       onAnimationEnd={(e) => {
@@ -144,7 +147,7 @@ export function Intro() {
       <div class="intro-camera">
         {[0, 1, 2].map((depth) => (
           <div key={depth} class={`intro-layer d${depth}`}>
-            {STREAKS.filter((s) => s.depth === depth).map((s, i) => (
+            {streaks.filter((s) => s.depth === depth).map((s, i) => (
               <i
                 key={i}
                 class="intro-ribbon"
