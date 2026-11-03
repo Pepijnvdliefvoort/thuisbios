@@ -3,8 +3,34 @@ import { makeStreaks } from '../introStreaks';
 import { isDesktop } from '../useDesktop';
 import { matchesQuery } from '../useMediaQuery';
 
-/** Whole intro length (ms) per mode; keep in sync with the intro- animations in styles.css (desktop and phone sections). */
-const TOTAL_MS = { desktop: 3900, phone: 1500 };
+/** The phone intro variants. `screen` is the default that plays on load; the others can be previewed with playIntro. */
+export type IntroVariant = 'screen' | 'posters' | 'flip' | 'iris';
+
+/** Whole intro length (ms) per mode or phone variant; keep in sync with the animations in styles.css (desktop and phone sections). */
+const TOTAL_MS = { desktop: 3900, screen: 1500, posters: 1700, flip: 1650, iris: 1600 };
+
+const INTRO_EVENT = 'thuisbios:intro';
+
+/** Replays the phone intro with the given variant (ignored in the desktop layout). */
+export function playIntro(variant: IntroVariant): void {
+  window.dispatchEvent(new CustomEvent(INTRO_EVENT, { detail: variant }));
+}
+
+/** Random capitals for the flip board reels: three before the real letter and one after it (seen when the reel overshoots). */
+function makeReels(letters: string[]): string[][] {
+  const pick = (not: string[]) => {
+    let c = '';
+    do c = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+    while (not.indexOf(c) >= 0);
+    return c;
+  };
+  return letters.map((ch) => {
+    const a = pick([ch.toUpperCase()]);
+    const b = pick([ch.toUpperCase(), a]);
+    const c = pick([ch.toUpperCase(), b]);
+    return [a, b, c, ch, pick([ch.toUpperCase()])];
+  });
+}
 /** Quick fade used when the intro is skipped. */
 const SKIP_MS = 150;
 
@@ -13,6 +39,7 @@ const STREAKS = makeStreaks();
 
 /** The wordmark, letter by letter, for the phone intro. */
 const LETTERS = 'Thuisbios'.split('');
+const REELS = makeReels(LETTERS);
 
 /** Whether the intro plays at all: not with reduced motion. */
 const shouldPlay = (): boolean => !matchesQuery('(prefers-reduced-motion: reduce)');
@@ -54,6 +81,7 @@ export function Intro() {
   const [mode] = useState<'desktop' | 'phone'>(() => (isDesktop() ? 'desktop' : 'phone'));
   const [play] = useState(shouldPlay);
   const [state, setState] = useState<'playing' | 'skipped' | 'done'>(play ? 'playing' : 'done');
+  const [run, setRun] = useState<{ variant: IntroVariant; n: number }>({ variant: 'screen', n: 0 });
   const root = useRef<HTMLDivElement>(null);
   const word = useRef<HTMLDivElement>(null);
   const t = useRef<HTMLSpanElement>(null);
@@ -94,6 +122,25 @@ export function Intro() {
   };
   useLayoutEffect(aim, []);
 
+  // The iris circle must cover the overlay corner to corner: size it to the overlay diagonal.
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (el && mode === 'phone' && run.variant === 'iris') el.style.setProperty('--d', `${Math.ceil(Math.hypot(el.clientWidth, el.clientHeight)) + 2}px`);
+  }, [run.n]);
+
+  // TEMPORARY preview hook: playIntro() restarts the phone intro, also with the same variant.
+  useEffect(() => {
+    if (!play || mode !== 'phone') return;
+    const replay = (e: Event) => {
+      const variant = (e as CustomEvent<IntroVariant>).detail;
+      if (!(variant in TOTAL_MS) || variant === ('desktop' as string)) return;
+      setRun((r) => ({ variant, n: r.n + 1 }));
+      setState('playing');
+    };
+    window.addEventListener(INTRO_EVENT, replay);
+    return () => window.removeEventListener(INTRO_EVENT, replay);
+  }, []);
+
   // Fonts may arrive late, and the window may be resized while the intro plays: measure again.
   useEffect(() => {
     if (!play || mode !== 'desktop') return;
@@ -110,13 +157,13 @@ export function Intro() {
   useEffect(() => {
     if (state !== 'playing') return;
     const skip = () => setState('skipped');
-    const timer = setTimeout(() => setState('done'), TOTAL_MS[mode] + 50);
+    const timer = setTimeout(() => setState('done'), TOTAL_MS[mode === 'desktop' ? 'desktop' : run.variant] + 50);
     window.addEventListener('keydown', skip, true);
     return () => {
       clearTimeout(timer);
       window.removeEventListener('keydown', skip, true);
     };
-  }, [state]);
+  }, [state, run.n]);
 
   useEffect(() => {
     if (state !== 'skipped') return;
@@ -126,8 +173,56 @@ export function Intro() {
 
   if (state === 'done') return null;
   if (mode === 'phone') {
+    const cls = `intro intro-phone intro-v-${run.variant}${state === 'skipped' ? ' intro-skip' : ''}`;
+    const skip = () => setState('skipped');
+    if (run.variant === 'posters') {
+      return (
+        <div key={run.n} ref={root} class={cls} aria-hidden="true" onPointerDown={skip}>
+          <i class="ipp-card ipp-left"><b /></i>
+          <i class="ipp-card ipp-right"><b /></i>
+          <i class="ipp-card ipp-front">
+            <span class="ipp-zoom">
+              <span class="ipp-flip">
+                <b class="ipp-face ipp-poster" />
+                <b class="ipp-face ipp-back"><em>T</em></b>
+              </span>
+            </span>
+          </i>
+        </div>
+      );
+    }
+    if (run.variant === 'flip') {
+      return (
+        <div key={run.n} ref={root} class={cls} aria-hidden="true" onPointerDown={skip}>
+          <div class="ipf-board">
+            {REELS.map((reel, i) => (
+              <span key={i} class={i === 0 ? 'ipf-tile ipf-t' : 'ipf-tile'} style={{ '--i': i }}>
+                {i === 0 ? <i class="ipf-red" /> : null}
+                <span class="ipf-reel">
+                  {reel.map((ch, j) => (
+                    <b key={j}>{ch}</b>
+                  ))}
+                </span>
+                <i class="ipf-split" />
+              </span>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    if (run.variant === 'iris') {
+      return (
+        <div key={run.n} ref={root} class={cls} aria-hidden="true" onPointerDown={skip}>
+          <i class="ipi-dark" />
+          <div class="ipi-shrink">
+            <i class="ipi-circle" />
+            <div class="ipi-word">Thuisbios</div>
+          </div>
+        </div>
+      );
+    }
     return (
-      <div class={`intro intro-phone${state === 'skipped' ? ' intro-skip' : ''}`} aria-hidden="true" onPointerDown={() => setState('skipped')}>
+      <div key={run.n} class={cls} aria-hidden="true" onPointerDown={skip}>
         <i class="ip-panel ip-top" />
         <i class="ip-panel ip-bottom" />
         <div class="ip-word">

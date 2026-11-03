@@ -345,6 +345,11 @@ input:focus { outline: none; border-color: var(--accent); }
 .signin-link { align-self: center; margin-top: 8px; min-height: 44px; padding: 0 16px; background: none; border: 0; color: var(--muted); font-size: 14px; text-decoration: underline; cursor: pointer; }
 .signin-banner { background: var(--surface); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; margin: 12px 0 0; font-weight: 600; }
 
+/* TEMPORARY: intro preview buttons on the sign-in page, remove once an intro is chosen. */
+.intro-preview { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.intro-preview-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.intro-preview .btn-small { min-height: 32px; padding: 0 14px; font-size: 13px; background: var(--surface-2); }
+
 /* Connect TV */
 .connect { min-height: 100%; display: flex; justify-content: center; padding: calc(var(--ui-top) + 72px) var(--gutter) calc(var(--safe-bottom) + 24px); }
 .connect-body { width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
@@ -809,5 +814,93 @@ button.rs-row:active { background: var(--surface-2); }
   .intro-phone .ip-line {
     position: absolute; left: 0; right: 0; top: calc(50% - 1px); height: 2px; background: var(--accent); transform-origin: 50% 50%; opacity: 0; will-change: transform, opacity;
     animation: ip-draw 650ms linear 350ms both, ip-gone 1ms linear 1000ms forwards;
+  }
+}
+
+/* Phone intro variants for comparison (see components/Intro.tsx). Same rules as above: sized from the overlay or vw, only transform and opacity animate, no vh. */
+
+/* Phone: "poster stack" (ipp-). Total 1700 ms. Three posters fly in as a fan, the front one flips to a red T face, the side ones fan out and fade,
+   the red card grows over the screen and the overlay fades out. */
+@keyframes ipp-in-left { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: translate(-7vw, 0) rotate(-8deg); } }
+@keyframes ipp-in-right { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: translate(7vw, 0) rotate(8deg); } }
+@keyframes ipp-in-front { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: none; } }
+@keyframes ipp-out-left { from { opacity: 1; transform: translate(-7vw, 0) rotate(-8deg); } to { opacity: 0; transform: translate(-26vw, 4vw) rotate(-22deg); } }
+@keyframes ipp-out-right { from { opacity: 1; transform: translate(7vw, 0) rotate(8deg); } to { opacity: 0; transform: translate(26vw, 4vw) rotate(22deg); } }
+@keyframes ipp-flip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
+@keyframes ipp-grow { from { transform: scale(1); } to { transform: scale(14); } }
+@keyframes ipp-t-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ipp-fade { from { opacity: 1; } to { opacity: 0; } }
+@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .intro-v-posters { --w: min(38vw, 200px); background: var(--bg); animation: ipp-fade 250ms ease-in 1450ms both; }
+  .intro-v-posters.intro-skip { animation: intro-skip 150ms ease-out both; }
+  .intro-v-posters .ipp-card {
+    position: absolute; left: 50%; top: 50%; width: var(--w); height: calc(var(--w) * 1.5); margin: calc(var(--w) * -0.75) 0 0 calc(var(--w) * -0.5);
+    opacity: 0; will-change: transform, opacity;
+  }
+  .intro-v-posters .ipp-card > b { display: block; width: 100%; height: 100%; border-radius: 10px; border: 1px solid #3a3a46; background: #1c1c25; }
+  .intro-v-posters .ipp-right > b { background: #14141b; border-color: #30303b; }
+  .intro-v-posters .ipp-left {
+    animation: ipp-in-left 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 0ms both, ipp-out-left 400ms ease-in 800ms forwards;
+  }
+  .intro-v-posters .ipp-right {
+    animation: ipp-in-right 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms both, ipp-out-right 400ms ease-in 800ms forwards;
+  }
+  .intro-v-posters .ipp-front { animation: ipp-in-front 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 160ms both; }
+  .intro-v-posters .ipp-zoom { display: block; width: 100%; height: 100%; perspective: 900px; will-change: transform; animation: ipp-grow 400ms cubic-bezier(0.6, 0, 0.9, 0.4) 1150ms both; }
+  .intro-v-posters .ipp-flip { display: block; position: relative; width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; animation: ipp-flip 500ms cubic-bezier(0.45, 0, 0.2, 1) 800ms both; }
+  .intro-v-posters .ipp-face { position: absolute; inset: 0; display: block; border-radius: 10px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .intro-v-posters .ipp-poster { border: 1px solid #44444f; background: #22222d; }
+  .intro-v-posters .ipp-back {
+    background: var(--accent); transform: rotateY(180deg); display: flex; align-items: center; justify-content: center;
+  }
+  .intro-v-posters .ipp-back em {
+    font-style: normal; font-weight: 800; font-size: calc(var(--w) * 0.85); line-height: 1; color: #fff; animation: ipp-t-out 250ms ease-in 1250ms both;
+  }
+}
+
+/* Phone: "flip board" (ipf-). Total 1650 ms. Nine split-flap tiles roll to their letters left to right (first lands at ~650 ms, last at ~1050 ms),
+   the T tile turns red, hold, then the board lifts away while the overlay fades. */
+@keyframes ipf-roll { 0% { transform: translateY(0); } 78% { transform: translateY(-63%); } 100% { transform: translateY(-60%); } }
+@keyframes ipf-red { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ipf-board-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ipf-away { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-28px); } }
+@keyframes ipf-fade { from { opacity: 1; } to { opacity: 0; } }
+@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .intro-v-flip { background: var(--bg); animation: ipf-fade 350ms ease-in 1300ms both; }
+  .intro-v-flip.intro-skip { animation: intro-skip 150ms ease-out both; }
+  .intro-v-flip .ipf-board {
+    --tw: min(9.5vw, 40px); position: absolute; left: 0; right: 0; top: 50%; margin-top: calc(var(--tw) * -0.7);
+    display: flex; justify-content: center; gap: calc(var(--tw) * 0.1); will-change: transform, opacity;
+    animation: ipf-board-in 150ms ease-out both, ipf-away 350ms ease-in 1300ms both;
+  }
+  .intro-v-flip .ipf-tile {
+    position: relative; flex: none; width: var(--tw); height: calc(var(--tw) * 1.4); border-radius: 6px; overflow: hidden; background: #1a1a23;
+    font-size: calc(var(--tw) * 0.95); font-weight: 800; line-height: 1; color: var(--fg);
+  }
+  .intro-v-flip .ipf-red { position: absolute; inset: 0; background: var(--accent); opacity: 0; animation: ipf-red 120ms linear 640ms both; }
+  .intro-v-flip .ipf-reel {
+    position: absolute; left: 0; right: 0; top: 0; display: block; will-change: transform;
+    animation: ipf-roll 620ms cubic-bezier(0.3, 0.1, 0.25, 1) calc(var(--i) * 50ms) both;
+  }
+  .intro-v-flip .ipf-reel b { display: flex; align-items: center; justify-content: center; width: 100%; height: calc(var(--tw) * 1.4); font-weight: 800; }
+  .intro-v-flip .ipf-split { position: absolute; left: 0; right: 0; top: 50%; height: 1px; margin-top: -0.5px; background: var(--bg); opacity: 0.85; }
+}
+
+/* Phone: "red iris" (ipi-). Total 1600 ms. A red circle (sized to the overlay diagonal by Intro.tsx) grows from the centre over the dark, the white wordmark
+   settles on it, hold, then circle and word shrink to a point. The dark backdrop is gone once the circle covers it, so the app shows around the shrinking circle. */
+@keyframes ipi-grow { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes ipi-word { from { opacity: 0; transform: scale(1.1); } to { opacity: 1; transform: none; } }
+@keyframes ipi-shrink { 0% { opacity: 1; transform: scale(1); } 90% { opacity: 1; } 100% { opacity: 0; transform: scale(0.01); } }
+@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .intro-v-iris .ipi-dark { position: absolute; inset: 0; background: var(--bg); animation: ip-gone 1ms linear 560ms forwards; }
+  .intro-v-iris .ipi-shrink { position: absolute; inset: 0; will-change: transform, opacity; animation: ipi-shrink 450ms cubic-bezier(0.6, 0, 0.9, 0.5) 1100ms both; }
+  .intro-v-iris .ipi-circle {
+    position: absolute; left: 50%; top: 50%; width: var(--d, 260vw); height: var(--d, 260vw); margin: calc(var(--d, 260vw) / -2) 0 0 calc(var(--d, 260vw) / -2);
+    border-radius: 50%; background: var(--accent); will-change: transform; animation: ipi-grow 450ms cubic-bezier(0.2, 0.7, 0.2, 1) 100ms both;
+  }
+  .intro-v-iris .ipi-word {
+    position: absolute; left: 0; right: 0; top: 50%; margin-top: -0.5em; text-align: center; white-space: nowrap; color: #fff;
+    font-size: clamp(36px, 12vw, 64px); font-weight: 800; letter-spacing: 0.02em; line-height: 1; opacity: 0;
+    animation: ipi-word 300ms cubic-bezier(0.2, 0.8, 0.2, 1) 450ms both;
   }
 }
