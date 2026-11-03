@@ -345,10 +345,6 @@ input:focus { outline: none; border-color: var(--accent); }
 .signin-link { align-self: center; margin-top: 8px; min-height: 44px; padding: 0 16px; background: none; border: 0; color: var(--muted); font-size: 14px; text-decoration: underline; cursor: pointer; }
 .signin-banner { background: var(--surface); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; margin: 12px 0 0; font-weight: 600; }
 
-/* TEMPORARY: intro preview buttons on the sign-in page, remove once an intro is chosen. */
-.intro-preview { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
-.intro-preview-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.intro-preview .btn-small { min-height: 32px; padding: 0 14px; font-size: 13px; background: var(--surface-2); }
 
 /* Connect TV */
 .connect { min-height: 100%; display: flex; justify-content: center; padding: calc(var(--ui-top) + 72px) var(--gutter) calc(var(--safe-bottom) + 24px); }
@@ -714,146 +710,49 @@ button.rs-row:active { background: var(--surface-2); }
   .card-art, .card-shade, .card-play { transition-duration: 1ms; }
 }
 
-/* Startup intro keyframes, shared by the sections below (keyframes inside a media query only exist while it matches). */
-@keyframes intro-word { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
-@keyframes intro-glide { from { transform: none; } to { transform: translate(var(--gx, 0px), var(--gy, 0px)); } }
-@keyframes intro-zoom {
-  0% { transform: scale(1); animation-timing-function: linear; }
-  50% { transform: scale(1.06); animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.35); }
-  76.7% { transform: scale(var(--s, 10)); animation-timing-function: cubic-bezier(0.1, 0.5, 0.4, 1); }
-  100% { transform: scale(calc(var(--s, 10) * 1.3)); }
+/* Startup intro (see components/Intro.tsx): a stack of poster cards flies in as a fan, the front one flips to a card in the app's own background with the
+   red T, the other cards fan out and fade, the front card grows over the whole window (the T fades) and the overlay fades out onto the identical app
+   background. Phone: three cards, 1650 ms. Desktop: five cards in a wider fan, 2120 ms. Keep TOTAL_MS in the component in sync with --fade-at + --fade-ms.
+   Sizes come from custom properties: --w (card width, set from the overlay by the component), --g (cover scale), per card --x --y --r --s (resting pose,
+   in card widths and degrees), --sx --sy --sr (start), --ex --ey --er (fan out), --d (fly-in delay). No vh units (they misbehave in standalone mode on iOS).
+   Only transform and opacity animate. */
+@keyframes ip-in {
+  from { opacity: 0; transform: translate(calc(var(--sx) * var(--w)), calc(var(--sy) * var(--w))) rotate(calc(var(--sr) * 1deg)) scale(var(--s)); }
+  30% { opacity: 1; }
+  to { opacity: 1; transform: translate(calc(var(--x) * var(--w)), calc(var(--y) * var(--w))) rotate(calc(var(--r) * 1deg)) scale(var(--s)); }
 }
-@keyframes intro-fade-out { from { opacity: 1; } to { opacity: 0; } }
-@keyframes intro-stem { 0% { opacity: 0; } 31% { opacity: 1; } 54% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes intro-slide {
-  0% { opacity: 0; transform: translateX(calc(var(--f) * var(--stem-w, 15vw) - var(--x))); }
-  12% { opacity: var(--o); }
-  100% { opacity: var(--o); transform: none; }
+@keyframes ip-out {
+  from { opacity: 1; transform: translate(calc(var(--x) * var(--w)), calc(var(--y) * var(--w))) rotate(calc(var(--r) * 1deg)) scale(var(--s)); }
+  to { opacity: 0; transform: translate(calc(var(--ex) * var(--w)), calc(var(--ey) * var(--w))) rotate(calc(var(--er) * 1deg)) scale(var(--s)); }
 }
-@keyframes intro-drift { from { transform: translateY(-2.5%); } to { transform: translateY(2.5%); } }
-@keyframes intro-shimmer { from { opacity: 0.6; } to { opacity: 1; } }
-@keyframes intro-dive { from { transform: none; } to { transform: scale(var(--k), calc(1 + var(--k) * 0.015)); } }
-@keyframes intro-dark { from { opacity: 0; } to { opacity: 1; } }
-@keyframes intro-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ip-flip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
+@keyframes ip-grow { from { transform: scale(1); } to { transform: scale(var(--g, 14)); } }
+@keyframes ip-t-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.8); } }
+@keyframes ip-fade { from { opacity: 1; } to { opacity: 0; } }
 @keyframes intro-skip { from { opacity: 1; } to { opacity: 0; } }
 
-
-/* Desktop: startup intro (see components/Intro.tsx). A camera dolly that never stops: it drifts in on the wordmark, glides the T to the centre, dives into it,
-   whose stem unravels into ribbons on three depth layers, then everything goes dark. Total 3900 ms; keep TOTAL_MS there in sync.
-   Only transform and opacity animate. */
-@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  .intro { position: fixed; inset: 0; z-index: 100; background: var(--bg); overflow: hidden; animation: intro-out 300ms ease-in 3600ms both; }
-  .intro-skip { animation: intro-skip 150ms ease-out both; }
-  .intro-zoom, .intro-camera, .intro-layer, .intro-dark { position: absolute; inset: 0; }
-  .intro-zoom { display: flex; align-items: center; justify-content: center; will-change: transform; animation: intro-glide 600ms cubic-bezier(0.45, 0, 0.25, 1) 1000ms both; }
-  .intro-scale { will-change: transform; transform-origin: var(--ox, 50%) var(--oy, 50%); animation: intro-zoom 3000ms both; }
-  .intro-word {
-    position: relative; display: block; white-space: nowrap; font-size: clamp(56px, 9vw, 140px); font-weight: 800; letter-spacing: 0.04em;
-    color: rgba(242, 242, 245, 0.88); text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
-    animation: intro-word 600ms ease-out both;
-  }
-  .intro-t { color: var(--accent); }
-  .intro-t-ch { display: inline-block; animation: intro-fade-out 300ms ease-in 1800ms both; }
-  .intro-rest { animation: intro-fade-out 400ms ease-in 1000ms both; }
-  .intro-base { display: inline-block; width: 0; height: 0; }
-  .intro-stem {
-    position: absolute; opacity: 0;
-    background: linear-gradient(to right, #1a0204 0%, #6e050b 20%, var(--accent) 46%, #8a060d 68%, #0e0102 100%);
-    animation: intro-stem 1300ms linear 1700ms both;
-  }
-  .intro-layer { will-change: transform; animation: intro-dive 1450ms cubic-bezier(0.55, 0, 0.85, 0.35) 2150ms both; }
-  .intro-layer.d0 { --k: 2.4; }
-  .intro-layer.d1 { --k: 4.5; }
-  .intro-layer.d2 { --k: 9; }
-  .intro-ribbon {
-    position: absolute; top: -5vh; height: 110vh; width: var(--w); left: calc(50% + var(--x) - var(--w) / 2);
-    opacity: 0; will-change: transform, opacity;
-    animation: intro-slide var(--dur) cubic-bezier(0.2, 0.7, 0.2, 1) calc(2150ms + var(--delay)) both;
-  }
-  .intro-ribbon b {
-    position: absolute; inset: 0;
-    background:
-      linear-gradient(to bottom, transparent 32%, color-mix(in srgb, var(--c) 65%, #ff5a4a) 50%, transparent 68%),
-      linear-gradient(to bottom, transparent, var(--c) 30%, var(--c) 70%, transparent);
-    animation: intro-drift var(--life) ease-in-out var(--life-delay) infinite alternate, intro-shimmer calc(var(--life) * 0.7) ease-in-out var(--life-delay) infinite alternate;
-  }
-  .intro-dark { background: var(--bg); opacity: 0; animation: intro-dark 650ms ease-in 2950ms both; }
+.intro {
+  position: fixed; inset: 0; z-index: 100; overflow: hidden; background: #15151b; --w: 150px; --rad: 10px;
+  animation: ip-fade var(--fade-ms) ease-out var(--fade-at) both;
 }
-
-/* Phone: startup intro, the poster stack (see components/Intro.tsx). Total 1650 ms (carousel 1700); keep TOTAL_MS there in sync.
-   Three posters fly in as a fan; the front one flips to a card in the app's own background with the red T, the side ones fan out and fade, the card
-   grows over the whole screen (the T fades) and the overlay fades out (200 ms) onto the identical app background. Variants are a class on the root
-   (ipp-v-classic, -midnight, -sunset, -carousel) that sets colours and, for the carousel, the motion. No vh units (they misbehave in standalone mode
-   on iOS): everything is sized from vw or the overlay. Only transform and opacity animate. */
-@keyframes ipp-in-left { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: translate(-7vw, 0) rotate(-8deg); } }
-@keyframes ipp-in-right { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: translate(7vw, 0) rotate(8deg); } }
-@keyframes ipp-in-front { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: none; } }
-@keyframes ipp-out-left { from { opacity: 1; transform: translate(-7vw, 0) rotate(-8deg); } to { opacity: 0; transform: translate(-26vw, 4vw) rotate(-22deg); } }
-@keyframes ipp-out-right { from { opacity: 1; transform: translate(7vw, 0) rotate(8deg); } to { opacity: 0; transform: translate(26vw, 4vw) rotate(22deg); } }
-@keyframes ipp-flip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
-@keyframes ipp-grow { from { transform: scale(1); } to { transform: scale(var(--g, 14)); } }
-@keyframes ipp-t-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.8); } }
-@keyframes ipp-fade { from { opacity: 1; } to { opacity: 0; } }
-@keyframes ipc-in { from { opacity: 0; transform: translateX(calc(var(--x) + 110vw)); } 25% { opacity: 1; } to { opacity: 1; transform: translateX(var(--x)); } }
-@keyframes ipc-rise { from { transform: translateX(0) scale(1); } to { transform: translateX(0) scale(1.25); } }
-@keyframes ipc-out { from { opacity: 1; transform: translateX(var(--x)); } to { opacity: 0; transform: translateX(calc(var(--x) * 1.9)); } }
-@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  .intro-phone { position: fixed; inset: 0; z-index: 100; overflow: hidden; }
-  .intro-v-posters { --w: min(38vw, 200px); background: var(--accent); animation: ipp-fade 200ms ease-out 1450ms both; }
-  .intro-v-posters.intro-skip { animation: intro-skip 150ms ease-out both; }
-  .intro-v-posters .ipp-card {
-    position: absolute; left: 50%; top: 50%; width: var(--w); height: calc(var(--w) * 1.5); margin: calc(var(--w) * -0.75) 0 0 calc(var(--w) * -0.5);
-    opacity: 0; will-change: transform, opacity; --pc: #7a0a10; --pb: #a3202a;
-  }
-  .intro-v-posters .ipp-card > b, .intro-v-posters .ipp-poster { display: block; width: 100%; height: 100%; border-radius: 10px; border: 1px solid var(--pb); background: var(--pc); }
-  .intro-v-posters .ipp-right { --pc: #6a080e; --pb: #8f1a23; }
-  .intro-v-posters .ipp-left {
-    animation: ipp-in-left 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 0ms both, ipp-out-left 400ms ease-in 800ms forwards;
-  }
-  .intro-v-posters .ipp-right {
-    animation: ipp-in-right 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms both, ipp-out-right 400ms ease-in 800ms forwards;
-  }
-  .intro-v-posters .ipp-front { animation: ipp-in-front 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 160ms both; }
-  .intro-v-posters .ipp-zoom { display: block; width: 100%; height: 100%; perspective: 900px; will-change: transform; animation: ipp-grow 260ms cubic-bezier(0.55, 0, 0.8, 0.3) 1180ms both; }
-  .intro-v-posters .ipp-flip { display: block; position: relative; width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; animation: ipp-flip 480ms cubic-bezier(0.45, 0, 0.2, 1) 760ms both; }
-  .intro-v-posters .ipp-face { position: absolute; inset: 0; display: block; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-  .intro-v-posters .ipp-back {
-    background: var(--bg); border-radius: 10px; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center;
-  }
-  .intro-v-posters .ipp-back em {
-    font-style: normal; font-weight: 800; font-size: calc(var(--w) * 0.85); line-height: 1; color: var(--accent); letter-spacing: 0.5px;
-    will-change: transform, opacity; animation: ipp-t-out 160ms ease-in 1180ms both;
-  }
-  .intro-v-posters .ipp-art { display: none; }
-
-  /* midnight: monochrome, charcoal cards with a thin red outline on a dark backdrop; the back's outline fades as it grows */
-  .ipp-v-midnight { background: #15151b; }
-  .ipp-v-midnight .ipp-card { --pb: var(--accent); --pc: #22222a; }
-  .ipp-v-midnight .ipp-right { --pc: #2a2a33; --pb: var(--accent); }
-  .ipp-v-midnight .ipp-front { --pc: #26262e; }
-  .ipp-v-midnight .ipp-back::after {
-    content: ""; position: absolute; inset: 0; border-radius: 10px; border: 1px solid var(--accent); animation: ipp-fade 200ms ease-in 1180ms both;
-  }
-
-  /* sunset: warm cards with a tiny abstract poster each (sun, horizon, two title bars), colours per card via --pc (card), --s (sun), --h (horizon), --t (bars) */
-  .ipp-v-sunset { background: #2b0a12; }
-  .ipp-v-sunset .ipp-card { --pb: transparent; --pc: var(--accent); --s: #efe6d8; --h: #2b0a12; --t: #efe6d8; }
-  .ipp-v-sunset .ipp-left { --pc: var(--accent); }
-  .ipp-v-sunset .ipp-right { --pc: #e08a2e; --s: #efe6d8; --h: #e50914; --t: #2b0a12; }
-  .ipp-v-sunset .ipp-front { --pc: #efe6d8; --s: #e50914; --h: #e08a2e; --t: #2b0a12; }
-  .ipp-v-sunset .ipp-art { display: block; position: absolute; inset: 0; }
-  .ipp-v-sunset .ipp-art i { position: absolute; display: block; }
-  .ipp-v-sunset .ipa-sun { left: 31%; top: 12%; width: 38%; height: 25.3%; border-radius: 50%; background: var(--s); }
-  .ipp-v-sunset .ipa-hor { left: 12%; right: 12%; top: 52%; height: 5%; border-radius: 2px; background: var(--h); }
-  .ipp-v-sunset .ipa-t1 { left: 12%; width: 62%; bottom: 20%; height: 5%; border-radius: 2px; background: var(--t); }
-  .ipp-v-sunset .ipa-t2 { left: 12%; width: 38%; bottom: 11%; height: 4%; border-radius: 2px; background: var(--t); opacity: 0.7; }
-
-  /* carousel: five small posters slide in as a row from the right, the middle one rises and flips, the others slide out to the sides (total 1700 ms) */
-  .ipp-v-carousel { --w: min(26vw, 150px); animation-delay: 1500ms; }
-  .ipp-v-carousel .ipc-card { --x: calc(var(--k) * var(--w) * 1.12); animation: ipc-in 640ms cubic-bezier(0.16, 1, 0.3, 1) calc((var(--k) + 2) * 50ms) both, ipc-out 400ms ease-in 760ms forwards; }
-  .ipp-v-carousel .ipc-card:nth-child(even) { --pc: #6a080e; --pb: #8f1a23; }
-  .ipp-v-carousel .ipc-mid { --pc: #7a0a10; --pb: #a3202a; animation: ipc-in 640ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both, ipc-rise 260ms ease-out 760ms forwards; }
-  .ipp-v-carousel .ipp-zoom { animation-delay: 1240ms; }
-  .ipp-v-carousel .ipp-flip { animation-delay: 820ms; }
-  .ipp-v-carousel .ipp-back em { animation-delay: 1240ms; }
+.intro-phone { --in: 560ms; --out-at: 800ms; --out-ms: 400ms; --flip-at: 760ms; --flip-ms: 480ms; --grow-at: 1180ms; --grow-ms: 260ms; --tout-ms: 160ms; --fade-at: 1450ms; --fade-ms: 200ms; }
+.intro-desktop { --rad: 12px; --in: 640ms; --out-at: 960ms; --out-ms: 500ms; --flip-at: 960ms; --flip-ms: 560ms; --grow-at: 1520ms; --grow-ms: 380ms; --tout-ms: 200ms; --fade-at: 1900ms; --fade-ms: 220ms; }
+.intro.intro-skip { animation: intro-skip 150ms ease-out both; }
+.ip-card {
+  position: absolute; left: 50%; top: 50%; width: var(--w); height: calc(var(--w) * 1.5); margin: calc(var(--w) * -0.75) 0 0 calc(var(--w) * -0.5);
+  opacity: 0; will-change: transform, opacity;
+  animation: ip-in var(--in) cubic-bezier(0.34, 1.56, 0.64, 1) var(--d) both;
+}
+.ip-card.ip-out {
+  animation: ip-in var(--in) cubic-bezier(0.34, 1.56, 0.64, 1) var(--d) both, ip-out var(--out-ms) ease-in var(--out-at) forwards;
+}
+.ip-poster { display: block; width: 100%; height: 100%; border-radius: var(--rad); border: 1px solid var(--accent); background: var(--pc); }
+.ip-zoom { display: block; width: 100%; height: 100%; perspective: calc(var(--w) * 6); will-change: transform; animation: ip-grow var(--grow-ms) cubic-bezier(0.55, 0, 0.8, 0.3) var(--grow-at) both; }
+.ip-flip { display: block; position: relative; width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; animation: ip-flip var(--flip-ms) cubic-bezier(0.45, 0, 0.2, 1) var(--flip-at) both; }
+.ip-face { position: absolute; inset: 0; display: block; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.ip-back { background: var(--bg); border-radius: var(--rad); transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+.ip-back::after { content: ""; position: absolute; inset: 0; border-radius: var(--rad); border: 1px solid var(--accent); animation: ip-fade 200ms ease-in var(--grow-at) both; }
+.ip-back em {
+  font-style: normal; font-weight: 800; font-size: calc(var(--w) * 0.85); line-height: 1; color: var(--accent); letter-spacing: 0.5px;
+  will-change: transform, opacity; animation: ip-t-out var(--tout-ms) ease-in var(--grow-at) both;
 }

@@ -1,19 +1,10 @@
 import { useState } from 'preact/hooks';
-import { playIntro, type IntroVariant } from '../components/Intro';
 import { clientInfo } from '../clientInfo';
 import { defaultServerUrl, normalizeServerUrl } from '../jellyfin/auth';
 import { authenticateByName } from '../jellyfin/client';
 import { describeSignInError, isServerAddressError } from '../jellyfin/errors';
 import type { Session } from '../jellyfin/types';
 import { loadServerUrl, saveServerUrl } from '../storage';
-
-// TEMPORARY: intro preview buttons, remove once an intro is chosen.
-const INTRO_PREVIEWS: { variant: IntroVariant; label: string }[] = [
-  { variant: 'classic', label: 'Classic' },
-  { variant: 'midnight', label: 'Midnight' },
-  { variant: 'sunset', label: 'Sunset' },
-  { variant: 'carousel', label: 'Carousel' },
-];
 
 export function SignIn({
   onSignedIn,
@@ -116,17 +107,6 @@ export function SignIn({
           Change server
         </button>
       )}
-      {/* TEMPORARY: intro preview buttons, remove once an intro is chosen. */}
-      <div class="intro-preview">
-        <span>Intro preview</span>
-        <div class="intro-preview-row">
-          {INTRO_PREVIEWS.map((p) => (
-            <button key={p.variant} type="button" class="btn-small" onClick={() => playIntro(p.variant)}>
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
     </main>
   );
 }
