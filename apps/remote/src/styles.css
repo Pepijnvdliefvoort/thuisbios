@@ -780,48 +780,11 @@ button.rs-row:active { background: var(--surface-2); }
   .intro-dark { background: var(--bg); opacity: 0; animation: intro-dark 650ms ease-in 2950ms both; }
 }
 
-/* Phone: startup intro, "the screen opens" (see components/Intro.tsx). Total 1500 ms; keep TOTAL_MS in Intro.tsx in sync.
-   The word rises letter by letter, a red line draws out from the centre, the word lifts away, then the dark (two solid halves) splits open along the line.
-   The overlay itself is transparent so the app shows through as the halves part. No vh units (they misbehave in standalone mode on iOS): everything is sized from the overlay. Only transform and opacity animate. */
-@keyframes ip-letter { from { opacity: 0; transform: translateY(0.35em); } to { opacity: 1; transform: none; } }
-@keyframes ip-lift { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-8px); } }
-@keyframes ip-draw {
-  0% { opacity: 0.7; transform: scaleX(0); animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
-  61.5% { opacity: 0.85; transform: scaleX(0.6); animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1); }
-  100% { opacity: 1; transform: scaleX(1); }
-}
-@keyframes ip-gone { to { opacity: 0; } }
-@keyframes ip-up { to { transform: translateY(-100%); } }
-@keyframes ip-down { to { transform: translateY(100%); } }
-@keyframes ip-edge { from { opacity: 1; } to { opacity: 0; } }
-@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  .intro-phone { position: fixed; inset: 0; z-index: 100; overflow: hidden; }
-  .intro-phone.intro-skip { animation: intro-skip 150ms ease-out both; }
-  .intro-phone .ip-panel { position: absolute; left: 0; right: 0; height: 50%; background: var(--bg); will-change: transform; }
-  .intro-phone .ip-top { top: 0; animation: ip-up 500ms cubic-bezier(0.7, 0, 0.2, 1) 1000ms both; }
-  .intro-phone .ip-bottom { bottom: 0; animation: ip-down 500ms cubic-bezier(0.7, 0, 0.2, 1) 1000ms both; }
-  /* The seam line splits in two: a thin line on the facing edge of each half, fading as the halves travel. */
-  .intro-phone .ip-panel::after { content: ""; position: absolute; left: 0; right: 0; height: 1px; background: var(--accent); opacity: 0; animation: ip-edge 500ms ease-in 1000ms forwards; }
-  .intro-phone .ip-top::after { bottom: 0; }
-  .intro-phone .ip-bottom::after { top: 0; }
-  .intro-phone .ip-word {
-    position: absolute; left: 0; right: 0; bottom: calc(50% + 0.3em); text-align: center; white-space: nowrap;
-    font-size: clamp(36px, 12vw, 64px); font-weight: 800; letter-spacing: 0.02em; line-height: 1; color: var(--fg);
-    animation: ip-lift 250ms ease-in 850ms both;
-  }
-  .intro-phone .ip-ch { display: inline-block; opacity: 0; animation: ip-letter 300ms cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--i) * 35ms) both; }
-  .intro-phone .ip-t { color: var(--accent); }
-  .intro-phone .ip-line {
-    position: absolute; left: 0; right: 0; top: calc(50% - 1px); height: 2px; background: var(--accent); transform-origin: 50% 50%; opacity: 0; will-change: transform, opacity;
-    animation: ip-draw 650ms linear 350ms both, ip-gone 1ms linear 1000ms forwards;
-  }
-}
-
-/* Phone intro variants for comparison (see components/Intro.tsx). Same rules as above: sized from the overlay or vw, only transform and opacity animate, no vh. */
-
-/* Phone: "poster stack" (ipp-). Total 1650 ms. On solid red, three crimson posters fly in as a fan; the front one flips to a card in the app's own
-   background with the red T, the side ones fan out and fade, the card grows over the whole screen (the T fades) and the overlay fades out (200 ms)
-   onto the identical app background. */
+/* Phone: startup intro, the poster stack (see components/Intro.tsx). Total 1650 ms (carousel 1700); keep TOTAL_MS there in sync.
+   Three posters fly in as a fan; the front one flips to a card in the app's own background with the red T, the side ones fan out and fade, the card
+   grows over the whole screen (the T fades) and the overlay fades out (200 ms) onto the identical app background. Variants are a class on the root
+   (ipp-v-classic, -midnight, -sunset, -carousel) that sets colours and, for the carousel, the motion. No vh units (they misbehave in standalone mode
+   on iOS): everything is sized from vw or the overlay. Only transform and opacity animate. */
 @keyframes ipp-in-left { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: translate(-7vw, 0) rotate(-8deg); } }
 @keyframes ipp-in-right { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: translate(7vw, 0) rotate(8deg); } }
 @keyframes ipp-in-front { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: none; } }
@@ -831,15 +794,19 @@ button.rs-row:active { background: var(--surface-2); }
 @keyframes ipp-grow { from { transform: scale(1); } to { transform: scale(var(--g, 14)); } }
 @keyframes ipp-t-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.8); } }
 @keyframes ipp-fade { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ipc-in { from { opacity: 0; transform: translateX(calc(var(--x) + 110vw)); } 25% { opacity: 1; } to { opacity: 1; transform: translateX(var(--x)); } }
+@keyframes ipc-rise { from { transform: translateX(0) scale(1); } to { transform: translateX(0) scale(1.25); } }
+@keyframes ipc-out { from { opacity: 1; transform: translateX(var(--x)); } to { opacity: 0; transform: translateX(calc(var(--x) * 1.9)); } }
 @media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .intro-phone { position: fixed; inset: 0; z-index: 100; overflow: hidden; }
   .intro-v-posters { --w: min(38vw, 200px); background: var(--accent); animation: ipp-fade 200ms ease-out 1450ms both; }
   .intro-v-posters.intro-skip { animation: intro-skip 150ms ease-out both; }
   .intro-v-posters .ipp-card {
     position: absolute; left: 50%; top: 50%; width: var(--w); height: calc(var(--w) * 1.5); margin: calc(var(--w) * -0.75) 0 0 calc(var(--w) * -0.5);
-    opacity: 0; will-change: transform, opacity;
+    opacity: 0; will-change: transform, opacity; --pc: #7a0a10; --pb: #a3202a;
   }
-  .intro-v-posters .ipp-card > b { display: block; width: 100%; height: 100%; border-radius: 10px; border: 1px solid #a3202a; background: #7a0a10; }
-  .intro-v-posters .ipp-right > b { background: #6a080e; border-color: #8f1a23; }
+  .intro-v-posters .ipp-card > b, .intro-v-posters .ipp-poster { display: block; width: 100%; height: 100%; border-radius: 10px; border: 1px solid var(--pb); background: var(--pc); }
+  .intro-v-posters .ipp-right { --pc: #6a080e; --pb: #8f1a23; }
   .intro-v-posters .ipp-left {
     animation: ipp-in-left 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 0ms both, ipp-out-left 400ms ease-in 800ms forwards;
   }
@@ -849,60 +816,44 @@ button.rs-row:active { background: var(--surface-2); }
   .intro-v-posters .ipp-front { animation: ipp-in-front 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 160ms both; }
   .intro-v-posters .ipp-zoom { display: block; width: 100%; height: 100%; perspective: 900px; will-change: transform; animation: ipp-grow 260ms cubic-bezier(0.55, 0, 0.8, 0.3) 1180ms both; }
   .intro-v-posters .ipp-flip { display: block; position: relative; width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; animation: ipp-flip 480ms cubic-bezier(0.45, 0, 0.2, 1) 760ms both; }
-  .intro-v-posters .ipp-face { position: absolute; inset: 0; display: block; border-radius: 10px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-  .intro-v-posters .ipp-poster { border: 1px solid #a3202a; background: #7a0a10; }
+  .intro-v-posters .ipp-face { position: absolute; inset: 0; display: block; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
   .intro-v-posters .ipp-back {
-    background: var(--bg); transform: rotateY(180deg); display: flex; align-items: center; justify-content: center;
+    background: var(--bg); border-radius: 10px; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center;
   }
   .intro-v-posters .ipp-back em {
     font-style: normal; font-weight: 800; font-size: calc(var(--w) * 0.85); line-height: 1; color: var(--accent); letter-spacing: 0.5px;
     will-change: transform, opacity; animation: ipp-t-out 160ms ease-in 1180ms both;
   }
-}
+  .intro-v-posters .ipp-art { display: none; }
 
-/* Phone: "flip board" (ipf-). Total 1650 ms. Nine split-flap tiles roll to their letters left to right (first lands at ~650 ms, last at ~1050 ms),
-   the T tile turns red, hold, then the board lifts away while the overlay fades. */
-@keyframes ipf-roll { 0% { transform: translateY(0); } 78% { transform: translateY(-63%); } 100% { transform: translateY(-60%); } }
-@keyframes ipf-red { from { opacity: 0; } to { opacity: 1; } }
-@keyframes ipf-board-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes ipf-away { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-28px); } }
-@keyframes ipf-fade { from { opacity: 1; } to { opacity: 0; } }
-@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  .intro-v-flip { background: var(--bg); animation: ipf-fade 350ms ease-in 1300ms both; }
-  .intro-v-flip.intro-skip { animation: intro-skip 150ms ease-out both; }
-  .intro-v-flip .ipf-board {
-    --tw: min(9.5vw, 40px); position: absolute; left: 0; right: 0; top: 50%; margin-top: calc(var(--tw) * -0.7);
-    display: flex; justify-content: center; gap: calc(var(--tw) * 0.1); will-change: transform, opacity;
-    animation: ipf-board-in 150ms ease-out both, ipf-away 350ms ease-in 1300ms both;
+  /* midnight: monochrome, charcoal cards with a thin red outline on a dark backdrop; the back's outline fades as it grows */
+  .ipp-v-midnight { background: #15151b; }
+  .ipp-v-midnight .ipp-card { --pb: var(--accent); --pc: #22222a; }
+  .ipp-v-midnight .ipp-right { --pc: #2a2a33; --pb: var(--accent); }
+  .ipp-v-midnight .ipp-front { --pc: #26262e; }
+  .ipp-v-midnight .ipp-back::after {
+    content: ""; position: absolute; inset: 0; border-radius: 10px; border: 1px solid var(--accent); animation: ipp-fade 200ms ease-in 1180ms both;
   }
-  .intro-v-flip .ipf-tile {
-    position: relative; flex: none; width: var(--tw); height: calc(var(--tw) * 1.4); border-radius: 6px; overflow: hidden; background: #1a1a23;
-    font-size: calc(var(--tw) * 0.95); font-weight: 800; line-height: 1; color: var(--fg);
-  }
-  .intro-v-flip .ipf-red { position: absolute; inset: 0; background: var(--accent); opacity: 0; animation: ipf-red 120ms linear 640ms both; }
-  .intro-v-flip .ipf-reel {
-    position: absolute; left: 0; right: 0; top: 0; display: block; will-change: transform;
-    animation: ipf-roll 620ms cubic-bezier(0.3, 0.1, 0.25, 1) calc(var(--i) * 50ms) both;
-  }
-  .intro-v-flip .ipf-reel b { display: flex; align-items: center; justify-content: center; width: 100%; height: calc(var(--tw) * 1.4); font-weight: 800; }
-  .intro-v-flip .ipf-split { position: absolute; left: 0; right: 0; top: 50%; height: 1px; margin-top: -0.5px; background: var(--bg); opacity: 0.85; }
-}
 
-/* Phone: "red iris" (ipi-). Total 1600 ms. A red circle (sized to the overlay diagonal by Intro.tsx) grows from the centre over the dark, the white wordmark
-   settles on it, hold, then circle and word shrink to a point. The dark backdrop is gone once the circle covers it, so the app shows around the shrinking circle. */
-@keyframes ipi-grow { from { transform: scale(0); } to { transform: scale(1); } }
-@keyframes ipi-word { from { opacity: 0; transform: scale(1.1); } to { opacity: 1; transform: none; } }
-@keyframes ipi-shrink { 0% { opacity: 1; transform: scale(1); } 90% { opacity: 1; } 100% { opacity: 0; transform: scale(0.01); } }
-@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  .intro-v-iris .ipi-dark { position: absolute; inset: 0; background: var(--bg); animation: ip-gone 1ms linear 560ms forwards; }
-  .intro-v-iris .ipi-shrink { position: absolute; inset: 0; will-change: transform, opacity; animation: ipi-shrink 450ms cubic-bezier(0.6, 0, 0.9, 0.5) 1100ms both; }
-  .intro-v-iris .ipi-circle {
-    position: absolute; left: 50%; top: 50%; width: var(--d, 260vw); height: var(--d, 260vw); margin: calc(var(--d, 260vw) / -2) 0 0 calc(var(--d, 260vw) / -2);
-    border-radius: 50%; background: var(--accent); will-change: transform; animation: ipi-grow 450ms cubic-bezier(0.2, 0.7, 0.2, 1) 100ms both;
-  }
-  .intro-v-iris .ipi-word {
-    position: absolute; left: 0; right: 0; top: 50%; margin-top: -0.5em; text-align: center; white-space: nowrap; color: #fff;
-    font-size: clamp(36px, 12vw, 64px); font-weight: 800; letter-spacing: 0.02em; line-height: 1; opacity: 0;
-    animation: ipi-word 300ms cubic-bezier(0.2, 0.8, 0.2, 1) 450ms both;
-  }
+  /* sunset: warm cards with a tiny abstract poster each (sun, horizon, two title bars), colours per card via --pc (card), --s (sun), --h (horizon), --t (bars) */
+  .ipp-v-sunset { background: #2b0a12; }
+  .ipp-v-sunset .ipp-card { --pb: transparent; --pc: var(--accent); --s: #efe6d8; --h: #2b0a12; --t: #efe6d8; }
+  .ipp-v-sunset .ipp-left { --pc: var(--accent); }
+  .ipp-v-sunset .ipp-right { --pc: #e08a2e; --s: #efe6d8; --h: #e50914; --t: #2b0a12; }
+  .ipp-v-sunset .ipp-front { --pc: #efe6d8; --s: #e50914; --h: #e08a2e; --t: #2b0a12; }
+  .ipp-v-sunset .ipp-art { display: block; position: absolute; inset: 0; }
+  .ipp-v-sunset .ipp-art i { position: absolute; display: block; }
+  .ipp-v-sunset .ipa-sun { left: 31%; top: 12%; width: 38%; height: 25.3%; border-radius: 50%; background: var(--s); }
+  .ipp-v-sunset .ipa-hor { left: 12%; right: 12%; top: 52%; height: 5%; border-radius: 2px; background: var(--h); }
+  .ipp-v-sunset .ipa-t1 { left: 12%; width: 62%; bottom: 20%; height: 5%; border-radius: 2px; background: var(--t); }
+  .ipp-v-sunset .ipa-t2 { left: 12%; width: 38%; bottom: 11%; height: 4%; border-radius: 2px; background: var(--t); opacity: 0.7; }
+
+  /* carousel: five small posters slide in as a row from the right, the middle one rises and flips, the others slide out to the sides (total 1700 ms) */
+  .ipp-v-carousel { --w: min(26vw, 150px); animation-delay: 1500ms; }
+  .ipp-v-carousel .ipc-card { --x: calc(var(--k) * var(--w) * 1.12); animation: ipc-in 640ms cubic-bezier(0.16, 1, 0.3, 1) calc((var(--k) + 2) * 50ms) both, ipc-out 400ms ease-in 760ms forwards; }
+  .ipp-v-carousel .ipc-card:nth-child(even) { --pc: #6a080e; --pb: #8f1a23; }
+  .ipp-v-carousel .ipc-mid { --pc: #7a0a10; --pb: #a3202a; animation: ipc-in 640ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both, ipc-rise 260ms ease-out 760ms forwards; }
+  .ipp-v-carousel .ipp-zoom { animation-delay: 1240ms; }
+  .ipp-v-carousel .ipp-flip { animation-delay: 820ms; }
+  .ipp-v-carousel .ipp-back em { animation-delay: 1240ms; }
 }

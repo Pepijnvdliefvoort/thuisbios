@@ -9,10 +9,10 @@ import { loadServerUrl, saveServerUrl } from '../storage';
 
 // TEMPORARY: intro preview buttons, remove once an intro is chosen.
 const INTRO_PREVIEWS: { variant: IntroVariant; label: string }[] = [
-  { variant: 'screen', label: 'Screen' },
-  { variant: 'posters', label: 'Posters' },
-  { variant: 'flip', label: 'Flip' },
-  { variant: 'iris', label: 'Iris' },
+  { variant: 'classic', label: 'Classic' },
+  { variant: 'midnight', label: 'Midnight' },
+  { variant: 'sunset', label: 'Sunset' },
+  { variant: 'carousel', label: 'Carousel' },
 ];
 
 export function SignIn({

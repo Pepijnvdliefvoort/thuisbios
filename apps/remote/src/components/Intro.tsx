@@ -3,11 +3,11 @@ import { makeStreaks } from '../introStreaks';
 import { isDesktop } from '../useDesktop';
 import { matchesQuery } from '../useMediaQuery';
 
-/** The phone intro variants. `screen` is the default that plays on load; the others can be previewed with playIntro. */
-export type IntroVariant = 'screen' | 'posters' | 'flip' | 'iris';
+/** The phone intro variants (all the poster stack, see styles.css). `classic` plays on load; the others can be previewed with playIntro. */
+export type IntroVariant = 'classic' | 'midnight' | 'sunset' | 'carousel';
 
 /** Whole intro length (ms) per mode or phone variant; keep in sync with the animations in styles.css (desktop and phone sections). */
-const TOTAL_MS = { desktop: 3900, screen: 1500, posters: 1650, flip: 1650, iris: 1600 };
+const TOTAL_MS = { desktop: 3900, classic: 1650, midnight: 1650, sunset: 1650, carousel: 1700 };
 
 const INTRO_EVENT = 'thuisbios:intro';
 
@@ -16,30 +16,11 @@ export function playIntro(variant: IntroVariant): void {
   window.dispatchEvent(new CustomEvent(INTRO_EVENT, { detail: variant }));
 }
 
-/** Random capitals for the flip board reels: three before the real letter and one after it (seen when the reel overshoots). */
-function makeReels(letters: string[]): string[][] {
-  const pick = (not: string[]) => {
-    let c = '';
-    do c = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-    while (not.indexOf(c) >= 0);
-    return c;
-  };
-  return letters.map((ch) => {
-    const a = pick([ch.toUpperCase()]);
-    const b = pick([ch.toUpperCase(), a]);
-    const c = pick([ch.toUpperCase(), b]);
-    return [a, b, c, ch, pick([ch.toUpperCase()])];
-  });
-}
 /** Quick fade used when the intro is skipped. */
 const SKIP_MS = 150;
 
 /** Ribbons for the desktop intro (the phone intro has none). */
 const STREAKS = makeStreaks();
-
-/** The wordmark, letter by letter, for the phone intro. */
-const LETTERS = 'Thuisbios'.split('');
-const REELS = makeReels(LETTERS);
 
 /** Whether the intro plays at all: not with reduced motion. */
 const shouldPlay = (): boolean => !matchesQuery('(prefers-reduced-motion: reduce)');
@@ -76,12 +57,22 @@ function measureT(family: string, weight: string): { x0: number; x1: number; cap
   }
 }
 
-/** Startup intro. Desktop: the wordmark, a dive into the T, whose stem unravels into ribbons. Phone: the wordmark rises, a red line draws and the dark splits open along it. A click, tap or key skips it. */
+/** Simple poster artwork from plain divs (a sun, a horizon, two title bars); only the sunset variant shows it. */
+const Art = () => (
+  <span class="ipp-art">
+    <i class="ipa-sun" />
+    <i class="ipa-hor" />
+    <i class="ipa-t1" />
+    <i class="ipa-t2" />
+  </span>
+);
+
+/** Startup intro. Desktop: the wordmark, a dive into the T, whose stem unravels into ribbons. Phone: a stack of posters flies in, the front one flips to a card in the app's own colour and grows over the screen. A click, tap or key skips it. */
 export function Intro() {
   const [mode] = useState<'desktop' | 'phone'>(() => (isDesktop() ? 'desktop' : 'phone'));
   const [play] = useState(shouldPlay);
   const [state, setState] = useState<'playing' | 'skipped' | 'done'>(play ? 'playing' : 'done');
-  const [run, setRun] = useState<{ variant: IntroVariant; n: number }>({ variant: 'posters', n: 0 });
+  const [run, setRun] = useState<{ variant: IntroVariant; n: number }>({ variant: 'classic', n: 0 });
   const root = useRef<HTMLDivElement>(null);
   const word = useRef<HTMLDivElement>(null);
   const t = useRef<HTMLSpanElement>(null);
@@ -122,15 +113,12 @@ export function Intro() {
   };
   useLayoutEffect(aim, []);
 
-  // The iris circle must cover the overlay corner to corner: size it to the overlay diagonal. The poster card grows until it covers the overlay with margin.
+  // The front poster grows until it covers the overlay with margin: --g is the scale, from the card width (kept in sync with --w in styles.css).
   useLayoutEffect(() => {
     const el = root.current;
     if (!el || mode !== 'phone') return;
-    if (run.variant === 'iris') el.style.setProperty('--d', `${Math.ceil(Math.hypot(el.clientWidth, el.clientHeight)) + 2}px`);
-    if (run.variant === 'posters') {
-      const w = Math.min(0.38 * el.clientWidth, 200);
-      el.style.setProperty('--g', String(Math.ceil(Math.max(el.clientWidth / w, el.clientHeight / (1.5 * w)) * 1.3 * 10) / 10));
-    }
+    const w = run.variant === 'carousel' ? Math.min(0.26 * el.clientWidth, 150) : Math.min(0.38 * el.clientWidth, 200);
+    el.style.setProperty('--g', String(Math.ceil(Math.max(el.clientWidth / w, el.clientHeight / (1.5 * w)) * 1.3 * 10) / 10));
   }, [run.n]);
 
   // TEMPORARY preview hook: playIntro() restarts the phone intro, also with the same variant.
@@ -178,64 +166,35 @@ export function Intro() {
 
   if (state === 'done') return null;
   if (mode === 'phone') {
-    const cls = `intro intro-phone intro-v-${run.variant}${state === 'skipped' ? ' intro-skip' : ''}`;
+    const cls = `intro intro-phone intro-v-posters ipp-v-${run.variant}${state === 'skipped' ? ' intro-skip' : ''}`;
     const skip = () => setState('skipped');
-    if (run.variant === 'posters') {
+    // The front card: a poster that flips to the app-coloured back with the red T, inside the layer that grows.
+    const front = (
+      <span class="ipp-zoom">
+        <span class="ipp-flip">
+          <b class="ipp-face ipp-poster">
+            <Art />
+          </b>
+          <b class="ipp-face ipp-back"><em>T</em></b>
+        </span>
+      </span>
+    );
+    if (run.variant === 'carousel') {
       return (
         <div key={run.n} ref={root} class={cls} aria-hidden="true" onPointerDown={skip}>
-          <i class="ipp-card ipp-left"><b /></i>
-          <i class="ipp-card ipp-right"><b /></i>
-          <i class="ipp-card ipp-front">
-            <span class="ipp-zoom">
-              <span class="ipp-flip">
-                <b class="ipp-face ipp-poster" />
-                <b class="ipp-face ipp-back"><em>T</em></b>
-              </span>
-            </span>
-          </i>
-        </div>
-      );
-    }
-    if (run.variant === 'flip') {
-      return (
-        <div key={run.n} ref={root} class={cls} aria-hidden="true" onPointerDown={skip}>
-          <div class="ipf-board">
-            {REELS.map((reel, i) => (
-              <span key={i} class={i === 0 ? 'ipf-tile ipf-t' : 'ipf-tile'} style={{ '--i': i }}>
-                {i === 0 ? <i class="ipf-red" /> : null}
-                <span class="ipf-reel">
-                  {reel.map((ch, j) => (
-                    <b key={j}>{ch}</b>
-                  ))}
-                </span>
-                <i class="ipf-split" />
-              </span>
-            ))}
-          </div>
-        </div>
-      );
-    }
-    if (run.variant === 'iris') {
-      return (
-        <div key={run.n} ref={root} class={cls} aria-hidden="true" onPointerDown={skip}>
-          <i class="ipi-dark" />
-          <div class="ipi-shrink">
-            <i class="ipi-circle" />
-            <div class="ipi-word">Thuisbios</div>
-          </div>
+          {[-2, -1, 0, 1, 2].map((k) => (
+            <i key={k} class={k === 0 ? 'ipp-card ipc-card ipc-mid' : 'ipp-card ipc-card'} style={{ '--k': k }}>
+              {k === 0 ? front : <b />}
+            </i>
+          ))}
         </div>
       );
     }
     return (
-      <div key={run.n} class={cls} aria-hidden="true" onPointerDown={skip}>
-        <i class="ip-panel ip-top" />
-        <i class="ip-panel ip-bottom" />
-        <div class="ip-word">
-          {LETTERS.map((ch, i) => (
-            <span key={i} class={i === 0 ? 'ip-ch ip-t' : 'ip-ch'} style={{ '--i': i }}>{ch}</span>
-          ))}
-        </div>
-        <i class="ip-line" />
+      <div key={run.n} ref={root} class={cls} aria-hidden="true" onPointerDown={skip}>
+        <i class="ipp-card ipp-left"><b><Art /></b></i>
+        <i class="ipp-card ipp-right"><b><Art /></b></i>
+        <i class="ipp-card ipp-front">{front}</i>
       </div>
     );
   }
