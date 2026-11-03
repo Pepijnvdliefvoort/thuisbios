@@ -4,12 +4,15 @@ import { isDesktop } from '../useDesktop';
 import { matchesQuery } from '../useMediaQuery';
 
 /** Whole intro length (ms) per mode; keep in sync with the intro- animations in styles.css (desktop and phone sections). */
-const TOTAL_MS = { desktop: 3900, phone: 1900 };
+const TOTAL_MS = { desktop: 3900, phone: 1500 };
 /** Quick fade used when the intro is skipped. */
 const SKIP_MS = 150;
 
-/** Ribbons per mode: a phone is narrow and has a weaker chip, so it gets fewer. */
-const STREAKS = { desktop: makeStreaks(), phone: makeStreaks(24) };
+/** Ribbons for the desktop intro (the phone intro has none). */
+const STREAKS = makeStreaks();
+
+/** The wordmark, letter by letter, for the phone intro. */
+const LETTERS = 'Thuisbios'.split('');
 
 /** Whether the intro plays at all: not with reduced motion. */
 const shouldPlay = (): boolean => !matchesQuery('(prefers-reduced-motion: reduce)');
@@ -46,10 +49,9 @@ function measureT(family: string, weight: string): { x0: number; x1: number; cap
   }
 }
 
-/** Startup intro: the wordmark, a dive into the T, whose stem unravels into ribbons. Desktop plays the long version, a phone a quicker one. A click, tap or key skips it. */
+/** Startup intro. Desktop: the wordmark, a dive into the T, whose stem unravels into ribbons. Phone: the wordmark rises, a red line draws and the dark splits open along it. A click, tap or key skips it. */
 export function Intro() {
   const [mode] = useState<'desktop' | 'phone'>(() => (isDesktop() ? 'desktop' : 'phone'));
-  const streaks = STREAKS[mode];
   const [play] = useState(shouldPlay);
   const [state, setState] = useState<'playing' | 'skipped' | 'done'>(play ? 'playing' : 'done');
   const root = useRef<HTMLDivElement>(null);
@@ -61,6 +63,7 @@ export function Intro() {
   // Measure the T and aim the camera at its stem: the glide (outer layer) brings the stem centre to the middle of the
   // window, the zoom (inner layer) scales about that point. Layout offsets are used, so the entrance scale does not skew them.
   const aim = () => {
+    if (mode !== 'desktop') return;
     const el = root.current;
     const w = word.current;
     const letter = t.current;
@@ -93,7 +96,7 @@ export function Intro() {
 
   // Fonts may arrive late, and the window may be resized while the intro plays: measure again.
   useEffect(() => {
-    if (!play) return;
+    if (!play || mode !== 'desktop') return;
     let live = true;
     const fonts = (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts;
     if (fonts) fonts.ready.then(() => live && aim()).catch(() => undefined);
@@ -122,10 +125,24 @@ export function Intro() {
   }, [state]);
 
   if (state === 'done') return null;
+  if (mode === 'phone') {
+    return (
+      <div class={`intro intro-phone${state === 'skipped' ? ' intro-skip' : ''}`} aria-hidden="true" onPointerDown={() => setState('skipped')}>
+        <i class="ip-panel ip-top" />
+        <i class="ip-panel ip-bottom" />
+        <div class="ip-word">
+          {LETTERS.map((ch, i) => (
+            <span key={i} class={i === 0 ? 'ip-ch ip-t' : 'ip-ch'} style={{ '--i': i }}>{ch}</span>
+          ))}
+        </div>
+        <i class="ip-line" />
+      </div>
+    );
+  }
   return (
     <div
       ref={root}
-      class={`intro${mode === 'phone' ? ' intro-phone' : ''}${state === 'skipped' ? ' intro-skip' : ''}`}
+      class={`intro${state === 'skipped' ? ' intro-skip' : ''}`}
       aria-hidden="true"
       onPointerDown={() => setState('skipped')}
       onAnimationEnd={(e) => {
@@ -147,7 +164,7 @@ export function Intro() {
       <div class="intro-camera">
         {[0, 1, 2].map((depth) => (
           <div key={depth} class={`intro-layer d${depth}`}>
-            {streaks.filter((s) => s.depth === depth).map((s, i) => (
+            {STREAKS.filter((s) => s.depth === depth).map((s, i) => (
               <i
                 key={i}
                 class="intro-ribbon"

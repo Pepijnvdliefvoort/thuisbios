@@ -709,7 +709,7 @@ button.rs-row:active { background: var(--surface-2); }
   .card-art, .card-shade, .card-play { transition-duration: 1ms; }
 }
 
-/* Startup intro keyframes, shared by the desktop and phone sections below (keyframes inside a media query only exist while it matches). */
+/* Startup intro keyframes, shared by the sections below (keyframes inside a media query only exist while it matches). */
 @keyframes intro-word { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
 @keyframes intro-glide { from { transform: none; } to { transform: translate(var(--gx, 0px), var(--gy, 0px)); } }
 @keyframes intro-zoom {
@@ -732,14 +732,6 @@ button.rs-row:active { background: var(--surface-2); }
 @keyframes intro-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes intro-skip { from { opacity: 1; } to { opacity: 0; } }
 
-@keyframes intro-zoom-phone {
-  0% { transform: scale(1); animation-timing-function: linear; }
-  36% { transform: scale(1.06); animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.35); }
-  79.5% { transform: scale(var(--s, 10)); animation-timing-function: cubic-bezier(0.1, 0.5, 0.4, 1); }
-  100% { transform: scale(calc(var(--s, 10) * 1.3)); }
-}
-@keyframes intro-stem-phone { 0% { opacity: 0; } 25% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes intro-word-phone { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
 
 /* Desktop: startup intro (see components/Intro.tsx). A camera dolly that never stops: it drifts in on the wordmark, glides the T to the centre, dives into it,
    whose stem unravels into ribbons on three depth layers, then everything goes dark. Total 3900 ms; keep TOTAL_MS there in sync.
@@ -783,43 +775,39 @@ button.rs-row:active { background: var(--surface-2); }
   .intro-dark { background: var(--bg); opacity: 0; animation: intro-dark 650ms ease-in 2950ms both; }
 }
 
-/* Phone: startup intro (same idea as the desktop one, but quicker and for a narrow portrait screen). Total 1900 ms; keep TOTAL_MS in Intro.tsx in sync.
-   No vh units (they misbehave in standalone mode on iOS): everything is sized from the overlay. Only transform and opacity animate. */
+/* Phone: startup intro, "the screen opens" (see components/Intro.tsx). Total 1500 ms; keep TOTAL_MS in Intro.tsx in sync.
+   The word rises letter by letter, a red line draws out from the centre, the word lifts away, then the dark (two solid halves) splits open along the line.
+   The overlay itself is transparent so the app shows through as the halves part. No vh units (they misbehave in standalone mode on iOS): everything is sized from the overlay. Only transform and opacity animate. */
+@keyframes ip-letter { from { opacity: 0; transform: translateY(0.35em); } to { opacity: 1; transform: none; } }
+@keyframes ip-lift { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-8px); } }
+@keyframes ip-draw {
+  0% { opacity: 0.7; transform: scaleX(0); animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
+  61.5% { opacity: 0.85; transform: scaleX(0.6); animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1); }
+  100% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes ip-gone { to { opacity: 0; } }
+@keyframes ip-up { to { transform: translateY(-100%); } }
+@keyframes ip-down { to { transform: translateY(100%); } }
+@keyframes ip-edge { from { opacity: 1; } to { opacity: 0; } }
 @media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  .intro-phone { position: fixed; inset: 0; z-index: 100; background: var(--bg); overflow: hidden; animation: intro-out 250ms ease-in 1650ms both; }
+  .intro-phone { position: fixed; inset: 0; z-index: 100; overflow: hidden; }
   .intro-phone.intro-skip { animation: intro-skip 150ms ease-out both; }
-  .intro-phone .intro-zoom, .intro-phone .intro-camera, .intro-phone .intro-layer, .intro-phone .intro-dark { position: absolute; inset: 0; }
-  .intro-phone .intro-zoom { display: flex; align-items: center; justify-content: center; will-change: transform; animation: intro-glide 350ms cubic-bezier(0.45, 0, 0.25, 1) 350ms both; }
-  .intro-phone .intro-scale { will-change: transform; transform-origin: var(--ox, 50%) var(--oy, 50%); animation: intro-zoom-phone 1100ms both; }
-  .intro-phone .intro-word {
-    position: relative; display: block; white-space: nowrap; font-size: clamp(40px, 14vw, 72px); font-weight: 800; letter-spacing: 0.04em;
-    color: rgba(242, 242, 245, 0.88); text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent);
-    animation: intro-word-phone 350ms ease-out both;
+  .intro-phone .ip-panel { position: absolute; left: 0; right: 0; height: 50%; background: var(--bg); will-change: transform; }
+  .intro-phone .ip-top { top: 0; animation: ip-up 500ms cubic-bezier(0.7, 0, 0.2, 1) 1000ms both; }
+  .intro-phone .ip-bottom { bottom: 0; animation: ip-down 500ms cubic-bezier(0.7, 0, 0.2, 1) 1000ms both; }
+  /* The seam line splits in two: a thin line on the facing edge of each half, fading as the halves travel. */
+  .intro-phone .ip-panel::after { content: ""; position: absolute; left: 0; right: 0; height: 1px; background: var(--accent); opacity: 0; animation: ip-edge 500ms ease-in 1000ms forwards; }
+  .intro-phone .ip-top::after { bottom: 0; }
+  .intro-phone .ip-bottom::after { top: 0; }
+  .intro-phone .ip-word {
+    position: absolute; left: 0; right: 0; bottom: calc(50% + 0.3em); text-align: center; white-space: nowrap;
+    font-size: clamp(36px, 12vw, 64px); font-weight: 800; letter-spacing: 0.02em; line-height: 1; color: var(--fg);
+    animation: ip-lift 250ms ease-in 850ms both;
   }
-  .intro-phone .intro-t { color: var(--accent); }
-  .intro-phone .intro-t-ch { display: inline-block; animation: intro-fade-out 150ms ease-in 580ms both; }
-  .intro-phone .intro-rest { animation: intro-fade-out 250ms ease-in 300ms both; }
-  .intro-phone .intro-base { display: inline-block; width: 0; height: 0; }
-  .intro-phone .intro-stem {
-    position: absolute; opacity: 0;
-    background: linear-gradient(to right, #1a0204 0%, #6e050b 20%, var(--accent) 46%, #8a060d 68%, #0e0102 100%);
-    animation: intro-stem-phone 500ms linear 550ms both;
+  .intro-phone .ip-ch { display: inline-block; opacity: 0; animation: ip-letter 300ms cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--i) * 35ms) both; }
+  .intro-phone .ip-t { color: var(--accent); }
+  .intro-phone .ip-line {
+    position: absolute; left: 0; right: 0; top: calc(50% - 1px); height: 2px; background: var(--accent); transform-origin: 50% 50%; opacity: 0; will-change: transform, opacity;
+    animation: ip-draw 650ms linear 350ms both, ip-gone 1ms linear 1000ms forwards;
   }
-  .intro-phone .intro-layer { will-change: transform; animation: intro-dive 750ms cubic-bezier(0.55, 0, 0.85, 0.35) 850ms both; }
-  .intro-phone .intro-layer.d0 { --k: 2.4; }
-  .intro-phone .intro-layer.d1 { --k: 4.5; }
-  .intro-phone .intro-layer.d2 { --k: 9; }
-  .intro-phone .intro-ribbon {
-    position: absolute; top: -5%; height: 110%; width: var(--w); left: calc(50% + var(--x) - var(--w) / 2);
-    opacity: 0; will-change: transform, opacity;
-    animation: intro-slide calc(var(--dur) * 0.5) cubic-bezier(0.2, 0.7, 0.2, 1) calc(850ms + var(--delay) * 0.5) both;
-  }
-  .intro-phone .intro-ribbon b {
-    position: absolute; inset: 0;
-    background:
-      linear-gradient(to bottom, transparent 32%, color-mix(in srgb, var(--c) 65%, #ff5a4a) 50%, transparent 68%),
-      linear-gradient(to bottom, transparent, var(--c) 30%, var(--c) 70%, transparent);
-    animation: intro-drift var(--life) ease-in-out var(--life-delay) infinite alternate, intro-shimmer calc(var(--life) * 0.7) ease-in-out var(--life-delay) infinite alternate;
-  }
-  .intro-phone .intro-dark { background: var(--bg); opacity: 0; animation: intro-dark 400ms ease-in 1300ms both; }
 }
