@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.8.0...v0.9.0) (2026-11-03)
+
+
+### Features
+
+* **remote:** poster card startup intro on phone and desktop ([#97](https://github.com/Pepijnvdliefvoort/thuisbios/issues/97)) ([f19efeb](https://github.com/Pepijnvdliefvoort/thuisbios/commit/f19efebe7fd0b5c48ef5d3ab911faa3d35c6bf9f))
+
 ## [0.8.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.7.0...v0.8.0) (2026-11-01)
 
 
