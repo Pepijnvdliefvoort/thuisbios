@@ -75,6 +75,7 @@ const PHONE = {
   deviceScaleFactor: 2,
   isMobile: true,
   hasTouch: true,
+  reducedMotion: 'reduce', // no startup intro in the screenshots
   userAgent:
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
 };
