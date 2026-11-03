@@ -7,7 +7,7 @@ import { matchesQuery } from '../useMediaQuery';
 export type IntroVariant = 'screen' | 'posters' | 'flip' | 'iris';
 
 /** Whole intro length (ms) per mode or phone variant; keep in sync with the animations in styles.css (desktop and phone sections). */
-const TOTAL_MS = { desktop: 3900, screen: 1500, posters: 1700, flip: 1650, iris: 1600 };
+const TOTAL_MS = { desktop: 3900, screen: 1500, posters: 1650, flip: 1650, iris: 1600 };
 
 const INTRO_EVENT = 'thuisbios:intro';
 
@@ -81,7 +81,7 @@ export function Intro() {
   const [mode] = useState<'desktop' | 'phone'>(() => (isDesktop() ? 'desktop' : 'phone'));
   const [play] = useState(shouldPlay);
   const [state, setState] = useState<'playing' | 'skipped' | 'done'>(play ? 'playing' : 'done');
-  const [run, setRun] = useState<{ variant: IntroVariant; n: number }>({ variant: 'screen', n: 0 });
+  const [run, setRun] = useState<{ variant: IntroVariant; n: number }>({ variant: 'posters', n: 0 });
   const root = useRef<HTMLDivElement>(null);
   const word = useRef<HTMLDivElement>(null);
   const t = useRef<HTMLSpanElement>(null);
@@ -122,10 +122,15 @@ export function Intro() {
   };
   useLayoutEffect(aim, []);
 
-  // The iris circle must cover the overlay corner to corner: size it to the overlay diagonal.
+  // The iris circle must cover the overlay corner to corner: size it to the overlay diagonal. The poster card grows until it covers the overlay with margin.
   useLayoutEffect(() => {
     const el = root.current;
-    if (el && mode === 'phone' && run.variant === 'iris') el.style.setProperty('--d', `${Math.ceil(Math.hypot(el.clientWidth, el.clientHeight)) + 2}px`);
+    if (!el || mode !== 'phone') return;
+    if (run.variant === 'iris') el.style.setProperty('--d', `${Math.ceil(Math.hypot(el.clientWidth, el.clientHeight)) + 2}px`);
+    if (run.variant === 'posters') {
+      const w = Math.min(0.38 * el.clientWidth, 200);
+      el.style.setProperty('--g', String(Math.ceil(Math.max(el.clientWidth / w, el.clientHeight / (1.5 * w)) * 1.3 * 10) / 10));
+    }
   }, [run.n]);
 
   // TEMPORARY preview hook: playIntro() restarts the phone intro, also with the same variant.

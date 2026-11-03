@@ -819,26 +819,27 @@ button.rs-row:active { background: var(--surface-2); }
 
 /* Phone intro variants for comparison (see components/Intro.tsx). Same rules as above: sized from the overlay or vw, only transform and opacity animate, no vh. */
 
-/* Phone: "poster stack" (ipp-). Total 1700 ms. Three posters fly in as a fan, the front one flips to a red T face, the side ones fan out and fade,
-   the red card grows over the screen and the overlay fades out. */
+/* Phone: "poster stack" (ipp-). Total 1650 ms. On solid red, three crimson posters fly in as a fan; the front one flips to a card in the app's own
+   background with the red T, the side ones fan out and fade, the card grows over the whole screen (the T fades) and the overlay fades out (200 ms)
+   onto the identical app background. */
 @keyframes ipp-in-left { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: translate(-7vw, 0) rotate(-8deg); } }
 @keyframes ipp-in-right { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: translate(7vw, 0) rotate(8deg); } }
 @keyframes ipp-in-front { from { opacity: 0; transform: translate(60vw, 80vw) rotate(24deg); } 30% { opacity: 1; } to { opacity: 1; transform: none; } }
 @keyframes ipp-out-left { from { opacity: 1; transform: translate(-7vw, 0) rotate(-8deg); } to { opacity: 0; transform: translate(-26vw, 4vw) rotate(-22deg); } }
 @keyframes ipp-out-right { from { opacity: 1; transform: translate(7vw, 0) rotate(8deg); } to { opacity: 0; transform: translate(26vw, 4vw) rotate(22deg); } }
 @keyframes ipp-flip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
-@keyframes ipp-grow { from { transform: scale(1); } to { transform: scale(14); } }
-@keyframes ipp-t-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ipp-grow { from { transform: scale(1); } to { transform: scale(var(--g, 14)); } }
+@keyframes ipp-t-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.8); } }
 @keyframes ipp-fade { from { opacity: 1; } to { opacity: 0; } }
 @media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  .intro-v-posters { --w: min(38vw, 200px); background: var(--bg); animation: ipp-fade 250ms ease-in 1450ms both; }
+  .intro-v-posters { --w: min(38vw, 200px); background: var(--accent); animation: ipp-fade 200ms ease-out 1450ms both; }
   .intro-v-posters.intro-skip { animation: intro-skip 150ms ease-out both; }
   .intro-v-posters .ipp-card {
     position: absolute; left: 50%; top: 50%; width: var(--w); height: calc(var(--w) * 1.5); margin: calc(var(--w) * -0.75) 0 0 calc(var(--w) * -0.5);
     opacity: 0; will-change: transform, opacity;
   }
-  .intro-v-posters .ipp-card > b { display: block; width: 100%; height: 100%; border-radius: 10px; border: 1px solid #3a3a46; background: #1c1c25; }
-  .intro-v-posters .ipp-right > b { background: #14141b; border-color: #30303b; }
+  .intro-v-posters .ipp-card > b { display: block; width: 100%; height: 100%; border-radius: 10px; border: 1px solid #a3202a; background: #7a0a10; }
+  .intro-v-posters .ipp-right > b { background: #6a080e; border-color: #8f1a23; }
   .intro-v-posters .ipp-left {
     animation: ipp-in-left 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 0ms both, ipp-out-left 400ms ease-in 800ms forwards;
   }
@@ -846,15 +847,16 @@ button.rs-row:active { background: var(--surface-2); }
     animation: ipp-in-right 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms both, ipp-out-right 400ms ease-in 800ms forwards;
   }
   .intro-v-posters .ipp-front { animation: ipp-in-front 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 160ms both; }
-  .intro-v-posters .ipp-zoom { display: block; width: 100%; height: 100%; perspective: 900px; will-change: transform; animation: ipp-grow 400ms cubic-bezier(0.6, 0, 0.9, 0.4) 1150ms both; }
-  .intro-v-posters .ipp-flip { display: block; position: relative; width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; animation: ipp-flip 500ms cubic-bezier(0.45, 0, 0.2, 1) 800ms both; }
+  .intro-v-posters .ipp-zoom { display: block; width: 100%; height: 100%; perspective: 900px; will-change: transform; animation: ipp-grow 260ms cubic-bezier(0.55, 0, 0.8, 0.3) 1180ms both; }
+  .intro-v-posters .ipp-flip { display: block; position: relative; width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; animation: ipp-flip 480ms cubic-bezier(0.45, 0, 0.2, 1) 760ms both; }
   .intro-v-posters .ipp-face { position: absolute; inset: 0; display: block; border-radius: 10px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-  .intro-v-posters .ipp-poster { border: 1px solid #44444f; background: #22222d; }
+  .intro-v-posters .ipp-poster { border: 1px solid #a3202a; background: #7a0a10; }
   .intro-v-posters .ipp-back {
-    background: var(--accent); transform: rotateY(180deg); display: flex; align-items: center; justify-content: center;
+    background: var(--bg); transform: rotateY(180deg); display: flex; align-items: center; justify-content: center;
   }
   .intro-v-posters .ipp-back em {
-    font-style: normal; font-weight: 800; font-size: calc(var(--w) * 0.85); line-height: 1; color: #fff; animation: ipp-t-out 250ms ease-in 1250ms both;
+    font-style: normal; font-weight: 800; font-size: calc(var(--w) * 0.85); line-height: 1; color: var(--accent); letter-spacing: 0.5px;
+    will-change: transform, opacity; animation: ipp-t-out 160ms ease-in 1180ms both;
   }
 }
 
