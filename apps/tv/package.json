@@ -15,11 +15,11 @@
     "package": "node scripts/package.mjs"
   },
   "dependencies": {
-    "preact": "^11.0.2",
+    "preact": "^11.1.0",
     "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@vitejs/plugin-legacy": "^8.2.3",
     "acorn": "^8.19.0",
     "jsdom": "^29.1.1",

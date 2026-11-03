@@ -345,6 +345,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .signin-link { align-self: center; margin-top: 8px; min-height: 44px; padding: 0 16px; background: none; border: 0; color: var(--muted); font-size: 14px; text-decoration: underline; cursor: pointer; }
 .signin-banner { background: var(--surface); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; margin: 12px 0 0; font-weight: 600; }
 
+
 /* Connect TV */
 .connect { min-height: 100%; display: flex; justify-content: center; padding: calc(var(--ui-top) + 72px) var(--gutter) calc(var(--safe-bottom) + 24px); }
 .connect-body { width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
@@ -709,65 +710,49 @@ button.rs-row:active { background: var(--surface-2); }
   .card-art, .card-shade, .card-play { transition-duration: 1ms; }
 }
 
-/* Desktop: startup intro (see components/Intro.tsx). A camera dolly that never stops: it drifts in on the wordmark, glides the T to the centre, dives into it,
-   whose stem unravels into ribbons on three depth layers, then everything goes dark. Total 3900 ms; keep TOTAL_MS there in sync.
+/* Startup intro (see components/Intro.tsx): a stack of poster cards flies in as a fan, the front one flips to a card in the app's own background with the
+   red T, the other cards fan out and fade, the front card grows over the whole window (the T fades) and the overlay fades out onto the identical app
+   background. Phone: three cards, 1650 ms. Desktop: five cards in a wider fan, 2120 ms. Keep TOTAL_MS in the component in sync with --fade-at + --fade-ms.
+   Sizes come from custom properties: --w (card width, set from the overlay by the component), --g (cover scale), per card --x --y --r --s (resting pose,
+   in card widths and degrees), --sx --sy --sr (start), --ex --ey --er (fan out), --d (fly-in delay). No vh units (they misbehave in standalone mode on iOS).
    Only transform and opacity animate. */
-@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  .intro { position: fixed; inset: 0; z-index: 100; background: var(--bg); overflow: hidden; animation: intro-out 300ms ease-in 3600ms both; }
-  .intro-skip { animation: intro-skip 150ms ease-out both; }
-  .intro-zoom, .intro-camera, .intro-layer, .intro-dark { position: absolute; inset: 0; }
-  .intro-zoom { display: flex; align-items: center; justify-content: center; will-change: transform; animation: intro-glide 600ms cubic-bezier(0.45, 0, 0.25, 1) 1000ms both; }
-  .intro-scale { will-change: transform; transform-origin: var(--ox, 50%) var(--oy, 50%); animation: intro-zoom 3000ms both; }
-  .intro-word {
-    position: relative; display: block; white-space: nowrap; font-size: clamp(56px, 9vw, 140px); font-weight: 800; letter-spacing: 0.04em;
-    color: rgba(242, 242, 245, 0.88); text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
-    animation: intro-word 600ms ease-out both;
-  }
-  .intro-t { color: var(--accent); }
-  .intro-t-ch { display: inline-block; animation: intro-fade-out 300ms ease-in 1800ms both; }
-  .intro-rest { animation: intro-fade-out 400ms ease-in 1000ms both; }
-  .intro-base { display: inline-block; width: 0; height: 0; }
-  .intro-stem {
-    position: absolute; opacity: 0;
-    background: linear-gradient(to right, #1a0204 0%, #6e050b 20%, var(--accent) 46%, #8a060d 68%, #0e0102 100%);
-    animation: intro-stem 1300ms linear 1700ms both;
-  }
-  .intro-layer { will-change: transform; animation: intro-dive 1450ms cubic-bezier(0.55, 0, 0.85, 0.35) 2150ms both; }
-  .intro-layer.d0 { --k: 2.4; }
-  .intro-layer.d1 { --k: 4.5; }
-  .intro-layer.d2 { --k: 9; }
-  .intro-ribbon {
-    position: absolute; top: -5vh; height: 110vh; width: var(--w); left: calc(50% + var(--x) - var(--w) / 2);
-    opacity: 0; will-change: transform, opacity;
-    animation: intro-slide var(--dur) cubic-bezier(0.2, 0.7, 0.2, 1) calc(2150ms + var(--delay)) both;
-  }
-  .intro-ribbon b {
-    position: absolute; inset: 0;
-    background:
-      linear-gradient(to bottom, transparent 32%, color-mix(in srgb, var(--c) 65%, #ff5a4a) 50%, transparent 68%),
-      linear-gradient(to bottom, transparent, var(--c) 30%, var(--c) 70%, transparent);
-    animation: intro-drift var(--life) ease-in-out var(--life-delay) infinite alternate, intro-shimmer calc(var(--life) * 0.7) ease-in-out var(--life-delay) infinite alternate;
-  }
-  .intro-dark { background: var(--bg); opacity: 0; animation: intro-dark 650ms ease-in 2950ms both; }
-  @keyframes intro-word { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
-  @keyframes intro-glide { from { transform: none; } to { transform: translate(var(--gx, 0px), var(--gy, 0px)); } }
-  @keyframes intro-zoom {
-    0% { transform: scale(1); animation-timing-function: linear; }
-    50% { transform: scale(1.06); animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.35); }
-    76.7% { transform: scale(var(--s, 10)); animation-timing-function: cubic-bezier(0.1, 0.5, 0.4, 1); }
-    100% { transform: scale(calc(var(--s, 10) * 1.3)); }
-  }
-  @keyframes intro-fade-out { from { opacity: 1; } to { opacity: 0; } }
-  @keyframes intro-stem { 0% { opacity: 0; } 31% { opacity: 1; } 54% { opacity: 1; } 100% { opacity: 0; } }
-  @keyframes intro-slide {
-    0% { opacity: 0; transform: translateX(calc(var(--f) * var(--stem-w, 15vw) - var(--x))); }
-    12% { opacity: var(--o); }
-    100% { opacity: var(--o); transform: none; }
-  }
-  @keyframes intro-drift { from { transform: translateY(-2.5%); } to { transform: translateY(2.5%); } }
-  @keyframes intro-shimmer { from { opacity: 0.6; } to { opacity: 1; } }
-  @keyframes intro-dive { from { transform: none; } to { transform: scale(var(--k), calc(1 + var(--k) * 0.015)); } }
-  @keyframes intro-dark { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes intro-out { from { opacity: 1; } to { opacity: 0; } }
-  @keyframes intro-skip { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ip-in {
+  from { opacity: 0; transform: translate(calc(var(--sx) * var(--w)), calc(var(--sy) * var(--w))) rotate(calc(var(--sr) * 1deg)) scale(var(--s)); }
+  30% { opacity: 1; }
+  to { opacity: 1; transform: translate(calc(var(--x) * var(--w)), calc(var(--y) * var(--w))) rotate(calc(var(--r) * 1deg)) scale(var(--s)); }
+}
+@keyframes ip-out {
+  from { opacity: 1; transform: translate(calc(var(--x) * var(--w)), calc(var(--y) * var(--w))) rotate(calc(var(--r) * 1deg)) scale(var(--s)); }
+  to { opacity: 0; transform: translate(calc(var(--ex) * var(--w)), calc(var(--ey) * var(--w))) rotate(calc(var(--er) * 1deg)) scale(var(--s)); }
+}
+@keyframes ip-flip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
+@keyframes ip-grow { from { transform: scale(1); } to { transform: scale(var(--g, 14)); } }
+@keyframes ip-t-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.8); } }
+@keyframes ip-fade { from { opacity: 1; } to { opacity: 0; } }
+@keyframes intro-skip { from { opacity: 1; } to { opacity: 0; } }
+
+.intro {
+  position: fixed; inset: 0; z-index: 100; overflow: hidden; background: #15151b; --w: 150px; --rad: 10px;
+  animation: ip-fade var(--fade-ms) ease-out var(--fade-at) both;
+}
+.intro-phone { --in: 560ms; --out-at: 800ms; --out-ms: 400ms; --flip-at: 760ms; --flip-ms: 480ms; --grow-at: 1180ms; --grow-ms: 260ms; --tout-ms: 160ms; --fade-at: 1450ms; --fade-ms: 200ms; }
+.intro-desktop { --rad: 12px; --in: 640ms; --out-at: 960ms; --out-ms: 500ms; --flip-at: 960ms; --flip-ms: 560ms; --grow-at: 1520ms; --grow-ms: 380ms; --tout-ms: 200ms; --fade-at: 1900ms; --fade-ms: 220ms; }
+.intro.intro-skip { animation: intro-skip 150ms ease-out both; }
+.ip-card {
+  position: absolute; left: 50%; top: 50%; width: var(--w); height: calc(var(--w) * 1.5); margin: calc(var(--w) * -0.75) 0 0 calc(var(--w) * -0.5);
+  opacity: 0; will-change: transform, opacity;
+  animation: ip-in var(--in) cubic-bezier(0.34, 1.56, 0.64, 1) var(--d) both;
+}
+.ip-card.ip-out {
+  animation: ip-in var(--in) cubic-bezier(0.34, 1.56, 0.64, 1) var(--d) both, ip-out var(--out-ms) ease-in var(--out-at) forwards;
+}
+.ip-poster { display: block; width: 100%; height: 100%; border-radius: var(--rad); border: 1px solid var(--accent); background: var(--pc); }
+.ip-zoom { display: block; width: 100%; height: 100%; perspective: calc(var(--w) * 6); will-change: transform; animation: ip-grow var(--grow-ms) cubic-bezier(0.55, 0, 0.8, 0.3) var(--grow-at) both; }
+.ip-flip { display: block; position: relative; width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; animation: ip-flip var(--flip-ms) cubic-bezier(0.45, 0, 0.2, 1) var(--flip-at) both; }
+.ip-face { position: absolute; inset: 0; display: block; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.ip-back { background: var(--bg); border-radius: var(--rad); transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+.ip-back::after { content: ""; position: absolute; inset: 0; border-radius: var(--rad); border: 1px solid var(--accent); animation: ip-fade 200ms ease-in var(--grow-at) both; }
+.ip-back em {
+  font-style: normal; font-weight: 800; font-size: calc(var(--w) * 0.85); line-height: 1; color: var(--accent); letter-spacing: 0.5px;
+  will-change: transform, opacity; animation: ip-t-out var(--tout-ms) ease-in var(--grow-at) both;
 }

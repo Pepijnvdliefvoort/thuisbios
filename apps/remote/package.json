@@ -16,12 +16,12 @@
     "jellyfin:setup": "node scripts/jellyfin-setup.mjs"
   },
   "dependencies": {
-    "hls.js": "^1.7.3",
+    "hls.js": "^1.7.4",
     "jsqr": "^1.4.0",
-    "preact": "^11.0.2"
+    "preact": "^11.1.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/ws": "^8.18.2",
     "jsdom": "^29.1.1",
     "typescript": "^7.0.2",
