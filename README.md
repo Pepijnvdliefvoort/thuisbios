@@ -184,8 +184,10 @@ section: picking one asks the server for that track (a remux or transcode, becau
 switch audio inside a file) and continues from the same spot. The app remembers the audio language
 you picked and uses it the next time when the item has that language.
 
-The app also works in a desktop browser (a wide window with a mouse). The tabs move to a top bar,
-rows get arrow buttons, and Play and Resume use the app's own player on that computer even when a TV is
+The app also works in a desktop browser (a wide window with a mouse). The tabs move to a floating top bar
+(see-through at the top of a page, solid once it scrolls), Home opens with a full-width spotlight of recently added
+titles, the details page is a full-width backdrop with the title and buttons on it, rows run edge to edge with side
+arrow panels, and Play and Resume use the app's own player on that computer even when a TV is
 connected ("Play on TV" sits next to them). The player has volume and fullscreen buttons and these keys:
 Space or K play/pause, Left/Right or J/L -10 s/+10 s, Up/Down volume, M mute, F fullscreen,
 C subtitles on/off and Esc to leave. A click on the picture plays or pauses, a double click toggles

@@ -9,6 +9,7 @@ import type { MediaType } from '../jellyfin/client';
 import { activeFilterCount, clearFilters, decadeLabel, SORTS, type LibraryView } from '../jellyfin/libraryQuery';
 import { loadLibraryView, saveLibraryView } from '../storage';
 import { useAsync } from '../useAsync';
+import { useDesktop } from '../useDesktop';
 import { usePullToRefresh } from '../usePullToRefresh';
 
 export function Library() {
@@ -33,35 +34,54 @@ export function Library() {
     [client, session.userId, type, viewKey],
   );
   const genres = useAsync(() => client.genres(session.userId, type).catch(() => [] as string[]), [client, session.userId, type]);
+  const desktop = useDesktop();
   const pageRef = useRef<HTMLDivElement>(null);
   const pull = usePullToRefresh(pageRef, () => items.reload());
+  const segmented = (
+    <div class="segmented" role="tablist">
+      {(['Movie', 'Series'] as const).map((t) => (
+        <button
+          key={t}
+          type="button"
+          role="tab"
+          aria-selected={t === type}
+          class={t === type ? 'active' : ''}
+          onClick={() => setType(t)}
+        >
+          {t === 'Movie' ? 'Movies' : 'Shows'}
+        </button>
+      ))}
+    </div>
+  );
+  const bar = (
+    <div class="lib-bar">
+      <button type="button" class="lib-btn" aria-haspopup="dialog" onClick={() => setSheet('sort')}>
+        Sort: {SORTS[view.sort].label.replace(/ \(.*\)$/, '')}
+        <Icon name="chevron" size={18} />
+      </button>
+      <button type="button" class={filterCount ? 'lib-btn active' : 'lib-btn'} aria-haspopup="dialog" onClick={() => setSheet('filter')}>
+        {filterCount ? `Filter (${filterCount})` : 'Filter'}
+        <Icon name="chevron" size={18} />
+      </button>
+    </div>
+  );
   return (
     <div class="page" ref={pageRef}>
       <PullSpinner pull={pull} />
-      <div class="segmented" role="tablist">
-        {(['Movie', 'Series'] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={t === type}
-            class={t === type ? 'active' : ''}
-            onClick={() => setType(t)}
-          >
-            {t === 'Movie' ? 'Movies' : 'Shows'}
-          </button>
-        ))}
-      </div>
-      <div class="lib-bar">
-        <button type="button" class="lib-btn" aria-haspopup="dialog" onClick={() => setSheet('sort')}>
-          Sort: {SORTS[view.sort].label.replace(/ \(.*\)$/, '')}
-          <Icon name="chevron" size={18} />
-        </button>
-        <button type="button" class={filterCount ? 'lib-btn active' : 'lib-btn'} aria-haspopup="dialog" onClick={() => setSheet('filter')}>
-          {filterCount ? `Filter (${filterCount})` : 'Filter'}
-          <Icon name="chevron" size={18} />
-        </button>
-      </div>
+      {desktop ? (
+        <>
+          <h1 class="page-title">Library</h1>
+          <div class="lib-toolbar">
+            {segmented}
+            {bar}
+          </div>
+        </>
+      ) : (
+        <>
+          {segmented}
+          {bar}
+        </>
+      )}
       {filterCount ? (
         <div class="lib-chips">
           {view.unwatched ? (

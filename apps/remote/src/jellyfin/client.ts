@@ -33,6 +33,8 @@ export interface ClientOptions {
 }
 
 const LIST_FIELDS = 'ProductionYear,RunTimeTicks,ChildCount';
+/** The recently added lists also feed the desktop spotlight, which shows a synopsis, rating and genres. */
+const LATEST_FIELDS = `${LIST_FIELDS},Overview,OfficialRating,CommunityRating,Genres`;
 const DETAIL_FIELDS = 'Overview,Genres,OfficialRating,CommunityRating,RunTimeTicks,ChildCount,ProductionYear';
 const IMAGE_QUERY = 'EnableImageTypes=Primary,Backdrop,Thumb&ImageTypeLimit=1&EnableUserData=true';
 const enc = encodeURIComponent;
@@ -152,7 +154,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
       ),
     latest: (userId, type, limit) =>
       items(
-        `${user(userId)}/Items?IncludeItemTypes=${type}&Recursive=true&SortBy=DateCreated&SortOrder=Descending&Limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+        `${user(userId)}/Items?IncludeItemTypes=${type}&Recursive=true&SortBy=DateCreated&SortOrder=Descending&Limit=${limit}&Fields=${LATEST_FIELDS}&${IMAGE_QUERY}`,
       ),
     library: (userId, type, limit, view) =>
       items(
