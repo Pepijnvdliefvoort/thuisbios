@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { PullSpinner } from '../components/PullSpinner';
 import { Row } from '../components/Row';
+import { RowSkeleton } from '../components/Skeleton';
 import { Spotlight } from '../components/Spotlight';
 import { spotlightItems } from '../jellyfin/spotlight';
 import { useDesktop } from '../useDesktop';
@@ -52,7 +53,16 @@ export function Home() {
       <Row title="Recently added movies" items={movies.data || []} shape="poster" />
       <Row title="Recently added shows" items={shows.data || []} shape="poster" />
       <Row title="Movies" items={library.data || []} shape="poster" />
-      {!allDone && all.every((r) => !r.data) ? <p class="hint">Loading...</p> : null}
+      {!allDone && all.every((r) => !r.data) ? (
+        desktop ? (
+          <>
+            <RowSkeleton shape="thumb" />
+            <RowSkeleton shape="poster" />
+          </>
+        ) : (
+          <p class="hint">Loading...</p>
+        )
+      ) : null}
       {allEmpty ? (
         <p class="empty">{all.every((r) => r.error) ? "Couldn't load your library. Check the connection." : 'Nothing here yet.'}</p>
       ) : null}

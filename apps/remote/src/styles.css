@@ -555,7 +555,7 @@ button.rs-row:active { background: var(--surface-2); }
      backdrop-filter on the bar itself would make it the containing block of the TV and Account sheets inside it (position: fixed).
      z-index 35: over the page and the mini player (30), under sheets elsewhere (40) and the toast (50). */
   .topbar {
-    position: absolute; top: 0; left: 0; right: 0; z-index: 35; display: flex; align-items: center; gap: 36px; height: var(--desk-top);
+    position: absolute; top: 0; left: 0; right: var(--sbw, 0px); z-index: 35; display: flex; align-items: center; gap: 36px; height: var(--desk-top);
     padding: 0 var(--edge);
   }
   .topbar::before {
@@ -623,7 +623,6 @@ button.rs-row:active { background: var(--surface-2); }
   .page { max-width: 1600px; margin: 0 auto; padding-top: calc(var(--desk-top) + 8px); }
   .page.home { max-width: none; }
   .page.home.has-hero { padding-top: 0; }
-  .requests { max-width: calc(760px + 2 * var(--gutter)); }
   .page-title { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; padding: 20px var(--gutter) 6px; }
 
   /* Generic controls: hover states */
@@ -814,6 +813,140 @@ button.rs-row:active { background: var(--surface-2); }
   .sheet-backdrop, .sheet, .volume-backdrop.out .volume-sheet { animation-duration: 1ms; }
   .sp-content { animation: none; }
   .sp-slide, .sp-dot::before, .topbar::before, .topbar::after, .topbar-tabs button::after, .row-arrow, .row-arrow .icon, .card-art::after { transition-duration: 1ms; }
+}
+
+/* Desktop polish: sign-in card over a poster wall, loading skeletons, grouped search, request cards, blurred poster hero. */
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  /* Sign in: a centred card over a dimmed, tilted wall of abstract poster tiles (CSS gradients; nothing from the library, since nobody is signed in) */
+  .signin-stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--bg); }
+  .signin-stage::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 70% at 50% 50%, rgba(11, 11, 16, 0.55) 0%, rgba(11, 11, 16, 0.2) 55%, rgba(11, 11, 16, 0) 100%),
+      radial-gradient(ellipse 120% 100% at 50% 50%, rgba(11, 11, 16, 0) 35%, rgba(11, 11, 16, 0.92) 100%),
+      linear-gradient(to bottom, rgba(11, 11, 16, 0.7) 0%, rgba(11, 11, 16, 0) 28%, rgba(11, 11, 16, 0) 72%, rgba(11, 11, 16, 0.7) 100%);
+  }
+  .signin-wall {
+    position: absolute; top: -25%; left: -15%; width: 130%; height: 150%; display: flex; justify-content: center; gap: 18px; opacity: 0.5;
+    transform: rotate(-9deg); pointer-events: none;
+  }
+  .wall-col { flex: none; width: 168px; display: flex; flex-direction: column; gap: 18px; animation: wall-drift 140s ease-in-out infinite alternate; }
+  .wall-col:nth-child(even) { animation-direction: alternate-reverse; animation-duration: 170s; }
+  .wall-tile {
+    position: relative; display: block; flex: none; aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden;
+    background: linear-gradient(155deg, hsl(var(--h) 42% 30%) 0%, hsl(calc(var(--h) + 28) 46% 16%) 100%);
+  }
+  .wall-tile::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 70% 28%, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 55%); }
+  .wall-tile::after { content: ''; position: absolute; left: 12%; right: 30%; bottom: 9%; height: 6%; border-radius: 3px; background: rgba(255, 255, 255, 0.22); box-shadow: 0 -16px 0 -2px rgba(255, 255, 255, 0.1); }
+  .wall-tile.tone-1 { background: linear-gradient(200deg, hsl(var(--h) 36% 24%) 0%, hsl(calc(var(--h) - 24) 40% 12%) 100%); }
+  .wall-tile.tone-2 { background: linear-gradient(120deg, hsl(calc(var(--h) + 40) 38% 22%) 0%, hsl(var(--h) 44% 14%) 100%); }
+  .wall-tile.tone-1::before { background: radial-gradient(circle at 25% 70%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%); }
+  @keyframes wall-drift { from { transform: translateY(0); } to { transform: translateY(-9%); } }
+  .signin {
+    position: relative; z-index: 1; width: 420px; max-width: calc(100% - 48px); height: auto; max-height: calc(100% - 48px); margin: 0; padding: 40px;
+    border-radius: 16px; background: rgba(17, 17, 23, 0.92); border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 40px 120px rgba(0, 0, 0, 0.7), 0 8px 32px rgba(0, 0, 0, 0.5);
+  }
+  .signin::before, .signin::after { display: none; }
+  .signin-logo { text-align: center; font-size: 40px; letter-spacing: 0.3px; }
+  .signin-lead { text-align: center; margin: 6px 0 28px; }
+  .signin-banner { margin: 16px 0 0; background: rgba(255, 255, 255, 0.06); }
+  .signin-banner + .signin-lead { margin-top: 12px; }
+  .signin input[type="text"], .signin input[type="url"], .signin input[type="password"] {
+    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; background: rgba(255, 255, 255, 0.06); transition: border-color 0.16s ease, background-color 0.16s ease;
+  }
+  .signin input:hover { background: rgba(255, 255, 255, 0.09); }
+  .signin input:focus { border-color: rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.09); }
+  .signin .btn { margin-top: 8px; }
+  .signin-link { min-height: 36px; margin-top: 12px; transition: color 0.16s ease; }
+  .signin-link:hover { color: var(--fg); }
+
+  /* Loading skeletons: grey shapes with a highlight that slides across (transform only) */
+  .skel { position: relative; display: block; overflow: hidden; background: rgba(255, 255, 255, 0.07); border-radius: 6px; }
+  .skel::after {
+    content: ''; position: absolute; inset: 0; transform: translateX(-100%); animation: skel-shimmer 1.5s ease-in-out infinite;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.07) 50%, rgba(255, 255, 255, 0) 100%);
+  }
+  @keyframes skel-shimmer { to { transform: translateX(100%); } }
+  .skel-heading { width: 220px; height: 24px; margin: 0 0 18px var(--edge); }
+  .row-skel .row-scroll { overflow: hidden; }
+  .skel-card { flex: none; min-width: 0; }
+  .skel-card-poster { width: 176px; }
+  .skel-card-thumb { width: 304px; }
+  .grid .skel-card { width: auto; }
+  .skel-art { border-radius: 8px; }
+  .skel-poster { aspect-ratio: 2 / 3; }
+  .skel-thumb { aspect-ratio: 16 / 9; }
+  .skel-line { width: 100%; height: 12px; margin-top: 12px; }
+  .skel-line.short { width: 55%; margin-top: 8px; height: 10px; }
+  .skel-line.mid { width: 70%; }
+  .skel-card .skel-line { max-width: 80%; }
+  .skel-card .skel-line.short { max-width: 45%; }
+  .spotlight.loading .skel { background: rgba(255, 255, 255, 0.08); }
+  .spotlight.loading .sp-content { animation: none; display: flex; flex-direction: column; align-items: flex-start; }
+  .skel-eyebrow { width: 110px; height: 12px; }
+  .skel-title { width: min(480px, 70%); height: clamp(40px, 4vw, 56px); margin-top: 14px; border-radius: 8px; }
+  .skel-row { display: flex; gap: 12px; margin-top: 18px; }
+  .skel-chip { width: 52px; height: 16px; }
+  .skel-chip.wide { width: 84px; }
+  .spotlight.loading .skel-line, .details-skel .skel-line { width: min(560px, 100%); height: 14px; margin-top: 14px; }
+  .skel-buttons { margin-top: 28px; }
+  .skel-button { width: 130px; height: 48px; border-radius: 8px; }
+  .skel-button.primary { background: rgba(255, 255, 255, 0.16); }
+  .details-skel .skel { background: rgba(255, 255, 255, 0.08); }
+  .details-skel .skel-line.mid { width: min(380px, 70%); }
+  .details-skel .skel-row:first-of-type { margin-top: 18px; }
+
+  /* Search: results in titled groups, recent searches under the empty box */
+  .search-section { margin-top: 28px; }
+  .search-section + .search-section { margin-top: 36px; }
+  .search-section h2 { display: flex; align-items: baseline; gap: 10px; padding: 0 var(--gutter); font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+  .search-count { color: var(--muted); font-size: 14px; font-weight: 600; letter-spacing: 0; }
+  .search-section .grid { padding-top: 16px; }
+  .grid-thumb { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .recent { padding: 12px var(--gutter) 0; }
+  .recent-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 12px; }
+  .recent-head h2 { font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .recent-clear { color: var(--muted); font-size: 13px; text-decoration: underline; transition: color 0.16s ease; }
+  .recent-clear:hover { color: var(--fg); }
+  .recent-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .recent-chips .lib-chip { min-height: 36px; padding: 0 16px; border-radius: 18px; background: rgba(255, 255, 255, 0.08); font-size: 15px; transition: background-color 0.16s ease; }
+  .recent-chips .lib-chip:hover { background: var(--glass); }
+
+  /* Requests: title with the request button, cards in a grid, tinted status badges */
+  .requests { max-width: 1600px; }
+  .page-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-right: var(--gutter); }
+  .page-head .page-title { padding-right: 0; }
+  .page-head .btn { flex: none; width: auto; height: 44px; min-height: 44px; margin-top: 14px; padding: 0 22px 0 16px; font-size: 15px; }
+  .requests .request-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 18px; padding-top: 20px; }
+  .requests .request-handled .request-list { padding-left: 0; padding-right: 0; }
+  .request { gap: 16px; padding: 16px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--hairline); transition: background-color 0.16s ease; }
+  .request:hover { background: rgba(255, 255, 255, 0.07); }
+  .request .req-poster { width: 76px; height: 114px; border-radius: 8px; background: rgba(255, 255, 255, 0.07); }
+  .request-body { display: flex; flex-direction: column; align-self: stretch; }
+  .request-title { font-size: 17px; }
+  .request-status { font-size: 12px; line-height: 22px; padding: 0 10px; border-radius: 11px; background: rgba(255, 255, 255, 0.08); color: var(--muted); }
+  .request-status.open { background: rgba(245, 166, 35, 0.16); color: #f5b544; }
+  .request-status.added { background: rgba(46, 204, 113, 0.16); color: #4fd88a; }
+  .request-status.dismissed { background: rgba(255, 90, 90, 0.15); color: #ff8080; }
+  .request-meta { margin-top: 4px; }
+  .request-actions { margin-top: auto; padding-top: 12px; gap: 8px; }
+  .req-btn { min-height: 32px; padding: 0 14px; border-radius: 8px; font-size: 13px; background: rgba(255, 255, 255, 0.1); transition: background-color 0.16s ease; }
+  .req-btn:hover:not(:disabled) { background: var(--glass-hover); }
+  .request-skel { min-height: 148px; pointer-events: none; }
+  .request-skel:hover { background: rgba(255, 255, 255, 0.05); }
+  .skel-req-poster { flex: none; width: 76px; height: 114px; border-radius: 8px; }
+  .request-skel .skel-line { width: 70%; margin-top: 4px; }
+  .request-skel .skel-line.short { width: 40%; }
+  .request-skel .skel-button { width: 90px; height: 32px; margin-top: auto; }
+
+  /* Details without a backdrop: a blurred, enlarged, darkened copy of the poster. The span clips the blurred edges. */
+  .hero-blur img { transform: scale(1.35); filter: blur(36px) brightness(0.7) saturate(1.25); object-position: center 30%; }
+}
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  .wall-col { animation: none; }
+  .skel::after { animation: none; display: none; }
+  .signin-link, .signin input, .request, .req-btn, .recent-clear, .recent-chips .lib-chip { transition-duration: 1ms; }
 }
 
 /* Desktop: play button on a poster hover. The card sits in .card-cell; the zone covers the art and lets clicks through except on the button. */
