@@ -626,7 +626,7 @@ export function Player({
         </div>
       ) : (
         <div
-          class={'player-stage' + (rotated ? ' rotated' : '') + (mouse && !controlsUp ? ' idle' : '')}
+          class={'player-stage' + (rotated ? ' rotated' : '') + (mouse ? (controlsUp ? ' up' : ' idle') : '')}
           onMouseMove={mouse ? onMouseMove : undefined}
         >
           <video
@@ -700,6 +700,7 @@ export function Player({
           {intro && (
             <button type="button" class="skip-intro-overlay" onClick={skipIntro}>
               Skip intro
+              {mouse ? <Icon name="next" size={20} /> : null}
             </button>
           )}
           {next && card && card.show && (

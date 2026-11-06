@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { PullSpinner } from '../components/PullSpinner';
 import { Row } from '../components/Row';
+import { Spotlight } from '../components/Spotlight';
+import { spotlightItems } from '../jellyfin/spotlight';
+import { useDesktop } from '../useDesktop';
 import { recentResumes } from '../jellyfin/resume';
 import { useApp } from '../context';
 import { useAsync } from '../useAsync';
@@ -11,6 +14,7 @@ const REFRESH_AFTER_PLAYBACK_MS = 2000;
 
 export function Home() {
   const { client, session, playbackEnded, libraryChanged } = useApp();
+  const desktop = useDesktop();
   const u = session.userId;
   const resume = useAsync(() => client.resume(u, 40).then((items) => recentResumes(items, Date.now())), [client, u]);
   const nextUp = useAsync(() => client.nextUp(u, 12), [client, u]);
@@ -35,9 +39,14 @@ export function Home() {
   const pageRef = useRef<HTMLDivElement>(null);
   const pull = usePullToRefresh(pageRef, () => Promise.all(all.map((r) => r.reload())));
   const allEmpty = allDone && all.every((r) => !r.data || r.data.length === 0);
+  // Desktop only: the spotlight hero sits under the floating top bar, so the page starts at the very top.
+  const slides = desktop ? spotlightItems(movies.data || [], shows.data || []) : [];
+  const spotlightPending = (movies.loading || shows.loading) && slides.length === 0;
+  const hero = slides.length > 0 || spotlightPending;
   return (
-    <div class="page" ref={pageRef}>
+    <div class={desktop ? (hero ? 'page home has-hero' : 'page home') : 'page'} ref={pageRef}>
       <PullSpinner pull={pull} />
+      {desktop ? <Spotlight items={slides} pending={spotlightPending} /> : null}
       <Row title="Resume watching" items={resume.data || []} shape="thumb" />
       <Row title="Next up" items={nextUp.data || []} shape="thumb" />
       <Row title="Recently added movies" items={movies.data || []} shape="poster" />

@@ -11,8 +11,8 @@ import { Img } from './Img';
 export type CardShape = 'poster' | 'thumb';
 
 const SIZES = { poster: [240, 360], thumb: [480, 270] } as const; // 2x of the CSS size
-/** The cards are bigger in a desktop window (about 180 and 320 px wide). */
-const DESKTOP_SIZES = { poster: [360, 540], thumb: [640, 360] } as const;
+/** The cards are bigger in a desktop window (176 and 304 px wide). */
+const DESKTOP_SIZES = { poster: [352, 528], thumb: [608, 342] } as const;
 
 /**
  * Tile with art, optional progress bar and a one- or two-line caption. On a desktop the card sits in a wrapper with
@@ -67,7 +67,7 @@ export function MediaCard({ item, shape }: { item: BaseItem; shape: CardShape })
       {isPlayable(item) ? (
         <span class="card-play-zone">
           <button type="button" class="card-play" aria-label={`Play ${title}`} onClick={() => void play()}>
-            <Icon name="play" size={shape === 'poster' ? 30 : 36} />
+            <Icon name="play" size={shape === 'poster' ? 26 : 30} />
           </button>
         </span>
       ) : null}
