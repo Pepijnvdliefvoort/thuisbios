@@ -192,8 +192,7 @@ connected ("Play on TV" sits next to them). The player has a full-width scrub ba
 Space or K play/pause, Left/Right or J/L -10 s/+10 s, Up/Down volume, M mute, F fullscreen,
 C subtitles on/off and Esc to leave. A click on the picture plays or pauses, a double click toggles
 fullscreen. Hovering a poster shows a play button that starts playback directly (a click elsewhere on the
-card opens the details), and a short intro animation (a stack of poster cards; the front one flips and opens into the app) plays when
-the page loads (click or press a key to skip; it is off with reduced motion). Phones keep their own layout and play a shorter version (tap to skip).
+card opens the details). Phones keep their own layout.
 
 The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
 remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on
