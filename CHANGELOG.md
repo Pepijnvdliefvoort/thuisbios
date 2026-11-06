@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.10.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.9.0...v0.10.0) (2026-11-06)
+
+
+### Features
+
+* **remote:** desktop sign-in, loading skeletons, grouped search and request cards ([#102](https://github.com/Pepijnvdliefvoort/thuisbios/issues/102)) ([5620b14](https://github.com/Pepijnvdliefvoort/thuisbios/commit/5620b143c04f82d37ef1b8bec56ab38c2186bbe2))
+* **remote:** modern desktop redesign with spotlight hero and floating top bar ([be6e987](https://github.com/Pepijnvdliefvoort/thuisbios/commit/be6e9873d157b5371cfa57f5ec4b184abd6952ec))
+* **remote:** modern desktop redesign with spotlight hero and floating top bar ([a5137af](https://github.com/Pepijnvdliefvoort/thuisbios/commit/a5137af9a5c4c5e14fdb354ebe87a9d12a174ed8))
+* **remote:** remove the startup intro animation ([#103](https://github.com/Pepijnvdliefvoort/thuisbios/issues/103)) ([9d688be](https://github.com/Pepijnvdliefvoort/thuisbios/commit/9d688beed12cffe0488a0aaccf3166c2a6512461))
+
 ## [0.9.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.8.0...v0.9.0) (2026-11-03)
 
 
