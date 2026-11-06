@@ -850,53 +850,6 @@ button.rs-row:active { background: var(--surface-2); }
   .card-art, .card-shade, .card-play, .card-cell::before { transition-duration: 1ms; }
 }
 
-/* Startup intro (see components/Intro.tsx): a stack of poster cards flies in as a fan, the front one flips to a card in the app's own background with the
-   red T, the other cards fan out and fade, the front card grows over the whole window (the T fades) and the overlay fades out onto the identical app
-   background. Phone: three cards, 1650 ms. Desktop: five cards in a wider fan, 2120 ms. Keep TOTAL_MS in the component in sync with --fade-at + --fade-ms.
-   Sizes come from custom properties: --w (card width, set from the overlay by the component), --g (cover scale), per card --x --y --r --s (resting pose,
-   in card widths and degrees), --sx --sy --sr (start), --ex --ey --er (fan out), --d (fly-in delay). No vh units (they misbehave in standalone mode on iOS).
-   Only transform and opacity animate. */
-@keyframes ip-in {
-  from { opacity: 0; transform: translate(calc(var(--sx) * var(--w)), calc(var(--sy) * var(--w))) rotate(calc(var(--sr) * 1deg)) scale(var(--s)); }
-  30% { opacity: 1; }
-  to { opacity: 1; transform: translate(calc(var(--x) * var(--w)), calc(var(--y) * var(--w))) rotate(calc(var(--r) * 1deg)) scale(var(--s)); }
-}
-@keyframes ip-out {
-  from { opacity: 1; transform: translate(calc(var(--x) * var(--w)), calc(var(--y) * var(--w))) rotate(calc(var(--r) * 1deg)) scale(var(--s)); }
-  to { opacity: 0; transform: translate(calc(var(--ex) * var(--w)), calc(var(--ey) * var(--w))) rotate(calc(var(--er) * 1deg)) scale(var(--s)); }
-}
-@keyframes ip-flip { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
-@keyframes ip-grow { from { transform: scale(1); } to { transform: scale(var(--g, 14)); } }
-@keyframes ip-t-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.8); } }
-@keyframes ip-fade { from { opacity: 1; } to { opacity: 0; } }
-@keyframes intro-skip { from { opacity: 1; } to { opacity: 0; } }
-
-.intro {
-  position: fixed; inset: 0; z-index: 100; overflow: hidden; background: #15151b; --w: 150px; --rad: 10px;
-  animation: ip-fade var(--fade-ms) ease-out var(--fade-at) both;
-}
-.intro-phone { --in: 560ms; --out-at: 800ms; --out-ms: 400ms; --flip-at: 760ms; --flip-ms: 480ms; --grow-at: 1180ms; --grow-ms: 260ms; --tout-ms: 160ms; --fade-at: 1450ms; --fade-ms: 200ms; }
-.intro-desktop { --rad: 12px; --in: 640ms; --out-at: 960ms; --out-ms: 500ms; --flip-at: 960ms; --flip-ms: 560ms; --grow-at: 1520ms; --grow-ms: 380ms; --tout-ms: 200ms; --fade-at: 1900ms; --fade-ms: 220ms; }
-.intro.intro-skip { animation: intro-skip 150ms ease-out both; }
-.ip-card {
-  position: absolute; left: 50%; top: 50%; width: var(--w); height: calc(var(--w) * 1.5); margin: calc(var(--w) * -0.75) 0 0 calc(var(--w) * -0.5);
-  opacity: 0; will-change: transform, opacity;
-  animation: ip-in var(--in) cubic-bezier(0.34, 1.56, 0.64, 1) var(--d) both;
-}
-.ip-card.ip-out {
-  animation: ip-in var(--in) cubic-bezier(0.34, 1.56, 0.64, 1) var(--d) both, ip-out var(--out-ms) ease-in var(--out-at) forwards;
-}
-.ip-poster { display: block; width: 100%; height: 100%; border-radius: var(--rad); border: 1px solid var(--accent); background: var(--pc); }
-.ip-zoom { display: block; width: 100%; height: 100%; perspective: calc(var(--w) * 6); will-change: transform; animation: ip-grow var(--grow-ms) cubic-bezier(0.55, 0, 0.8, 0.3) var(--grow-at) both; }
-.ip-flip { display: block; position: relative; width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; animation: ip-flip var(--flip-ms) cubic-bezier(0.45, 0, 0.2, 1) var(--flip-at) both; }
-.ip-face { position: absolute; inset: 0; display: block; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-.ip-back { background: var(--bg); border-radius: var(--rad); transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
-.ip-back::after { content: ""; position: absolute; inset: 0; border-radius: var(--rad); border: 1px solid var(--accent); animation: ip-fade 200ms ease-in var(--grow-at) both; }
-.ip-back em {
-  font-style: normal; font-weight: 800; font-size: calc(var(--w) * 0.85); line-height: 1; color: var(--accent); letter-spacing: 0.5px;
-  will-change: transform, opacity; animation: ip-t-out var(--tout-ms) ease-in var(--grow-at) both;
-}
-
 /* Desktop player (a mouse drives it: same gate as the volume and fullscreen buttons in PlayerControls). */
 @media (hover: hover) and (pointer: fine) {
   .player-stage.idle, .player-stage.idle * { cursor: none; }
