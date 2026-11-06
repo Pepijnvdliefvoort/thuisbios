@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon';
 import { PullSpinner } from '../components/PullSpinner';
 import { MediaCard } from '../components/MediaCard';
 import { Grid } from '../components/Row';
+import { GridSkeleton } from '../components/Skeleton';
 import { useApp } from '../context';
 import type { MediaType } from '../jellyfin/client';
 import { activeFilterCount, clearFilters, decadeLabel, SORTS, type LibraryView } from '../jellyfin/libraryQuery';
@@ -104,7 +105,7 @@ export function Library() {
           </button>
         </div>
       ) : null}
-      {items.loading && !items.data ? <p class="hint">Loading...</p> : null}
+      {items.loading && !items.data ? desktop ? <GridSkeleton /> : <p class="hint">Loading...</p> : null}
       {items.error ? <p class="empty">Couldn't load the library. Check the connection.</p> : null}
       {items.data && items.data.length === 0 && filterCount ? (
         <div class="empty lib-empty">

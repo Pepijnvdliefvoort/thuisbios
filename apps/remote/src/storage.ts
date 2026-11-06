@@ -1,6 +1,7 @@
 import { createDeviceId } from './jellyfin/auth';
 import { parseView, type LibraryType, type LibraryView } from './jellyfin/libraryQuery';
 import type { Session } from './jellyfin/types';
+import { parseRecentSearches } from './searchGroups';
 
 const SESSION_KEY = 'thuisbios.remote.session';
 const DEVICE_KEY = 'thuisbios.remote.deviceId';
@@ -119,3 +120,16 @@ export function loadLibraryView(type: LibraryType): LibraryView {
 }
 
 export const saveLibraryView = (type: LibraryType, view: LibraryView): void => write(libraryViewKey(type), JSON.stringify(view));
+
+const RECENT_SEARCHES_KEY = 'thuisbios.remote.recentSearches';
+
+/** The desktop Search page's recent terms, newest first (empty when none or unreadable). */
+export function loadRecentSearches(): string[] {
+  try {
+    return parseRecentSearches(JSON.parse(read(RECENT_SEARCHES_KEY) || 'null'));
+  } catch (e) {
+    return [];
+  }
+}
+
+export const saveRecentSearches = (terms: string[]): void => write(RECENT_SEARCHES_KEY, terms.length > 0 ? JSON.stringify(terms) : null);

@@ -6,6 +6,7 @@ import { findPlayTarget, resumeTicks } from '../jellyfin/playTarget';
 import type { BaseItem } from '../jellyfin/types';
 import { Icon } from './Icon';
 import { Img } from './Img';
+import { Skeleton } from './Skeleton';
 
 /** Time a slide stays before the next one fades in. */
 const SLIDE_MS = 8000;
@@ -42,7 +43,27 @@ export function Spotlight({ items, pending }: { items: BaseItem[]; pending: bool
     return () => clearTimeout(timer);
   }, [index, count, hovered, away]);
 
-  if (count === 0) return pending ? <div class="spotlight loading" aria-hidden="true" /> : null;
+  if (count === 0) {
+    return pending ? (
+      <div class="spotlight loading" role="status" aria-label="Loading">
+        <div class="sp-content">
+          <Skeleton class="skel-eyebrow" />
+          <Skeleton class="skel-title" />
+          <div class="skel-row">
+            <Skeleton class="skel-chip" />
+            <Skeleton class="skel-chip" />
+            <Skeleton class="skel-chip wide" />
+          </div>
+          <Skeleton class="skel-line" />
+          <Skeleton class="skel-line mid" />
+          <div class="skel-row skel-buttons">
+            <Skeleton class="skel-button primary" />
+            <Skeleton class="skel-button" />
+          </div>
+        </div>
+      </div>
+    ) : null;
+  }
   const current = items[index % count];
   const isShow = current.Type === 'Series';
   const meta = [formatRuntime(current.RunTimeTicks), current.Genres ? current.Genres.slice(0, 2).join(', ') : ''].filter(Boolean);

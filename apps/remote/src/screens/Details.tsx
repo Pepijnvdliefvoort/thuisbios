@@ -2,8 +2,9 @@ import { useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { PullSpinner } from '../components/PullSpinner';
 import { Img } from '../components/Img';
+import { Skeleton } from '../components/Skeleton';
 import { useApp } from '../context';
-import { artUrl } from '../jellyfin/art';
+import { artFor, artUrl } from '../jellyfin/art';
 import { findPlayTarget, resumeTicks } from '../jellyfin/playTarget';
 import { chooseSeasonId } from '../jellyfin/seasons';
 import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from '../jellyfin/format';
@@ -38,6 +39,7 @@ export function Details({ id, onBack }: { id: string; onBack: () => void }) {
   const pageRef = useRef<HTMLDivElement>(null);
   const refresh = () => Promise.all([item.reload(), ...Array.from(reloaders.current, (reload) => reload())]);
   const pull = usePullToRefresh(pageRef, refresh);
+  const desktop = useDesktop();
   return (
     <div class="details" ref={pageRef}>
       <PullSpinner pull={pull} />
@@ -45,8 +47,32 @@ export function Details({ id, onBack }: { id: string; onBack: () => void }) {
         <Icon name="back" />
       </button>
       {item.data ? <DetailsBody item={item.data} reloaders={reloaders} refresh={refresh} /> : null}
-      {item.loading && !item.data ? <p class="hint pad-top">Loading...</p> : null}
+      {item.loading && !item.data ? desktop ? <DetailsSkeleton /> : <p class="hint pad-top">Loading...</p> : null}
       {item.error ? <p class="empty pad-top">Couldn't load this item.</p> : null}
+    </div>
+  );
+}
+
+/** Desktop placeholder for the cinematic header while the item loads. */
+function DetailsSkeleton() {
+  return (
+    <div class="details-hero details-skel" role="status" aria-label="Loading">
+      <div class="hero-fade" />
+      <div class="details-hero-body">
+        <Skeleton class="skel-title" />
+        <div class="skel-row">
+          <Skeleton class="skel-chip" />
+          <Skeleton class="skel-chip" />
+          <Skeleton class="skel-chip wide" />
+        </div>
+        <Skeleton class="skel-line" />
+        <Skeleton class="skel-line mid" />
+        <div class="skel-row skel-buttons">
+          <Skeleton class="skel-button primary" />
+          <Skeleton class="skel-button" />
+          <Skeleton class="skel-button" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -183,7 +209,12 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
     return (
       <>
         <div class="details-hero">
-          <Img class="hero-img" src={artUrl(client.serverUrl, item, 'backdrop', backdropW, backdropH)} />
+          {artFor(item, 'backdrop') ? (
+            <Img class="hero-img" src={artUrl(client.serverUrl, item, 'backdrop', backdropW, backdropH)} />
+          ) : (
+            // No backdrop art: a blurred, enlarged copy of the poster instead of a flat surface.
+            <Img class="hero-img hero-blur" src={artUrl(client.serverUrl, item, 'poster', 480, 720)} />
+          )}
           <div class="hero-fade" />
           <div class="details-hero-body">
             {eyebrow}

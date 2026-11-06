@@ -5,6 +5,28 @@ import { authenticateByName } from '../jellyfin/client';
 import { describeSignInError, isServerAddressError } from '../jellyfin/errors';
 import type { Session } from '../jellyfin/types';
 import { loadServerUrl, saveServerUrl } from '../storage';
+import { useDesktop } from '../useDesktop';
+
+/** Desktop backdrop: columns of abstract poster tiles. Hue, column offset and tile heights come from a fixed pattern, so it never changes between renders. */
+const WALL_HUES = [350, 262, 215, 28, 335, 190, 12, 285, 232, 45];
+const WALL_COLUMNS = Array.from({ length: 14 }, (_, c) => ({
+  offset: (c * 97) % 230,
+  tiles: Array.from({ length: 9 }, (_, t) => ({ hue: WALL_HUES[(c * 3 + t * 7 + ((c * t) % 4)) % WALL_HUES.length], tone: (c + t * 2) % 3 })),
+}));
+
+function Wall() {
+  return (
+    <div class="signin-wall" aria-hidden="true">
+      {WALL_COLUMNS.map((col, c) => (
+        <div key={c} class="wall-col" style={{ marginTop: `-${col.offset}px` }}>
+          {col.tiles.map((tile, t) => (
+            <span key={t} class={`wall-tile tone-${tile.tone}`} style={{ '--h': String(tile.hue) }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function SignIn({
   onSignedIn,
@@ -23,6 +45,7 @@ export function SignIn({
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const desktop = useDesktop();
 
   const submit = async (event: Event) => {
     event.preventDefault();
@@ -44,7 +67,7 @@ export function SignIn({
     }
   };
 
-  return (
+  const page = (
     <main class="signin">
       <div class="signin-logo">Thuisbios</div>
       {connecting ? (
@@ -108,5 +131,14 @@ export function SignIn({
         </button>
       )}
     </main>
+  );
+  // Desktop: the same page as a card over a drifting wall of poster tiles.
+  return desktop ? (
+    <div class="signin-stage">
+      <Wall />
+      {page}
+    </div>
+  ) : (
+    page
   );
 }
