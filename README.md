@@ -188,7 +188,7 @@ The app also works in a desktop browser (a wide window with a mouse). The tabs m
 (see-through at the top of a page, solid once it scrolls), Home opens with a full-width spotlight of recently added
 titles, the details page is a full-width backdrop with the title and buttons on it, rows run edge to edge with side
 arrow panels, and Play and Resume use the app's own player on that computer even when a TV is
-connected ("Play on TV" sits next to them). The player has volume and fullscreen buttons and these keys:
+connected ("Play on TV" sits next to them). The player has a full-width scrub bar (hover shows the time above it) over one row of controls (play, -10 s/+10 s, volume with a slider that opens on hover, time, the audio and subtitles menu, fullscreen), a Skip intro pill above the bar, and these keys:
 Space or K play/pause, Left/Right or J/L -10 s/+10 s, Up/Down volume, M mute, F fullscreen,
 C subtitles on/off and Esc to leave. A click on the picture plays or pauses, a double click toggles
 fullscreen. Hovering a poster shows a play button that starts playback directly (a click elsewhere on the

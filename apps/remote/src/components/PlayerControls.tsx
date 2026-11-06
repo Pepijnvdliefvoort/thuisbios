@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { AudioTrack } from '../jellyfin/audio';
 import { formatClock } from '../jellyfin/format';
 import type { SubtitleTrack } from '../jellyfin/subtitles';
@@ -56,7 +56,20 @@ export function PlayerControls(p: Props) {
   const [preview, setPreview] = useState<number | null>(null);
   // Mouse: the fraction of the bar under the pointer, for the time tooltip.
   const [hover, setHover] = useState<number | null>(null);
+  // Mouse: a brief play icon in the middle when playback resumes.
+  const [pulse, setPulse] = useState(false);
+  const wasPaused = useRef(p.paused);
   const d = p.desktop;
+
+  useEffect(() => {
+    if (!d) return;
+    const resumed = wasPaused.current && !p.paused;
+    wasPaused.current = p.paused;
+    if (!resumed) return;
+    setPulse(true);
+    const t = window.setTimeout(() => setPulse(false), 600);
+    return () => window.clearTimeout(t);
+  }, [p.paused, !!d]);
 
   const total = p.duration > 0 ? p.duration : 0;
   const shown = preview !== null ? preview : p.position;
@@ -120,6 +133,144 @@ export function PlayerControls(p: Props) {
   };
   const showAudio = p.audioTracks.length >= 2;
 
+  const panelEl = panel ? (
+    <div class="pc-panel" role="menu" aria-label={showAudio ? 'Audio and subtitles' : 'Subtitles'}>
+      {showAudio ? (
+        <>
+          <p class="pc-panel-h">Audio</p>
+          {p.audioTracks.map((t) => (
+            <button key={t.index} type="button" role="menuitemradio" aria-checked={p.audioSelected === t.index} onClick={() => pickAudio(t.index)}>
+              <span class="pc-check">{p.audioSelected === t.index ? <Icon name="check" size={20} /> : null}</span>
+              {t.label}
+            </button>
+          ))}
+          <p class="pc-panel-h">Subtitles</p>
+        </>
+      ) : null}
+      <button type="button" role="menuitemradio" aria-checked={p.selected < 0} onClick={() => pick(-1)}>
+        <span class="pc-check">{p.selected < 0 ? <Icon name="check" size={20} /> : null}</span>Off
+      </button>
+      {p.tracks.map((t, i) => (
+        <button key={t.index} type="button" role="menuitemradio" aria-checked={p.selected === i} onClick={() => pick(i)}>
+          <span class="pc-check">{p.selected === i ? <Icon name="check" size={20} /> : null}</span>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  if (d) {
+    const tipFrac = tipAt === null ? null : Math.max(0, Math.min(1, tipAt));
+    return (
+      <div
+        class={'pc pc-desk' + (p.visible ? ' show' : '') + (p.buffering ? ' buffering' : '') + (p.paused ? ' paused' : '')}
+        onPointerDown={p.onInteract}
+      >
+        {panel ? <div class="pc-backdrop" onClick={togglePanel} /> : null}
+        <div class="pc-top">
+          <button type="button" class="pc-btn pc-back" onClick={p.onBack} aria-label="Back">
+            <Icon name="back" size={26} />
+          </button>
+          <div class="pc-title">
+            {p.eyebrow ? <p class="pc-eyebrow">{p.eyebrow}</p> : null}
+            <h1>{p.title}</h1>
+          </div>
+        </div>
+
+        <div class={'pc-bigplay' + (p.paused ? ' on' : pulse ? ' pulse' : '')} aria-hidden="true">
+          <Icon name="play" size={44} />
+        </div>
+
+        <div class="pc-bottom">
+          <div
+            class={'pc-scrub' + (preview !== null ? ' dragging' : '')}
+            role="slider"
+            aria-label="Position"
+            aria-valuemin={0}
+            aria-valuemax={Math.round(total)}
+            aria-valuenow={Math.round(shown)}
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerCancel={onCancel}
+            onPointerLeave={() => setHover(null)}
+          >
+            <div class="pc-track">
+              <i class="pc-buffered" style={{ width: pct(p.buffered) }} />
+              <i class="pc-played" style={{ width: pct(shown) }} />
+            </div>
+            <i class="pc-thumb" style={{ left: pct(shown) }} />
+            {tipFrac !== null && total > 0 ? (
+              <span class="pc-tip" style={{ left: `${tipFrac * 100}%` }}>
+                {formatClock(tipFrac * total)}
+              </span>
+            ) : null}
+          </div>
+          <div class="pc-row">
+            <div class="pc-group">
+              <button type="button" class="pc-btn" onClick={p.onTogglePlay} aria-label={p.paused ? 'Play' : 'Pause'}>
+                <Icon name={p.paused ? 'play' : 'pause'} size={28} />
+              </button>
+              <button type="button" class="pc-btn" onClick={() => p.onSkip(-10)} aria-label="Back 10 seconds">
+                <Icon name="rewind10" size={26} />
+              </button>
+              <button type="button" class="pc-btn" onClick={() => p.onSkip(10)} aria-label="Forward 10 seconds">
+                <Icon name="forward10" size={26} />
+              </button>
+              <div class="pc-vol">
+                <button type="button" class="pc-btn" onClick={d.onToggleMute} aria-label={d.muted ? 'Unmute' : 'Mute'}>
+                  <Icon name={d.muted || d.volume === 0 ? 'volumeMute' : d.volume < 0.4 ? 'volumeDown' : 'volumeUp'} size={26} />
+                </button>
+                <input
+                  type="range"
+                  class="pc-vol-slider"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={d.muted ? 0 : Math.round(d.volume * 100)}
+                  style={{ '--fill': `${d.muted ? 0 : Math.round(d.volume * 100)}%` }}
+                  aria-label="Volume"
+                  onInput={(e) => d.onVolume(Number((e.target as HTMLInputElement).value) / 100)}
+                />
+              </div>
+              <span class="pc-time">
+                {formatClock(shown)}
+                {total > 0 ? <span class="pc-time-total"> / {formatClock(total)}</span> : null}
+              </span>
+            </div>
+            <div class="pc-group">
+              <div class="pc-menu">
+                {panelEl}
+                <button
+                  type="button"
+                  class={'pc-btn pc-cc' + (p.selected >= 0 ? ' on' : '')}
+                  onClick={togglePanel}
+                  aria-label={showAudio ? 'Audio and subtitles' : 'Subtitles'}
+                  aria-expanded={panel}
+                  aria-haspopup="menu"
+                >
+                  <Icon name="bubble" size={26} />
+                </button>
+              </div>
+              {d.canFullscreen ? (
+                <button type="button" class="pc-btn" onClick={d.onToggleFullscreen} aria-label={d.fullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
+                  <Icon name={d.fullscreen ? 'exitFullscreen' : 'fullscreen'} size={26} />
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {p.buffering ? (
+          <div class="pc-loading" role="status">
+            <span class="pc-spinner" />
+            <span>Loading...</span>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div class={'pc' + (p.visible ? ' show' : '') + (p.buffering ? ' buffering' : '')} onPointerDown={p.onInteract}>
       {panel ? <div class="pc-backdrop" onClick={togglePanel} /> : null}
@@ -146,37 +297,8 @@ export function PlayerControls(p: Props) {
       </div>
 
       <div class="pc-bottom">
-        {panel ? (
-          <div class="pc-panel" role="menu" aria-label={showAudio ? 'Audio and subtitles' : 'Subtitles'}>
-            {showAudio ? (
-              <>
-                <p class="pc-panel-h">Audio</p>
-                {p.audioTracks.map((t) => (
-                  <button key={t.index} type="button" role="menuitemradio" aria-checked={p.audioSelected === t.index} onClick={() => pickAudio(t.index)}>
-                    <span class="pc-check">{p.audioSelected === t.index ? <Icon name="check" size={20} /> : null}</span>
-                    {t.label}
-                  </button>
-                ))}
-                <p class="pc-panel-h">Subtitles</p>
-              </>
-            ) : null}
-            <button type="button" role="menuitemradio" aria-checked={p.selected < 0} onClick={() => pick(-1)}>
-              <span class="pc-check">{p.selected < 0 ? <Icon name="check" size={20} /> : null}</span>Off
-            </button>
-            {p.tracks.map((t, i) => (
-              <button key={t.index} type="button" role="menuitemradio" aria-checked={p.selected === i} onClick={() => pick(i)}>
-                <span class="pc-check">{p.selected === i ? <Icon name="check" size={20} /> : null}</span>
-                {t.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        {panelEl}
         <div class="pc-row">
-          {d ? (
-            <button type="button" class="pc-btn pc-small" onClick={p.onTogglePlay} aria-label={p.paused ? 'Play' : 'Pause'}>
-              <Icon name={p.paused ? 'play' : 'pause'} size={28} />
-            </button>
-          ) : null}
           <span class="pc-time">{formatClock(shown)}</span>
           <div
             class={'pc-scrub' + (preview !== null ? ' dragging' : '')}
@@ -189,38 +311,14 @@ export function PlayerControls(p: Props) {
             onPointerMove={onMove}
             onPointerUp={onUp}
             onPointerCancel={onCancel}
-            onPointerLeave={d ? () => setHover(null) : undefined}
           >
             <div class="pc-track">
               <i class="pc-buffered" style={{ width: pct(p.buffered) }} />
               <i class="pc-played" style={{ width: pct(shown) }} />
             </div>
             <i class="pc-thumb" style={{ left: pct(shown) }} />
-            {d && tipAt !== null && total > 0 ? (
-              <span class="pc-tip" style={{ left: `${Math.max(0, Math.min(1, tipAt)) * 100}%` }}>
-                {formatClock(Math.max(0, Math.min(1, tipAt)) * total)}
-              </span>
-            ) : null}
           </div>
           <span class="pc-time">{total > 0 ? `-${formatClock(total - shown)}` : ''}</span>
-          {d ? (
-            <div class="pc-vol">
-              <button type="button" class="pc-btn pc-small" onClick={d.onToggleMute} aria-label={d.muted ? 'Unmute' : 'Mute'}>
-                <Icon name={d.muted || d.volume === 0 ? 'volumeMute' : d.volume < 0.4 ? 'volumeDown' : 'volumeUp'} size={26} />
-              </button>
-              <input
-                type="range"
-                class="pc-vol-slider"
-                min={0}
-                max={100}
-                step={1}
-                value={d.muted ? 0 : Math.round(d.volume * 100)}
-                style={{ '--fill': `${d.muted ? 0 : Math.round(d.volume * 100)}%` }}
-                aria-label="Volume"
-                onInput={(e) => d.onVolume(Number((e.target as HTMLInputElement).value) / 100)}
-              />
-            </div>
-          ) : null}
           <button
             type="button"
             class={'pc-btn pc-cc' + (p.selected >= 0 ? ' on' : '')}
@@ -230,11 +328,6 @@ export function PlayerControls(p: Props) {
           >
             <Icon name="captions" />
           </button>
-          {d && d.canFullscreen ? (
-            <button type="button" class="pc-btn pc-small" onClick={d.onToggleFullscreen} aria-label={d.fullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
-              <Icon name={d.fullscreen ? 'exitFullscreen' : 'fullscreen'} size={26} />
-            </button>
-          ) : null}
         </div>
       </div>
 
