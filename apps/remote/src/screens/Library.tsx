@@ -4,11 +4,13 @@ import { Icon } from '../components/Icon';
 import { PullSpinner } from '../components/PullSpinner';
 import { MediaCard } from '../components/MediaCard';
 import { Grid } from '../components/Row';
+import { GridSkeleton } from '../components/Skeleton';
 import { useApp } from '../context';
 import type { MediaType } from '../jellyfin/client';
 import { activeFilterCount, clearFilters, decadeLabel, SORTS, type LibraryView } from '../jellyfin/libraryQuery';
 import { loadLibraryView, saveLibraryView } from '../storage';
 import { useAsync } from '../useAsync';
+import { useDesktop } from '../useDesktop';
 import { usePullToRefresh } from '../usePullToRefresh';
 
 export function Library() {
@@ -33,35 +35,54 @@ export function Library() {
     [client, session.userId, type, viewKey],
   );
   const genres = useAsync(() => client.genres(session.userId, type).catch(() => [] as string[]), [client, session.userId, type]);
+  const desktop = useDesktop();
   const pageRef = useRef<HTMLDivElement>(null);
   const pull = usePullToRefresh(pageRef, () => items.reload());
+  const segmented = (
+    <div class="segmented" role="tablist">
+      {(['Movie', 'Series'] as const).map((t) => (
+        <button
+          key={t}
+          type="button"
+          role="tab"
+          aria-selected={t === type}
+          class={t === type ? 'active' : ''}
+          onClick={() => setType(t)}
+        >
+          {t === 'Movie' ? 'Movies' : 'Shows'}
+        </button>
+      ))}
+    </div>
+  );
+  const bar = (
+    <div class="lib-bar">
+      <button type="button" class="lib-btn" aria-haspopup="dialog" onClick={() => setSheet('sort')}>
+        Sort: {SORTS[view.sort].label.replace(/ \(.*\)$/, '')}
+        <Icon name="chevron" size={18} />
+      </button>
+      <button type="button" class={filterCount ? 'lib-btn active' : 'lib-btn'} aria-haspopup="dialog" onClick={() => setSheet('filter')}>
+        {filterCount ? `Filter (${filterCount})` : 'Filter'}
+        <Icon name="chevron" size={18} />
+      </button>
+    </div>
+  );
   return (
     <div class="page" ref={pageRef}>
       <PullSpinner pull={pull} />
-      <div class="segmented" role="tablist">
-        {(['Movie', 'Series'] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={t === type}
-            class={t === type ? 'active' : ''}
-            onClick={() => setType(t)}
-          >
-            {t === 'Movie' ? 'Movies' : 'Shows'}
-          </button>
-        ))}
-      </div>
-      <div class="lib-bar">
-        <button type="button" class="lib-btn" aria-haspopup="dialog" onClick={() => setSheet('sort')}>
-          Sort: {SORTS[view.sort].label.replace(/ \(.*\)$/, '')}
-          <Icon name="chevron" size={18} />
-        </button>
-        <button type="button" class={filterCount ? 'lib-btn active' : 'lib-btn'} aria-haspopup="dialog" onClick={() => setSheet('filter')}>
-          {filterCount ? `Filter (${filterCount})` : 'Filter'}
-          <Icon name="chevron" size={18} />
-        </button>
-      </div>
+      {desktop ? (
+        <>
+          <h1 class="page-title">Library</h1>
+          <div class="lib-toolbar">
+            {segmented}
+            {bar}
+          </div>
+        </>
+      ) : (
+        <>
+          {segmented}
+          {bar}
+        </>
+      )}
       {filterCount ? (
         <div class="lib-chips">
           {view.unwatched ? (
@@ -84,7 +105,7 @@ export function Library() {
           </button>
         </div>
       ) : null}
-      {items.loading && !items.data ? <p class="hint">Loading...</p> : null}
+      {items.loading && !items.data ? desktop ? <GridSkeleton /> : <p class="hint">Loading...</p> : null}
       {items.error ? <p class="empty">Couldn't load the library. Check the connection.</p> : null}
       {items.data && items.data.length === 0 && filterCount ? (
         <div class="empty lib-empty">

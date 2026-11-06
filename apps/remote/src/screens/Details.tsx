@@ -2,8 +2,9 @@ import { useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { PullSpinner } from '../components/PullSpinner';
 import { Img } from '../components/Img';
+import { Skeleton } from '../components/Skeleton';
 import { useApp } from '../context';
-import { artUrl } from '../jellyfin/art';
+import { artFor, artUrl } from '../jellyfin/art';
 import { findPlayTarget, resumeTicks } from '../jellyfin/playTarget';
 import { chooseSeasonId } from '../jellyfin/seasons';
 import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from '../jellyfin/format';
@@ -38,6 +39,7 @@ export function Details({ id, onBack }: { id: string; onBack: () => void }) {
   const pageRef = useRef<HTMLDivElement>(null);
   const refresh = () => Promise.all([item.reload(), ...Array.from(reloaders.current, (reload) => reload())]);
   const pull = usePullToRefresh(pageRef, refresh);
+  const desktop = useDesktop();
   return (
     <div class="details" ref={pageRef}>
       <PullSpinner pull={pull} />
@@ -45,8 +47,32 @@ export function Details({ id, onBack }: { id: string; onBack: () => void }) {
         <Icon name="back" />
       </button>
       {item.data ? <DetailsBody item={item.data} reloaders={reloaders} refresh={refresh} /> : null}
-      {item.loading && !item.data ? <p class="hint pad-top">Loading...</p> : null}
+      {item.loading && !item.data ? desktop ? <DetailsSkeleton /> : <p class="hint pad-top">Loading...</p> : null}
       {item.error ? <p class="empty pad-top">Couldn't load this item.</p> : null}
+    </div>
+  );
+}
+
+/** Desktop placeholder for the cinematic header while the item loads. */
+function DetailsSkeleton() {
+  return (
+    <div class="details-hero details-skel" role="status" aria-label="Loading">
+      <div class="hero-fade" />
+      <div class="details-hero-body">
+        <Skeleton class="skel-title" />
+        <div class="skel-row">
+          <Skeleton class="skel-chip" />
+          <Skeleton class="skel-chip" />
+          <Skeleton class="skel-chip wide" />
+        </div>
+        <Skeleton class="skel-line" />
+        <Skeleton class="skel-line mid" />
+        <div class="skel-row skel-buttons">
+          <Skeleton class="skel-button primary" />
+          <Skeleton class="skel-button" />
+          <Skeleton class="skel-button" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -101,6 +127,119 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
     item.CommunityRating ? `★ ${item.CommunityRating.toFixed(1)}` : '',
   ].filter(Boolean);
 
+  const eyebrow =
+    isEpisode && item.SeriesName ? (
+      item.SeriesId ? (
+        <button type="button" class="eyebrow eyebrow-link" onClick={() => openItem(item.SeriesId as string)}>
+          {item.SeriesName} <span aria-hidden="true">›</span>
+        </button>
+      ) : (
+        <p class="eyebrow">{item.SeriesName}</p>
+      )
+    ) : null;
+  const actions = (
+    <div class="actions">
+      {isSeries && playItem ? (
+        <p class="next-ep">
+          Next episode: {episodeLabel(playItem)} {playItem.Name}
+        </p>
+      ) : null}
+      {resume > 0 && playItem ? (
+        <>
+          <button type="button" class="btn primary" disabled={disabled} onClick={() => start(playItem, resume)}>
+            <Icon name="play" /> {here ? 'Resume' : 'Resume on TV'} ({formatTicksClock(resume)})
+          </button>
+          <button type="button" class="btn secondary" disabled={disabled} onClick={() => start(playItem, 0)}>
+            <Icon name="restart" size={20} /> Play from start
+          </button>
+        </>
+      ) : (
+        <button type="button" class="btn primary" disabled={disabled} onClick={() => playItem && start(playItem, 0)}>
+          <Icon name="play" /> {(isSeries ? 'Play next episode' : 'Play') + (here ? '' : ' on TV')}
+        </button>
+      )}
+      {desktop && !noTv ? (
+        <button type="button" class="btn secondary" disabled={disabled} onClick={() => playItem && void send(tv.play(playItem, resume))}>
+          <Icon name="tv" size={20} /> {resume > 0 ? 'Resume on TV' : 'Play on TV'}
+        </button>
+      ) : null}
+      <div class="action-row">
+        <button type="button" class="btn secondary" disabled={noTv} onClick={() => void send(tv.show(item))}>
+          <Icon name="eye" size={20} /> Show on TV
+        </button>
+        <button
+          type="button"
+          class={watched ? 'btn secondary is-watched' : 'btn secondary'}
+          aria-pressed={watched}
+          title={watched ? 'Tap to mark unwatched' : undefined}
+          onClick={() => void toggleWatched()}
+        >
+          <Icon name={watched ? 'watched' : 'unwatched'} size={20} /> {toggle.label}
+        </button>
+      </div>
+      {noTv && !desktop ? <p class="hint small">No TV connected, so this plays on your phone.</p> : null}
+    </div>
+  );
+  const overview = item.Overview ? <p class="overview">{item.Overview}</p> : null;
+  const genres = item.Genres && item.Genres.length > 0 ? <p class="genres">{item.Genres.join(' · ')}</p> : null;
+  const episodes = isSeries ? (
+    <Episodes
+      seriesId={item.Id}
+      initialSeasonId={playItem ? playItem.SeasonId : undefined}
+      currentEpisodeId={playItem ? playItem.Id : undefined}
+      onOpen={openItem}
+      reloaders={reloaders}
+      refresh={refresh}
+    />
+  ) : isEpisode && item.SeriesId ? (
+    <Episodes
+      seriesId={item.SeriesId}
+      initialSeasonId={item.SeasonId}
+      currentEpisodeId={item.Id}
+      onEpisodePage
+      onOpen={openItem}
+      reloaders={reloaders}
+      refresh={refresh}
+    />
+  ) : null;
+
+  // Desktop: a cinematic header. The backdrop fills the top of the page (under the top bar) and the text and buttons sit
+  // on it, bottom left; the poster is left out because the backdrop already carries the art.
+  if (desktop) {
+    return (
+      <>
+        <div class="details-hero">
+          {artFor(item, 'backdrop') ? (
+            <Img class="hero-img" src={artUrl(client.serverUrl, item, 'backdrop', backdropW, backdropH)} />
+          ) : (
+            // No backdrop art: a blurred, enlarged copy of the poster instead of a flat surface.
+            <Img class="hero-img hero-blur" src={artUrl(client.serverUrl, item, 'poster', 480, 720)} />
+          )}
+          <div class="hero-fade" />
+          <div class="details-hero-body">
+            {eyebrow}
+            <h1>{item.Name}</h1>
+            <p class="meta meta-badges">
+              {meta.map((m) =>
+                m === item.OfficialRating ? (
+                  <span key={m} class="rating-badge">
+                    {m}
+                  </span>
+                ) : (
+                  <span key={m}>{m}</span>
+                ),
+              )}
+            </p>
+            {overview}
+            {genres}
+            {actions}
+          </div>
+        </div>
+        <div class="details-content">{episodes}</div>
+      </>
+    );
+  }
+
   return (
     <>
       <div class="hero">
@@ -110,89 +249,18 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
       <div class="details-content">
         <div class="details-head">
           <div class="details-main">
-            <Img class="poster" src={artUrl(client.serverUrl, item, 'poster', desktop ? 400 : 240, desktop ? 600 : 360)} />
+            <Img class="poster" src={artUrl(client.serverUrl, item, 'poster', 240, 360)} />
             <div class="details-text">
-              {isEpisode && item.SeriesName ? (
-                item.SeriesId ? (
-                  <button type="button" class="eyebrow eyebrow-link" onClick={() => openItem(item.SeriesId as string)}>
-                    {item.SeriesName} <span aria-hidden="true">›</span>
-                  </button>
-                ) : (
-                  <p class="eyebrow">{item.SeriesName}</p>
-                )
-              ) : null}
+              {eyebrow}
               <h1>{item.Name}</h1>
               <p class="meta">{meta.join('  ·  ')}</p>
             </div>
           </div>
-
-          <div class="actions">
-            {isSeries && playItem ? (
-              <p class="next-ep">
-                Next episode: {episodeLabel(playItem)} {playItem.Name}
-              </p>
-            ) : null}
-            {resume > 0 && playItem ? (
-              <>
-                <button type="button" class="btn primary" disabled={disabled} onClick={() => start(playItem, resume)}>
-                  <Icon name="play" /> {here ? 'Resume' : 'Resume on TV'} ({formatTicksClock(resume)})
-                </button>
-                <button type="button" class="btn secondary" disabled={disabled} onClick={() => start(playItem, 0)}>
-                  <Icon name="restart" size={20} /> Play from start
-                </button>
-              </>
-            ) : (
-              <button type="button" class="btn primary" disabled={disabled} onClick={() => playItem && start(playItem, 0)}>
-                <Icon name="play" /> {(isSeries ? 'Play next episode' : 'Play') + (here ? '' : ' on TV')}
-              </button>
-            )}
-            {desktop && !noTv ? (
-              <button type="button" class="btn secondary" disabled={disabled} onClick={() => playItem && void send(tv.play(playItem, resume))}>
-                <Icon name="tv" size={20} /> {resume > 0 ? 'Resume on TV' : 'Play on TV'}
-              </button>
-            ) : null}
-            <div class="action-row">
-              <button type="button" class="btn secondary" disabled={noTv} onClick={() => void send(tv.show(item))}>
-                <Icon name="eye" size={20} /> Show on TV
-              </button>
-              <button
-                type="button"
-                class={watched ? 'btn secondary is-watched' : 'btn secondary'}
-                aria-pressed={watched}
-                title={watched ? 'Tap to mark unwatched' : undefined}
-                onClick={() => void toggleWatched()}
-              >
-                <Icon name={watched ? 'watched' : 'unwatched'} size={20} /> {toggle.label}
-              </button>
-            </div>
-            {noTv && !desktop ? <p class="hint small">No TV connected, so this plays on your phone.</p> : null}
-          </div>
+          {actions}
         </div>
-
-        {item.Overview ? <p class="overview">{item.Overview}</p> : null}
-        {item.Genres && item.Genres.length > 0 ? <p class="genres">{item.Genres.join(' · ')}</p> : null}
-
-        {isSeries ? (
-          <Episodes
-            seriesId={item.Id}
-            initialSeasonId={playItem ? playItem.SeasonId : undefined}
-            currentEpisodeId={playItem ? playItem.Id : undefined}
-            onOpen={openItem}
-            reloaders={reloaders}
-            refresh={refresh}
-          />
-        ) : null}
-        {isEpisode && item.SeriesId ? (
-          <Episodes
-            seriesId={item.SeriesId}
-            initialSeasonId={item.SeasonId}
-            currentEpisodeId={item.Id}
-            onEpisodePage
-            onOpen={openItem}
-            reloaders={reloaders}
-            refresh={refresh}
-          />
-        ) : null}
+        {overview}
+        {genres}
+        {episodes}
       </div>
     </>
   );
@@ -299,6 +367,7 @@ function Episodes({
                     {current ? (onEpisodePage ? 'Now viewing · ' : 'Up next · ') : ''}
                     {formatRuntime(ep.RunTimeTicks)}
                   </span>
+                  {desktop && ep.Overview ? <span class="ep-overview">{ep.Overview}</span> : null}
                 </span>
               </button>
               <button

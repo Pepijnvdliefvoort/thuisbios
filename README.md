@@ -184,14 +184,17 @@ section: picking one asks the server for that track (a remux or transcode, becau
 switch audio inside a file) and continues from the same spot. The app remembers the audio language
 you picked and uses it the next time when the item has that language.
 
-The app also works in a desktop browser (a wide window with a mouse). The tabs move to a top bar,
-rows get arrow buttons, and Play and Resume use the app's own player on that computer even when a TV is
-connected ("Play on TV" sits next to them). The player has volume and fullscreen buttons and these keys:
+The app also works in a desktop browser (a wide window with a mouse). The tabs move to a floating top bar
+(see-through at the top of a page, solid once it scrolls), Home opens with a full-width spotlight of recently added
+titles, the details page is a full-width backdrop with the title and buttons on it (a blurred copy of the poster when there is
+no backdrop), rows run edge to edge with side arrow panels, grey skeleton placeholders show while content loads, Search groups
+results into Movies, Shows and Episodes and remembers recent searches, Requests are cards in a grid with a coloured status
+badge, the sign-in page is a card over a slowly drifting wall of abstract poster tiles, and Play and Resume use the app's own player on that computer even when a TV is
+connected ("Play on TV" sits next to them). The player has a full-width scrub bar (hover shows the time above it) over one row of controls (play, -10 s/+10 s, volume with a slider that opens on hover, time, the audio and subtitles menu, fullscreen), a Skip intro pill above the bar, and these keys:
 Space or K play/pause, Left/Right or J/L -10 s/+10 s, Up/Down volume, M mute, F fullscreen,
 C subtitles on/off and Esc to leave. A click on the picture plays or pauses, a double click toggles
 fullscreen. Hovering a poster shows a play button that starts playback directly (a click elsewhere on the
-card opens the details), and a short intro animation (a stack of poster cards; the front one flips and opens into the app) plays when
-the page loads (click or press a key to skip; it is off with reduced motion). Phones keep their own layout and play a shorter version (tap to skip).
+card opens the details). Phones keep their own layout.
 
 The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
 remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on

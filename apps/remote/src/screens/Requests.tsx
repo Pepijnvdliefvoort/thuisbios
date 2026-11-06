@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { Icon } from '../components/Icon';
 import { PullSpinner } from '../components/PullSpinner';
 import { RequestPoster } from '../components/RequestPoster';
 import { RequestSheet } from '../components/RequestSheet';
+import { Skeleton } from '../components/Skeleton';
 import { useApp } from '../context';
 import { describeRequestsError, splitRequests, STATUS_LABEL, typeLabel, type RequestsResult, type RequestStatus, type TitleRequest } from '../requests';
 import { useAsync } from '../useAsync';
+import { useDesktop } from '../useDesktop';
 import { usePullToRefresh } from '../usePullToRefresh';
 
 const formatDate = (iso: string): string => {
@@ -15,6 +18,7 @@ const formatDate = (iso: string): string => {
 /** Requests for titles that are not in the library: "My requests", or everyone's for the admin. */
 export function Requests({ active }: { active: boolean }) {
   const { requests, toast } = useApp();
+  const desktop = useDesktop();
   const list = useAsync(async () => {
     const result = await requests.api.list();
     if (!result.ok) throw new Error(result.error);
@@ -93,8 +97,34 @@ export function Requests({ active }: { active: boolean }) {
   return (
     <div class="page requests" ref={pageRef}>
       <PullSpinner pull={pull} />
-      <h2 class="page-title">{isAdmin ? 'Requests' : 'My requests'}</h2>
-      {list.loading && !data ? <p class="hint">Loading...</p> : null}
+      {desktop ? (
+        <div class="page-head">
+          <h1 class="page-title">{isAdmin ? 'Requests' : 'My requests'}</h1>
+          <button type="button" class="btn primary page-action" onClick={() => setForm(true)}>
+            <Icon name="plus" size={20} /> Request a movie or show
+          </button>
+        </div>
+      ) : (
+        <h2 class="page-title">{isAdmin ? 'Requests' : 'My requests'}</h2>
+      )}
+      {list.loading && !data ? (
+        desktop ? (
+          <ul class="request-list" role="status" aria-label="Loading">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <li key={i} class="request request-skel">
+                <Skeleton class="skel-req-poster" />
+                <div class="request-body">
+                  <Skeleton class="skel-line" />
+                  <Skeleton class="skel-line short" />
+                  <Skeleton class="skel-button" />
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="hint">Loading...</p>
+        )
+      ) : null}
       {list.error && !data ? <p class="empty">Couldn't load requests. Check the connection.</p> : null}
       {data && data.requests.length === 0 ? <p class="empty">{isAdmin ? 'No requests yet.' : "You haven't requested anything."}</p> : null}
       {open.length > 0 ? <ul class="request-list">{open.map(card)}</ul> : null}
@@ -108,11 +138,13 @@ export function Requests({ active }: { active: boolean }) {
           <ul class="request-list">{handled.map(card)}</ul>
         )
       ) : null}
-      <div class="request-more">
-        <button type="button" class="btn secondary" onClick={() => setForm(true)}>
-          Request a movie or show
-        </button>
-      </div>
+      {desktop ? null : (
+        <div class="request-more">
+          <button type="button" class="btn secondary" onClick={() => setForm(true)}>
+            Request a movie or show
+          </button>
+        </div>
+      )}
       {form ? (
         <RequestSheet
           initialTitle=""
