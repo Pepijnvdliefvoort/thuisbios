@@ -3,7 +3,7 @@ import { authenticateByName, createClient, JellyfinError } from './client';
 import { buildPhoneProfile } from './phoneProfile';
 import { describeCommandError, describeSignInError } from './errors';
 
-const info = { client: 'Thuisbios Remote', device: 'Phone', deviceId: 'dev', version: '1' };
+const info = { client: 'Thuisbios', device: 'Phone', deviceId: 'dev', version: '1' };
 const ok = (body: unknown) => ({ ok: true, status: 200, text: async () => (body === undefined ? '' : JSON.stringify(body)) }) as Response;
 
 describe('client', () => {

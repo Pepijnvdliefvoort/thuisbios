@@ -14,8 +14,8 @@ const STEPS: { label: string; ms: number }[] = [
   { label: '+0.5 s', ms: 500 },
 ];
 
-/** A compact button that opens a bottom sheet to shift the TV's subtitles earlier or later. */
-export function SubtitleTiming({ itemId }: { itemId: string }) {
+/** A button that opens a bottom sheet to shift the TV's subtitles earlier or later. `tile` is the Now Playing tile. */
+export function SubtitleTiming({ itemId, variant = 'button' }: { itemId: string; variant?: 'button' | 'tile' }) {
   const { tv } = useApp();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -43,9 +43,17 @@ export function SubtitleTiming({ itemId }: { itemId: string }) {
 
   return (
     <>
-      <button type="button" class="btn secondary" aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        <Icon name="captions" size={20} /> Sub {offset === 0 ? 'timing' : formatOffset(offset)}
-      </button>
+      {variant === 'tile' ? (
+        <button type="button" class="np-tile" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+          <Icon name="timer" size={24} />
+          <span class="np-tile-label">Sub timing</span>
+          <span class="np-tile-sub">{offset === 0 ? '\u00a0' : formatOffset(offset)}</span>
+        </button>
+      ) : (
+        <button type="button" class="btn secondary" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+          <Icon name="captions" size={20} /> Sub {offset === 0 ? 'timing' : formatOffset(offset)}
+        </button>
+      )}
       {open
         ? createPortal(
             <div class={closing ? 'sheet-backdrop volume-backdrop out' : 'sheet-backdrop volume-backdrop'} onClick={close}>

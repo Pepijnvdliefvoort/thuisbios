@@ -3,7 +3,7 @@
   "version": "0.10.0",
   "private": true,
   "type": "module",
-  "description": "Thuisbios phone remote (PWA) that browses the library and controls the TV app",
+  "description": "Thuisbios phone and desktop app (PWA) that browses the library and plays on the phone or the TV",
   "license": "MIT",
   "scripts": {
     "dev": "vite",

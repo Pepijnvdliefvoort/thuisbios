@@ -179,8 +179,17 @@ export function ScreensaverScreen({ client, session, onSignOut }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A click anywhere on the screen opens the menu. Clicks inside the menu itself (Sign out, Close)
+  // must be ignored: Preact re-renders between the button's handler and this bubbled one, so by now
+  // `menuRef` already says "closed" and Close would immediately reopen the menu.
+  const onScreenClick = (event: MouseEvent) => {
+    const t = event.target as Element | null;
+    if (t && t.closest && t.closest('.ss-menu')) return;
+    if (!menuRef.current) openMenu();
+  };
+
   return (
-    <main class="ss" onClick={() => { if (!menuRef.current) openMenu(); }}>
+    <main class="ss" onClick={onScreenClick}>
       {layers.length === 0 && <CalmBackground />}
       {layers.map((layer, slot) => (
         <div key={slot} class={'ss-layer' + (active === slot ? ' on' : '')}>

@@ -1,7 +1,7 @@
 {
-  "name": "Thuisbios Remote",
+  "name": "Thuisbios",
   "short_name": "Thuisbios",
-  "description": "Phone remote for the Thuisbios TV app",
+  "description": "Browse and play your Thuisbios library, on the phone or on the TV",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

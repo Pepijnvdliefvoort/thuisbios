@@ -14,6 +14,26 @@ import { shouldCloseNowPlaying } from '../nav';
 import { useNextEpisode } from '../useNextEpisode';
 import { useTick } from '../useTv';
 
+/** Back (chevron down), and the TV this screen controls. The spacer keeps the name centred. */
+function TopBar({ onBack }: { onBack: () => void }) {
+  const { tv } = useApp();
+  return (
+    <div class="np-top">
+      <button type="button" class="np-close" onClick={onBack} aria-label="Back">
+        <Icon name="chevronDown" size={24} />
+      </button>
+      <div class="np-where">
+        <span class="np-where-label">Playing on</span>
+        <span class="np-where-name">
+          <span class="np-dot" />
+          <span class="np-where-text">{tv.tv?.DeviceName || 'TV'}</span>
+        </span>
+      </div>
+      <span class="np-top-spacer" />
+    </div>
+  );
+}
+
 export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: () => void }) {
   const { tv, client, session } = useApp();
   const np = tv.nowPlaying;
@@ -59,9 +79,7 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
   if (!np) {
     return (
       <div class="nowplaying">
-        <button type="button" class="back" onClick={onBack} aria-label="Back">
-          <Icon name="back" />
-        </button>
+        <TopBar onBack={onBack} />
       </div>
     );
   }
@@ -81,13 +99,11 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
 
   return (
     <div class="nowplaying">
-      <button type="button" class="back" onClick={onBack} aria-label="Back">
-        <Icon name="back" />
-      </button>
+      <TopBar onBack={onBack} />
       <Img class="np-art" src={artUrl(client.serverUrl, item, 'thumb', 640, 360)} />
       <div class="np-text">
-        <h1>{item.Name}</h1>
         {subtitle ? <p class="np-sub">{subtitle}</p> : null}
+        <h1>{item.Name}</h1>
       </div>
 
       <div class="scrub">
@@ -112,55 +128,64 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
         </div>
       </div>
 
-      {intro && (
-        <button type="button" class="btn primary skip-intro" onClick={() => tv.seekTo(intro.endTicks)}>
-          <Icon name="next" size={20} /> Skip intro
-        </button>
-      )}
+      {/* The controls sit centred between the times and the tiles. On tall screens Skip intro floats above them; otherwise it and the next-episode card take their own row. */}
+      <div class="np-controls">
+        {intro && (
+          <button type="button" class="btn primary skip-intro" onClick={() => tv.seekTo(intro.endTicks)}>
+            <Icon name="next" size={20} /> Skip intro
+          </button>
+        )}
+        <div class="np-slot">
+          {nextEpisode && card && card.show && (
+            <NextEpisodeCard
+              serverUrl={client.serverUrl}
+              next={nextEpisode}
+              remaining={card.remaining}
+              target="tv"
+              onPlayNow={tv.next}
+              onCancel={() => {
+                setCancelledFor(item.Id);
+                tv.cancelAutoplay(item.Id);
+              }}
+            />
+          )}
+        </div>
 
-      {nextEpisode && card && card.show && (
-        <NextEpisodeCard
-          serverUrl={client.serverUrl}
-          next={nextEpisode}
-          remaining={card.remaining}
-          target="tv"
-          onPlayNow={tv.next}
-          onCancel={() => {
-            setCancelledFor(item.Id);
-            tv.cancelAutoplay(item.Id);
+        <div class="transport">
+          <button type="button" class="tbtn" disabled={!isEpisode} onClick={tv.previous} aria-label="Previous episode">
+            <Icon name="prev" size={30} />
+          </button>
+          <button type="button" class="tbtn" disabled={!canSeek} onClick={() => tv.skip(-10)} aria-label="Back 10 seconds">
+            <Icon name="rewind10" size={34} />
+          </button>
+          <button type="button" class={'tbtn big' + (np.isPaused ? ' is-play' : '')} onClick={tv.togglePause} aria-label={np.isPaused ? 'Play' : 'Pause'}>
+            <Icon name={np.isPaused ? 'play' : 'pause'} size={38} />
+          </button>
+          <button type="button" class="tbtn" disabled={!canSeek} onClick={() => tv.skip(10)} aria-label="Forward 10 seconds">
+            <Icon name="forward10" size={34} />
+          </button>
+          <button type="button" class="tbtn" disabled={!isEpisode} onClick={tv.next} aria-label="Next episode">
+            <Icon name="next" size={30} />
+          </button>
+        </div>
+        <VolumeControls variant="rocker" />
+      </div>
+      <div class="np-tiles">
+        <TrackPicker itemId={item.Id} variant="tile" />
+        <SubtitleTiming itemId={item.Id} variant="tile" />
+        <button
+          type="button"
+          class="np-tile stop"
+          onClick={() => {
+            stopRequested.current = true;
+            tv.stop();
           }}
-        />
-      )}
-
-      <div class="transport">
-        <button type="button" class="tbtn" disabled={!isEpisode} onClick={tv.previous} aria-label="Previous episode">
-          <Icon name="prev" size={30} />
-        </button>
-        <button type="button" class="tbtn" disabled={!canSeek} onClick={() => tv.skip(-10)} aria-label="Back 10 seconds">
-          <Icon name="rewind10" size={34} />
-        </button>
-        <button type="button" class="tbtn big" onClick={tv.togglePause} aria-label={np.isPaused ? 'Play' : 'Pause'}>
-          <Icon name={np.isPaused ? 'play' : 'pause'} size={40} />
-        </button>
-        <button type="button" class="tbtn" disabled={!canSeek} onClick={() => tv.skip(10)} aria-label="Forward 10 seconds">
-          <Icon name="forward10" size={34} />
-        </button>
-        <button type="button" class="tbtn" disabled={!isEpisode} onClick={tv.next} aria-label="Next episode">
-          <Icon name="next" size={30} />
+        >
+          <Icon name="stop" size={24} />
+          <span class="np-tile-label">Stop</span>
+          <span class="np-tile-sub">{'\u00a0'}</span>
         </button>
       </div>
-      <div class="np-tools">
-        <TrackPicker itemId={item.Id} />
-        <SubtitleTiming itemId={item.Id} />
-      </div>
-      <VolumeControls />
-      <button type="button" class="btn secondary stop" onClick={() => {
-          stopRequested.current = true;
-          tv.stop();
-        }}
-      >
-        <Icon name="stop" size={20} /> Stop
-      </button>
     </div>
   );
 }

@@ -190,6 +190,8 @@ export function createClient(options: ClientOptions): JellyfinClient {
         `EnableDirectPlay=${directPlay}`,
         `EnableDirectStream=${direct}`,
         'EnableTranscoding=true',
+        // The app draws subtitles itself (WebVTT track): never let Jellyfin burn any in.
+        'SubtitleStreamIndex=-1',
         ...(audioStreamIndex !== undefined ? [`AudioStreamIndex=${audioStreamIndex}`] : []),
       ].join('&');
       return request<PlaybackInfoResponse>('POST', `/Items/${encodeURIComponent(itemId)}/PlaybackInfo?${query}`, {
@@ -199,6 +201,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
         EnableDirectStream: direct,
         EnableTranscoding: true,
         AutoOpenLiveStream: false,
+        SubtitleStreamIndex: -1,
         ...(audioStreamIndex !== undefined ? { AudioStreamIndex: audioStreamIndex } : {}),
         DeviceProfile: profile,
       });
