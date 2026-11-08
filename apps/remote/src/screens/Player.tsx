@@ -9,6 +9,7 @@ import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audi
 import { playerKeyAction, stepVolume } from '../playerKeys';
 import { getDeviceId, loadAudioLang, loadPlayerVolume, loadSubtitleLang, loadSubtitleOffset, saveAudioLang, savePlayerVolume, saveSubtitleLang } from '../storage';
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
+import { maxBitrateFor, measureBitrate } from '../jellyfin/bitrate';
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
 import { nextArmedAt, nextEpisodeCard, planNextEpisode } from '../jellyfin/nextEpisode';
 import { mpegTsShift } from '../jellyfin/hlsTimeline';
@@ -372,16 +373,20 @@ export function Player({
   useEffect(() => {
     let cancelled = false;
     const canPlay = document.createElement('video');
-    const profile = buildPhoneProfile((mime) => canPlay.canPlayType(mime) !== '');
-    client
-      .playbackInfo(session.userId, item.Id, profile, {
-        startTicks: restartTicks.current,
-        audioStreamIndex: audioSel === null ? undefined : audioSel,
-        subtitleStreamIndex: probe ? null : burnSel === null ? undefined : burnSel,
-        directPlay: audioSel === null && burnSel === null ? undefined : false,
+    // Measure the connection first: a mobile link that cannot carry the full bitrate never starts playing.
+    measureBitrate(client)
+      .then((bps) => {
+        if (cancelled) return undefined;
+        const profile = buildPhoneProfile((mime) => canPlay.canPlayType(mime) !== '', maxBitrateFor(bps));
+        return client.playbackInfo(session.userId, item.Id, profile, {
+          startTicks: restartTicks.current,
+          audioStreamIndex: audioSel === null ? undefined : audioSel,
+          subtitleStreamIndex: probe ? null : burnSel === null ? undefined : burnSel,
+          directPlay: audioSel === null && burnSel === null ? undefined : false,
+        });
       })
       .then((info) => {
-        if (cancelled) return;
+        if (cancelled || !info) return;
         const source = info.MediaSources[0];
         const audio = source ? listAudio(source) : [];
         const defaultAudio = defaultAudioIndex(audio);
@@ -449,6 +454,11 @@ export function Player({
       seekToStart();
       void el.play().catch(() => undefined); // blocked autoplay: stays paused, the big play button starts it
     };
+    // Native playback has no other way to report a failure; without this the spinner never ends.
+    const onError = () => {
+      if (el.error && el.error.code === 1) return; // MEDIA_ERR_ABORTED: we changed the source ourselves
+      setError(true);
+    };
     if (loaded.selection.hls && el.canPlayType(HLS_MIME) === '') {
       import('hls.js')
         .then(({ default: Hls }) => {
@@ -482,11 +492,13 @@ export function Player({
         });
     } else {
       el.addEventListener('loadedmetadata', onMeta, { once: true });
+      el.addEventListener('error', onError);
       el.src = loaded.url;
     }
     return () => {
       destroyed = true;
       el.removeEventListener('loadedmetadata', onMeta);
+      el.removeEventListener('error', onError);
       if (hls) hls.destroy();
     };
   }, [loaded]);

@@ -178,6 +178,8 @@ goes fullscreen and locks landscape. An iPhone cannot do that, so when the phone
 player turns the picture sideways by itself. This works with rotation lock on. iOS still shows the
 status bar and home indicator in their upright places, and swipe gestures such as Control Center
 stay upright. The phone reports its progress to Jellyfin, so it counts toward Resume watching.
+Before playing, the app times a small download from the server and asks for a stream bitrate that fits
+the connection (at most 20 Mbit/s), so playback also starts on a slow mobile link.
 
 The CC button opens an "Audio & subtitles" menu. Items with two or more audio tracks get an Audio
 section: picking one asks the server for that track (a remux or transcode, because a browser cannot
