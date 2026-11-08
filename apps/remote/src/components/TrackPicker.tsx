@@ -3,14 +3,18 @@ import { useEffect, useState } from 'preact/hooks';
 import { useApp } from '../context';
 import { defaultAudioIndex, listAudio } from '../jellyfin/audio';
 import { listSubtitles } from '../jellyfin/subtitles';
+import { trackSummary } from '../jellyfin/trackSummary';
 import type { MediaStream } from '../jellyfin/types';
 import { useScrollLock } from '../useScrollLock';
 import { Icon } from './Icon';
 
 const CLOSE_MS = 200;
 
-/** A compact button that opens a bottom sheet to choose the audio and subtitle track the TV plays. */
-export function TrackPicker({ itemId }: { itemId: string }) {
+/**
+ * A button that opens a bottom sheet to choose the audio and subtitle track the TV plays.
+ * `tile` is the Now Playing tile, with the current languages on a second line.
+ */
+export function TrackPicker({ itemId, variant = 'button' }: { itemId: string; variant?: 'button' | 'tile' }) {
   const { tv, client, session } = useApp();
   const np = tv.nowPlaying;
   const [open, setOpen] = useState(false);
@@ -19,11 +23,9 @@ export function TrackPicker({ itemId }: { itemId: string }) {
   const [streams, setStreams] = useState<MediaStream[] | null>(null);
   useScrollLock(open);
 
-  // The streams of the playing item, fetched when the sheet opens (a new episode refetches).
-  useEffect(() => {
-    if (!open) return;
+  // The streams of the playing item, fetched once per item (a new episode refetches) for the tile summary.
+  const load = () => {
     let alive = true;
-    setStreams(null);
     client
       .mediaStreams(session.userId, itemId)
       .then((list) => alive && setStreams(list))
@@ -31,7 +33,17 @@ export function TrackPicker({ itemId }: { itemId: string }) {
     return () => {
       alive = false;
     };
-  }, [open, client, session.userId, itemId]);
+  };
+  useEffect(() => {
+    setStreams(null);
+    return load();
+  }, [client, session.userId, itemId]);
+  // A failed fetch is tried again when the sheet opens.
+  useEffect(() => {
+    if (!open || !streams || streams.length > 0) return;
+    setStreams(null);
+    return load();
+  }, [open]);
 
   const close = () => {
     setClosing(true);
@@ -59,9 +71,17 @@ export function TrackPicker({ itemId }: { itemId: string }) {
 
   return (
     <>
-      <button type="button" class="btn secondary" aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        <Icon name="captions" size={20} /> Audio &amp; subs
-      </button>
+      {variant === 'tile' ? (
+        <button type="button" class="np-tile" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+          <Icon name="bubble" size={24} />
+          <span class="np-tile-label">Audio &amp; subs</span>
+          <span class="np-tile-sub">{trackSummary(streams, np ? np.audioIndex : undefined, np ? np.subtitleIndex : undefined)}</span>
+        </button>
+      ) : (
+        <button type="button" class="btn secondary" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+          <Icon name="captions" size={20} /> Audio &amp; subs
+        </button>
+      )}
       {open
         ? createPortal(
             <div class={closing ? 'sheet-backdrop volume-backdrop out' : 'sheet-backdrop volume-backdrop'} onClick={close}>

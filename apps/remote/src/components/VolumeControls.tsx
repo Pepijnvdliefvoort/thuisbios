@@ -17,9 +17,10 @@ const iconFor = (level: number, muted: boolean): IconName => (muted ? 'volumeMut
 /**
  * One volume button for the TV that opens a bottom sheet with a slider and a mute toggle, through the
  * relay on the PC. Renders nothing when there is no relay or the TV is not set up.
- * `row` is the wide variant for inside the TV sheet.
+ * `row` is the wide variant for inside the TV sheet; `rocker` is the Now Playing pill with - and + steps and
+ * the level in the middle (which opens the sheet).
  */
-export function VolumeControls({ variant = 'icon' }: { variant?: 'icon' | 'row' }) {
+export function VolumeControls({ variant = 'icon' }: { variant?: 'icon' | 'row' | 'rocker' }) {
   const { session, toast } = useApp();
   const volume = useMemo(
     () => createTvVolume({ baseUrl: location.href, authHeader: buildAuthHeader(clientInfo(), session.token) }),
@@ -27,6 +28,8 @@ export function VolumeControls({ variant = 'icon' }: { variant?: 'icon' | 'row' 
   );
   const [available, setAvailable] = useState(false);
   const [open, setOpen] = useState(false);
+  // Counts closed sheets, so the rocker reads the level again.
+  const [closed, setClosed] = useState(0);
   useEffect(() => {
     let cancelled = false;
     let check = checks.get(session.token);
@@ -45,7 +48,9 @@ export function VolumeControls({ variant = 'icon' }: { variant?: 'icon' | 'row' 
   if (!available) return null;
   return (
     <>
-      {variant === 'row' ? (
+      {variant === 'rocker' ? (
+        <VolumeRocker volume={volume} toast={toast} refresh={closed} onOpen={() => setOpen(true)} />
+      ) : variant === 'row' ? (
         <button type="button" class="btn secondary" aria-haspopup="dialog" onClick={() => setOpen(true)}>
           <Icon name="volumeUp" size={20} /> TV volume
         </button>
@@ -56,8 +61,90 @@ export function VolumeControls({ variant = 'icon' }: { variant?: 'icon' | 'row' 
           </button>
         </div>
       )}
-      {open ? <VolumeSheet volume={volume} toast={toast} onClose={() => setOpen(false)} /> : null}
+      {open ? (
+        <VolumeSheet
+          volume={volume}
+          toast={toast}
+          onClose={() => {
+            setOpen(false);
+            setClosed((n) => n + 1);
+          }}
+        />
+      ) : null}
     </>
+  );
+}
+
+type Volume = ReturnType<typeof createTvVolume>;
+
+/** Now Playing: a pill with volume down, the level (opens the sheet) and volume up. */
+function VolumeRocker({ volume, toast, refresh, onOpen }: { volume: Volume; toast: (m: string) => void; refresh: number; onOpen: () => void }) {
+  // null until the TV answers; stays null when the level cannot be read (the buttons then press the TV's keys).
+  const [level, setLevel] = useState<number | null>(null);
+  const [muted, setMuted] = useState(false);
+  const [mode, setMode] = useState<'absolute' | 'relative'>('absolute');
+  const levelRef = useRef<number | null>(null);
+  const applyLevel = (next: number | null) => {
+    levelRef.current = next;
+    setLevel(next);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    void volume.getVolume().then((r) => {
+      if (cancelled || !r.ok) return;
+      applyLevel(r.state.level);
+      setMuted(r.state.muted ?? false);
+      setMode(r.state.mode);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [volume, refresh]);
+
+  const sender = useMemo(
+    () =>
+      createLevelSender(async (l) => {
+        const r = await volume.setVolume(l);
+        if (!r.ok) toast(describeVolumeError(r.error));
+        else {
+          setMode(r.state.mode);
+          if (r.state.muted !== null) setMuted(r.state.muted);
+        }
+      }),
+    [volume],
+  );
+
+  const step = (delta: number) => {
+    const current = levelRef.current;
+    if (current === null) {
+      void volume.press(delta > 0 ? 'KEY_VOLUP' : 'KEY_VOLDOWN').then((r) => {
+        if (!r.ok) toast(describeVolumeError(r.error));
+      });
+      return;
+    }
+    const next = stepLevel(current, delta);
+    if (next === current) return;
+    applyLevel(next);
+    if (mode === 'relative') setMuted(false);
+    sender.update(next);
+  };
+
+  // Relative mode only estimates the level, so the pill shows the icon alone.
+  const shown = level !== null && mode === 'absolute' ? level : null;
+  return (
+    <div class="np-rocker" role="group" aria-label="TV volume">
+      <button type="button" aria-label="Volume down" disabled={level !== null && level <= 0} onClick={() => step(-1)}>
+        <Icon name="volumeMinus" size={26} />
+      </button>
+      <button type="button" aria-label="TV volume" aria-haspopup="dialog" onClick={onOpen}>
+        <Icon name={muted ? 'volumeMute' : 'volumeUp'} size={22} />
+        {shown !== null ? <span class="np-rocker-level">{shown}</span> : null}
+      </button>
+      <button type="button" aria-label="Volume up" disabled={level !== null && level >= 100} onClick={() => step(1)}>
+        <Icon name="volumePlus" size={26} />
+      </button>
+    </div>
   );
 }
 

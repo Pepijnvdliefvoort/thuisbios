@@ -15,6 +15,7 @@ import { ConnectScreen } from './screens/ConnectScreen';
 import { DetailsScreen, type DetailsMemo } from './screens/DetailsScreen';
 import { ScreensaverScreen } from './screens/ScreensaverScreen';
 import { PlayerScreen } from './screens/PlayerScreen';
+import { Stage } from './components/Stage';
 
 /** The screen stack: the screensaver at the bottom, then details (Show on TV), the player. */
 type Screen =
@@ -136,13 +137,15 @@ export function App() {
 
   if (!session || !client) {
     return (
-      <ConnectScreen
-        onConnected={(s) => {
-          saveSession(s);
-          setStack([HOME]);
-          setSession(s);
-        }}
-      />
+      <Stage>
+        <ConnectScreen
+          onConnected={(s) => {
+            saveSession(s);
+            setStack([HOME]);
+            setSession(s);
+          }}
+        />
+      </Stage>
     );
   }
 
@@ -169,17 +172,23 @@ export function App() {
       );
     case 'details':
       return (
-        <DetailsScreen
-          key={screen.item.Id}
-          client={client}
-          session={session}
-          item={screen.item}
-          memo={screen.memo}
-          onPlay={play}
-          onBack={exit}
-        />
+        <Stage>
+          <DetailsScreen
+            key={screen.item.Id}
+            client={client}
+            session={session}
+            item={screen.item}
+            memo={screen.memo}
+            onPlay={play}
+            onBack={exit}
+          />
+        </Stage>
       );
     default:
-      return <ScreensaverScreen client={client} session={session} onSignOut={logout} />;
+      return (
+        <Stage>
+          <ScreensaverScreen client={client} session={session} onSignOut={logout} />
+        </Stage>
+      );
   }
 }

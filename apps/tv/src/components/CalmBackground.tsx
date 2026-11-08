@@ -5,9 +5,11 @@
 export function CalmBackground() {
   return (
     <div class="calm" aria-hidden="true">
-      <div class="calm-blob calm-a" />
-      <div class="calm-blob calm-b" />
-      <div class="calm-blob calm-c" />
+      <div class="calm-stage">
+        <div class="calm-blob calm-a" />
+        <div class="calm-blob calm-b" />
+        <div class="calm-blob calm-c" />
+      </div>
     </div>
   );
 }
