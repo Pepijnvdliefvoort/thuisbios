@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.11.0...v0.11.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* **remote:** match the stream bitrate to the connection so playback starts on mobile data ([#112](https://github.com/Pepijnvdliefvoort/thuisbios/issues/112)) ([d37b268](https://github.com/Pepijnvdliefvoort/thuisbios/commit/d37b268f1f8a2932dafb64790934a81c6d718809))
+
 ## [0.11.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.10.0...v0.11.0) (2026-11-08)
 
 
