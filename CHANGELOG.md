@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.11.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.10.0...v0.11.0) (2026-11-08)
+
+
+### Features
+
+* redesign phone Now Playing and fit the TV page to any window ([#108](https://github.com/Pepijnvdliefvoort/thuisbios/issues/108)) ([df433ad](https://github.com/Pepijnvdliefvoort/thuisbios/commit/df433ad63d699b09cfb373fb3124dba3dee82a20))
+
+
+### Bug Fixes
+
+* **remote:** call the app Thuisbios instead of Thuisbios Remote ([#107](https://github.com/Pepijnvdliefvoort/thuisbios/issues/107)) ([a21aec5](https://github.com/Pepijnvdliefvoort/thuisbios/commit/a21aec5d33809fe9c2ea3625eb2736b72f090069))
+
 ## [0.10.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.9.0...v0.10.0) (2026-11-06)
 
 
