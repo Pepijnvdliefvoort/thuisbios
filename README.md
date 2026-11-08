@@ -156,8 +156,8 @@ TV's QR code with the camera (over plain HTTP it takes a photo; a live viewfinde
 Jellyfin with just username and password (the server address is derived from the page host; "Change server" reveals it), browses the library (Home rows, Search, Library with
 Movies and Shows, which you can sort (name, date added, release year, rating, runtime) and filter (unwatched, genre, decade), remembered per type) and shows a details page with Play on TV, Resume on TV, Play from start and Show
 on TV; series and episode pages have a season selector and an episode list that marks watched episodes and the next or current one, and an episode page links back to its show. Movies, episodes, seasons and whole series can be marked watched or unwatched from the details page. While the TV plays, a mini player bar and a
-Now Playing screen offer play/pause, a scrub slider, -10 s / +10 s, previous and next episode and
-stop. The remote finds the TV through the Jellyfin sessions API (the TV app registers as
+Now Playing screen offer play/pause, a scrub slider, -10 s / +10 s, previous and next episode,
+Skip intro and the next-episode card (in their own area above the controls), a volume pill and Audio & subs, Sub timing and Stop tiles. The remote finds the TV through the Jellyfin sessions API (the TV app registers as
 remote-controllable) and polls `/Sessions` every 2 seconds while the page is visible.
 
 The TV sheet in the header has "Disconnect from TV", which signs the TV out so it shows a new Quick
@@ -201,7 +201,7 @@ remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous ep
 TV", audio and subtitle track choice and Disconnect (sign out).
 
 Every request uses the configured absolute server URL and there is no service worker, so the app can
-be wrapped with Capacitor later. A volume button (Now Playing and the TV sheet) opens a bottom sheet
+be wrapped with Capacitor later. A volume pill on Now Playing (−, the level, +; the level opens the sheet) and a button in the TV sheet open a bottom sheet
 with a slider, a mute toggle and −/+ buttons (one step per tap) that control the Samsung TV through a small relay that runs inside
 the remote's own `vite preview` (and `vite dev`) server on the PC, under `/api/tv/`. The phone calls it on the same origin with its
 Jellyfin token, which the relay checks against Jellyfin; it only ever sends `KEY_VOLUP`,
@@ -213,7 +213,7 @@ level instead. The TV address and pairing token live in
 the TV once. Follow [docs/remote/setup.md](docs/remote/setup.md) to run it on the PC and add it to
 the phone's home screen.
 
-Now Playing also has a "Sub timing" button that opens a sheet to shift the subtitle timing in steps of
+Now Playing also has a "Sub timing" tile that opens a sheet to shift the subtitle timing in steps of
 0.1 s or 0.5 s (positive is later). The phone sends the absolute offset for the playing item as a private
 Jellyfin display message (`thuisbios:subtitle-offset:<itemId>:<ms>`), the TV shifts the WebVTT cues and
 remembers the offset per item. It only works for text subtitles.

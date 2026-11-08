@@ -253,32 +253,52 @@ input:focus { outline: none; border-color: var(--accent); }
 .ep-play { width: 48px; height: 48px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface-2); }
 .ep-play:disabled { opacity: 0.35; }
 
-/* Now playing */
-.nowplaying { height: 100%; padding: calc(var(--ui-top) + 64px) var(--gutter) 8px; display: flex; flex-direction: column; gap: 16px; max-width: 520px; margin: 0 auto; }
+/* Now playing: a top bar, the art, the title, the scrubber, a slot for Skip intro / next episode, the transport, volume and tiles. It fits the screen; the art shrinks first. */
+.nowplaying { height: 100%; padding: calc(var(--ui-top) + 8px) var(--gutter) 12px; display: flex; flex-direction: column; gap: 14px; max-width: 520px; margin: 0 auto; }
 .nowplaying > * { flex: none; }
-.np-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.np-tools .btn { padding: 0 8px; white-space: nowrap; }
+.np-top { display: flex; align-items: center; justify-content: space-between; height: 44px; }
+.np-close, .np-top-spacer { width: 40px; height: 40px; flex: none; }
+.np-close { border-radius: 50%; background: var(--surface); display: flex; align-items: center; justify-content: center; }
+.np-close:active { background: var(--surface-2); }
+.np-where { min-width: 0; display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+.np-where-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.np-where-name { max-width: 100%; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; }
+.np-where-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--ok); }
 /* The art keeps 16:9 when there is room and shrinks when the screen is short. */
-.nowplaying > .np-art { flex: 0 1 auto; min-height: 0; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; }
+.nowplaying > .np-art { flex: 0 1 auto; min-height: 0; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; }
 .np-art img { min-height: 0; }
-@media (max-height: 700px) { .nowplaying { padding-top: calc(var(--ui-top) + 56px); gap: 8px; } }
-.np-text h1 { font-size: 22px; line-height: 1.2; }
-.np-sub { color: var(--muted); margin-top: 2px; }
+.np-text { margin-top: 4px; }
+.np-sub { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-text h1 { font-size: 24px; line-height: 1.2; margin-top: 4px; }
+.np-text h1:first-child { margin-top: 0; }
+/* Skip intro and the next-episode card: in flow above the transport on short screens; on tall ones the pill floats into the gap above the controls, so nothing moves. */
+.np-slot { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.np-slot:empty { display: none; }
+.np-controls { position: relative; }
+.np-controls > .skip-intro { align-self: center; width: auto; min-height: 44px; height: 44px; padding: 0 22px 0 18px; border-radius: 22px; gap: 8px; animation: np-in 200ms ease-out both; }
+@media (min-height: 780px) { .np-controls > .skip-intro { position: absolute; left: 0; right: 0; bottom: calc(100% + 10px); margin: 0 auto; width: max-content; } }
+.np-slot .next-card { width: 100%; animation: np-in 200ms ease-out both; }
+@keyframes np-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.np-slot .next-card .btn { white-space: nowrap; }
+@media (max-height: 700px) { .np-slot .next-thumb, .np-slot .next-card .eyebrow { display: none; } .np-slot .next-card { padding: 10px 12px; } .np-slot .next-actions { margin-top: 4px; } }
+@media (prefers-reduced-motion: reduce) { .np-controls > .skip-intro, .np-slot .next-card { animation-duration: 1ms; } }
+@media (max-height: 700px) { .nowplaying { gap: 8px; } .np-top { height: 40px; } .np-text { margin-top: 0; } }
 .scrub input[type="range"] {
   --fill: 0%;
   width: 100%; height: 44px; margin: 0; background: transparent; appearance: none; -webkit-appearance: none;
 }
 .scrub input[type="range"]::-webkit-slider-runnable-track {
-  height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--fill), rgba(255, 255, 255, 0.25) var(--fill));
+  height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--accent) var(--fill), rgba(255, 255, 255, 0.18) var(--fill));
 }
-.scrub input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.25); }
-.scrub input[type="range"]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
-.scrub input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%; background: var(--fg); border: 0; }
-.scrub input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--fg); border: 0; }
+.scrub input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.18); }
+.scrub input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+.scrub input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -5px; border-radius: 50%; background: #fff; border: 0; }
+.scrub input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 0; }
 .scrub input[type="range"]:disabled { opacity: 0.4; }
 .times { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .skip-intro { animation: skip-in 200ms ease-out; }
-.next-card { display: flex; gap: 12px; padding: 12px; border-radius: var(--radius); background: var(--surface); animation: skip-in 200ms ease-out; }
+.next-card { display: flex; gap: 12px; padding: 12px; border-radius: 14px; background: var(--surface); animation: skip-in 200ms ease-out; }
 .next-thumb { flex: none; width: 96px; height: 54px; border-radius: 6px; overflow: hidden; }
 .next-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .next-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -291,7 +311,30 @@ input:focus { outline: none; border-color: var(--accent); }
 .tbtn:disabled { opacity: 0.3; }
 .tbtn:active:not(:disabled) { background: var(--surface-2); }
 .tbtn.big { width: 72px; height: 72px; background: var(--fg); color: #111; }
-.stop { margin-top: 0; }
+.nowplaying .scrub { margin-top: -6px; }
+.nowplaying .times { margin-top: -4px; }
+.nowplaying .transport { padding: 0 2px; }
+.nowplaying .tbtn { width: 52px; height: 52px; }
+.nowplaying .tbtn.big { width: 76px; height: 76px; }
+/* The play triangle's weight sits left of its box; a small nudge centres it optically. Pause is symmetric. */
+.nowplaying .tbtn.big .icon { margin: 0; }
+.nowplaying .tbtn.big.is-play .icon { transform: translateX(1px); }
+.np-rocker { display: grid; grid-template-columns: 1fr 1fr 1fr; height: 54px; border-radius: 27px; background: var(--surface); overflow: hidden; }
+.np-rocker button { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+.np-rocker button + button { border-left: 1px solid var(--bg); }
+.np-rocker button:active:not(:disabled) { background: var(--surface-2); }
+.np-rocker button:disabled { opacity: 0.35; }
+.np-rocker button:nth-child(2) { color: var(--muted); font-size: 13px; }
+.np-rocker-level { font-variant-numeric: tabular-nums; }
+.np-controls { margin-block: auto; display: flex; flex-direction: column; gap: 14px; }
+@media (max-height: 700px) { .np-controls { gap: 8px; } }
+.np-tiles { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.np-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 12px 4px 10px; border-radius: 14px; background: var(--surface); }
+.np-tile:active { background: var(--surface-2); }
+.np-tile-label { font-size: 12.5px; font-weight: 600; color: #d6d6de; white-space: nowrap; }
+.np-tile-sub { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--muted); }
+.np-tile.stop, .np-tile.stop .np-tile-label { color: #ff6b72; }
+@media (max-height: 700px) { .np-tile { padding: 8px 4px 6px; gap: 2px; } .np-rocker { height: 48px; } }
 .volume { display: flex; align-items: center; justify-content: center; }
 
 /* Volume sheet: enters and leaves with transform and opacity only */
