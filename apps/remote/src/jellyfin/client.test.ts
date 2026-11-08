@@ -16,6 +16,22 @@ describe('client', () => {
     expect((init.headers as Record<string, string>).Authorization).toContain('Token="tok"');
   });
 
+  it('downloads bitrate test bytes with the auth header and counts them', async () => {
+    const fetchFn = vi.fn(async () => ({ ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(1234) }) as unknown as Response);
+    const onUnauthorized = vi.fn();
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch, onUnauthorized });
+    const signal = new AbortController().signal;
+    expect(await client.bitrateTest(1234, signal)).toBe(1234);
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://pc/Playback/BitrateTest?Size=1234');
+    expect((init.headers as Record<string, string>).Authorization).toContain('Token="t"');
+    expect(init.signal).toBe(signal);
+    const denied = vi.fn(async () => ({ ok: false, status: 401, arrayBuffer: async () => new ArrayBuffer(0) }) as unknown as Response);
+    const c2 = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: denied as unknown as typeof fetch, onUnauthorized });
+    await expect(c2.bitrateTest(10)).rejects.toBeInstanceOf(JellyfinError);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
   it('reads media segments and treats errors as none', async () => {
     const body = { Items: [{ Id: 'a', ItemId: 'e1', Type: 'Intro', StartTicks: 100, EndTicks: 900 }], TotalRecordCount: 1, StartIndex: 0 };
     const fetchFn = vi.fn(async () => ok(body));

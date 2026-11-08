@@ -41,8 +41,9 @@ export interface DeviceProfile {
 /**
  * Builds the profile from what the browser says it can decode. `canPlay` gets a MIME type with codecs
  * (for example `video/mp4; codecs="hvc1.1.6.L93.B0"`) and answers whether the browser supports it.
+ * `maxStreamingBitrate` is what the connection can carry, so the server picks a transcode that fits.
  */
-export function buildPhoneProfile(canPlay: (mime: string) => boolean): DeviceProfile {
+export function buildPhoneProfile(canPlay: (mime: string) => boolean, maxStreamingBitrate = 20000000): DeviceProfile {
   const mp4Video = ['h264'];
   if (canPlay('video/mp4; codecs="hvc1.1.6.L93.B0"')) mp4Video.push('hevc');
 
@@ -61,7 +62,7 @@ export function buildPhoneProfile(canPlay: (mime: string) => boolean): DevicePro
 
   return {
     Name: 'Thuisbios (phone browser)',
-    MaxStreamingBitrate: 20000000,
+    MaxStreamingBitrate: maxStreamingBitrate,
     MaxStaticBitrate: 100000000,
     MusicStreamingTranscodingBitrate: 384000,
     DirectPlayProfiles: directPlay,

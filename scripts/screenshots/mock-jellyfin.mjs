@@ -386,6 +386,10 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       // One intro in the first two minutes, so the Skip intro button can be shown.
       return json({ Items: [{ Id: `${m[1]}-intro`, ItemId: m[1], Type: 'Intro', StartTicks: 5 * TICKS, EndTicks: 120 * TICKS }], TotalRecordCount: 1 });
     }
+    if (path === '/Playback/BitrateTest') {
+      res.writeHead(200, { ...CORS, 'Content-Type': 'application/octet-stream' });
+      return res.end(Buffer.alloc(Math.min(Number(q.get('Size')) || 0, 10_000_000)));
+    }
     if ((m = /^\/Items\/([^/]+)\/PlaybackInfo$/.exec(path))) {
       // Like Jellyfin: the default subtitle track is only the server's own pick when none was asked for.
       const asked = q.get('SubtitleStreamIndex');

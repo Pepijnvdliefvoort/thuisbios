@@ -5,6 +5,11 @@ const none = () => false;
 const all = () => true;
 
 describe('buildPhoneProfile', () => {
+  it('asks for 20 Mbit/s unless told otherwise', () => {
+    expect(buildPhoneProfile(none).MaxStreamingBitrate).toBe(20000000);
+    expect(buildPhoneProfile(none, 4000000).MaxStreamingBitrate).toBe(4000000);
+  });
+
   it('direct plays only h264 with aac/mp3 in mp4 when the browser reports nothing else', () => {
     const p = buildPhoneProfile(none);
     expect(p.DirectPlayProfiles).toEqual([
