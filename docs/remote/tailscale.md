@@ -1,6 +1,6 @@
-# Use the remote away from home (Tailscale)
+# Use Thuisbios away from home (Tailscale)
 
-With this set up you can open the Thuisbios Remote on your phone anywhere: on mobile data, at a
+With this set up you can open the Thuisbios on your phone anywhere: on mobile data, at a
 friend's place, on holiday. It stays private: only your own devices that are signed in to your
 Tailscale account can reach it. Nothing on your PC is opened to the internet.
 
@@ -26,7 +26,7 @@ switches are on.
 
 ## 3. Set up the PC
 
-Why: this tells Tailscale to hand out two secure addresses on your PC's name: one for the remote
+Why: this tells Tailscale to hand out two secure addresses on your PC's name: one for the app
 and one for Jellyfin.
 
 1. Open PowerShell.
@@ -46,7 +46,7 @@ The first visit can take a few seconds, because Tailscale makes the certificate 
 
 ## 4. Keep the PC awake
 
-If the PC sleeps, the remote cannot reach it.
+If the PC sleeps, Thuisbios cannot reach it.
 
 1. Open Windows **Settings > System > Power & battery** (Windows 11).
 2. Open **Screen and sleep**.
@@ -56,7 +56,7 @@ If the PC sleeps, the remote cannot reach it.
 Jellyfin runs on its own. The window with `npm run preview -w apps/remote` must stay open, as before, unless you let the PC
 start it automatically, see [autostart](../server/autostart.md).
 
-## 5. Open the remote on the phone
+## 5. Open Thuisbios on the phone
 
 1. On the phone, with Tailscale on, open `https://pepijn-pc.tail0c4ac1.ts.net`.
 2. Sign in once with your Jellyfin username and password. The server address is filled in for you
@@ -87,10 +87,10 @@ The TV itself keeps using the home address; it does not need Tailscale.
 
 - **The page does not open.** Check that Tailscale is switched on in the phone app, and that the PC
   is on and awake with the `npm run preview` window open.
-- **"Blocked request. This host is not allowed".** The remote on the PC is still an old version. In
+- **"Blocked request. This host is not allowed".** Thuisbios on the PC is still an old version. In
   the project folder run `npm ci`, `npm run build -w apps/remote` and `npm run preview -w apps/remote`
   again.
 - **A certificate or "not secure" error.** HTTPS Certificates are not switched on yet: do step 1.3,
   then try again after a minute.
-- **The remote opens but cannot sign in or load the library.** Run `tailscale serve status` on the PC
+- **Thuisbios opens but cannot sign in or load the library.** Run `tailscale serve status` on the PC
   and check that port 8920 points to `http://localhost:8096`.

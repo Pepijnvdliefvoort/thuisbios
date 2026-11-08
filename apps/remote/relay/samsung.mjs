@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 /** The only keys the relay will ever send to the TV. */
 export const ALLOWED_KEYS = ['KEY_VOLUP', 'KEY_VOLDOWN', 'KEY_MUTE'];
 
-export const REMOTE_NAME = 'Thuisbios Remote';
+export const REMOTE_NAME = 'Thuisbios';
 export const IDLE_CLOSE_MS = 60_000;
 export const CONNECT_TIMEOUT_MS = 5_000;
 

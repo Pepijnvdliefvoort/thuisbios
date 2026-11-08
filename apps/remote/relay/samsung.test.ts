@@ -35,7 +35,7 @@ const make = (extra = {}) => new SamsungRemote({ host: '1.2.3.4', WebSocketImpl:
 
 describe('samsung', () => {
   it('builds the URL with name and token', () => {
-    expect(buildUrl('h', 8002)).toBe('wss://h:8002/api/v2/channels/samsung.remote.control?name=VGh1aXNiaW9zIFJlbW90ZQ%3D%3D');
+    expect(buildUrl('h', 8002)).toBe('wss://h:8002/api/v2/channels/samsung.remote.control?name=VGh1aXNiaW9z');
     expect(buildUrl('h', 8002, 'tok')).toMatch(/&token=tok$/);
   });
 

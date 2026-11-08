@@ -1,14 +1,14 @@
-# Phone remote: set up and use
+# Phone app: set up and use
 
-The Thuisbios Remote is a web app for your phone. You browse your movies and shows on the phone
-and press play: the movie starts on the TV. It also works as a remote while the TV plays.
+Thuisbios is a web app for your phone. You browse your movies and shows on the phone
+and press play: the movie starts on the TV. It also controls the TV while it plays.
 
 You need: the Windows PC with Jellyfin running, the TV with the Thuisbios app, and your phone, all on
 the same home Wi-Fi.
 
 Want to use it away from home too? See [tailscale.md](tailscale.md) after this guide.
 
-## 1. Start the remote on the PC
+## 1. Start Thuisbios on the PC
 
 Do this once, and again after every update of the project.
 
@@ -16,7 +16,7 @@ Do this once, and again after every update of the project.
 2. Run `npm ci` and wait until it finishes.
 3. Run `npm run build -w apps/remote`.
 4. Run `npm run preview -w apps/remote`. It prints the addresses it serves on. Leave this window
-   open: if you close it, the remote stops working. To skip this window, the PC can start it
+   open: if you close it, Thuisbios stops working. To skip this window, the PC can start it
    automatically with Windows, see [autostart](../server/autostart.md).
 5. Windows may ask whether Node.js may use the network. Choose **Private networks** and press
    **Allow access**. Without this, the phone cannot reach the PC.
@@ -34,12 +34,12 @@ and you pick everything on the phone.
    server is found automatically. Only if it says it can't reach the server, tap **Change server** and
    type the address of your Jellyfin server, for example `http://192.168.1.192:8096`.
 4. The phone says **TV connected** and the TV starts its slideshow. Done.
-5. Add the remote to the home screen so it opens like an app:
+5. Add Thuisbios to the home screen so it opens like an app:
    - iPhone: tap the **Share** button in Safari, then **Add to Home Screen**.
    - Android: tap the **menu** (three dots) in Chrome, then **Add to Home screen** or
      **Install app**.
 
-From now on, open the remote on the phone, pick a movie and press **Play on TV**. The button at the top
+From now on, open Thuisbios on the phone, pick a movie and press **Play on TV**. The button at the top
 right shows the TV with a green dot. Tap it to open the TV sheet: pick a TV if you have more than one,
 adjust the volume, connect another TV or disconnect. The round avatar next to it opens the account
 sheet with Sign out and the app version.
@@ -82,7 +82,7 @@ requests; it is read when the app starts and when you come back to it. Other use
 
 The requests are stored in `.thuisbios/requests.json` next to `samsung-tv.json`, never in the project.
 
-Requests need no setup. To get the suggestions with posters, give the remote a Jellyfin API key once:
+Requests need no setup. To get the suggestions with posters, give the app a Jellyfin API key once:
 
 1. Open Jellyfin as the owner and go to **Dashboard > API Keys**, press **+**, name it `Thuisbios` and
    confirm. Copy the key.
@@ -92,12 +92,12 @@ Requests need no setup. To get the suggestions with posters, give the remote a J
 
 Without this step the form still works: you just type the title yourself and no suggestions appear.
 If Jellyfin is not at `http://localhost:8096` as seen from the PC, set
-`THUISBIOS_JELLYFIN_URL` before starting the remote.
+`THUISBIOS_JELLYFIN_URL` before starting the app.
 
 ## Volume button
 
 A web page on the phone cannot talk to the TV by itself, so the PC passes the volume on to the TV.
-This is built into the same program that serves the remote (step 1.4), so there is nothing extra to
+This is built into the same program that serves the app (step 1.4), so there is nothing extra to
 keep running. You set it up once.
 
 1. Find the TV's address. On the TV press **Settings**, then go to **General**, **Network**,
@@ -111,7 +111,7 @@ keep running. You set it up once.
    volume goes up one step and then down one step, so you can hear it work. Just before that it says
    either **The TV reports volume 14** (the slider will show the real volume) or that the volume is
    not reported (the slider still works, but shows an approximate level).
-5. Reload the remote on the phone. A speaker button appears on the Now Playing screen, and a
+5. Reload the app on the phone. A speaker button appears on the Now Playing screen, and a
    **TV volume** button in the TV sheet (tap the TV button at the top right) so you can also use
    it when nothing plays. You do not need to restart anything.
 
@@ -150,13 +150,13 @@ only change the volume.
 - **"TV did not respond."** The TV went to sleep or lost its connection. Wake it, reload the
   Thuisbios page on the TV and try again.
 - **The volume button is missing.** Run the setup from the Volume button section, then reload the
-  remote. They also stay hidden when the remote is opened from something other than the PC program
+  app. They also stay hidden when the app is opened from something other than the PC program
   from step 1.4.
 - **"Can't reach the TV. Is it on?"** Switch the TV on (standby is not enough on some TVs) and try
   again. If the TV's address changed, run the setup again with the new address.
 - **"The TV blocked the volume control."** Probably Deny was pressed, or Allow was missed. On the TV
   go to **Settings**, **General**, **External Device Manager**, **Device Connection Manager**,
-  **Device List**. Set **Thuisbios Remote** to **Allow**, or remove it, and run the setup again.
+  **Device List**. Set **Thuisbios** to **Allow**, or remove it, and run the setup again.
 - **"Volume control isn't set up on the PC yet."** Run the setup from the Volume button section.
 - **The slider moves but the sound doesn't change.** The TV is probably sending its sound to a
   soundbar, and the TV's own volume is not what you hear. Tell the PC to use the TV's volume keys
@@ -180,4 +180,4 @@ only change the volume.
 - **The number on the slider is wrong ("Approximate level").** The PC only remembers the level it set
   last, so changing the volume with the TV remote makes it drift. Drag the slider once to the level
   you hear; from then on it is right again.
-- **After an update the phone shows the old version.** Close the remote completely and open it again.
+- **After an update the phone shows the old version.** Close the app completely and open it again.
