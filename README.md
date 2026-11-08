@@ -134,7 +134,7 @@ web browser, served from the PC (`npm run preview -w apps/tv`, port 4173).
 
 ```bash
 npm install
-npm run dev -w apps/tv        # desktop browser at http://localhost:5173
+npm run dev -w apps/tv        # desktop browser at http://localhost:5173 (any window size: the page scales to fit)
 npm test                      # unit tests of all workspaces
 npm run typecheck             # tsc --noEmit in all workspaces
 npm run build -w apps/tv      # apps/tv/dist, ready to package for Tizen
