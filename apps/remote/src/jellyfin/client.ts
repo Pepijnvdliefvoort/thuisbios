@@ -88,6 +88,8 @@ export interface JellyfinClient {
   mediaStreams(userId: string, itemId: string): Promise<MediaStream[]>;
   /** Asks the server how this phone can play an item; see {@link PlaybackOptions}. */
   playbackInfo(userId: string, itemId: string, profile: DeviceProfile, options?: PlaybackOptions): Promise<PlaybackInfoResponse>;
+  /** Downloads `bytes` of filler from the server and returns how many bytes arrived (to time the link). */
+  bitrateTest(bytes: number, signal?: AbortSignal): Promise<number>;
   reportStart(report: PlaybackReport): Promise<void>;
   reportProgress(report: PlaybackReport): Promise<void>;
   /** `keepalive` lets the request outlive a page that is being hidden or closed. */
@@ -125,6 +127,22 @@ async function doRequest<T>(
   if (!response.ok) throw new JellyfinError(response.status, `${method} ${path} -> HTTP ${response.status}`);
   const text = await response.text();
   return (text ? JSON.parse(text) : undefined) as T;
+}
+
+/** Like doRequest, but reads the body as raw bytes and returns how many arrived. */
+async function doDownload(
+  { serverUrl, info, token, fetchFn, onUnauthorized }: ClientOptions,
+  path: string,
+  signal?: AbortSignal,
+): Promise<number> {
+  const response = await (fetchFn || fetch)(`${serverUrl}${path}`, {
+    method: 'GET',
+    headers: { Authorization: buildAuthHeader(info, token) },
+    signal,
+  });
+  if (response.status === 401 && token && onUnauthorized) onUnauthorized();
+  if (!response.ok) throw new JellyfinError(response.status, `GET ${path} -> HTTP ${response.status}`);
+  return (await response.arrayBuffer()).byteLength;
 }
 
 /** Signs in with a username and password. Throws JellyfinError (wrong password) or TypeError (unreachable). */
@@ -237,6 +255,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
         DeviceProfile: profile,
       });
     },
+    bitrateTest: (bytes, signal) => doDownload(options, `/Playback/BitrateTest?Size=${bytes}`, signal),
     reportStart: async (r) => {
       await req<void>('POST', '/Sessions/Playing', playbackBody(r));
     },
