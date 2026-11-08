@@ -5,7 +5,7 @@ Status: v1.1, updated with Pepijn's answers, 2026-10-19. No code yet.
 ## 0. Decisions (confirmed 2026-10-19)
 
 - **Host:** Pepijn's Windows PC with an NVIDIA RTX 4060 Ti. Jellyfin is **installed natively on Windows** (not Docker) with **NVENC hardware transcoding**. The 4060 Ti encodes H.264/HEVC easily, so even PGS burn-in or DTS-to-AC3 conversion is no problem.
-- **Phone remote:** a **PWA** for now, built so it can become a store app later. Plan: keep all logic in shared TS packages and wrap the PWA with **Capacitor** when going native (same code, real iOS/Android app). A MAUI rewrite stays possible because the Jellyfin API is the contract.
+- **Phone app:** a **PWA** for now, built so it can become a store app later. Plan: keep all logic in shared TS packages and wrap the PWA with **Capacitor** when going native (same code, real iOS/Android app). A MAUI rewrite stays possible because the Jellyfin API is the contract.
 - **Media:** none ready yet. Phase 1 uses a small test set (see section 6).
 - **Audio:** TV sound goes through a **soundbar**, so phone volume control needs extra care (see section 4).
 - **Repo:** private GitHub repo `thuisbios` under Pepijn's account.
@@ -16,12 +16,12 @@ Status: v1.1, updated with Pepijn's answers, 2026-10-19. No code yet.
 |---|---|---|
 | **Media server** | Jellyfin: library scanning, metadata/artwork, users, watch progress, streaming and transcoding | Your PC (PoC) |
 | **TV app** | Custom streaming-style web app for Tizen, talking to the Jellyfin API | Samsung UE49NU7100 |
-| **Phone remote** | Search, browse, "play on TV", play/pause/seek/next/prev, volume | iPhone and Android |
+| **Phone app** | Search, browse, "play on TV", play/pause/seek/next/prev, volume | iPhone and Android |
 
 Key idea: **Jellyfin is the backend.** It already has users, progress tracking, search, image resizing, transcoding and a remote-control (sessions) API. For the PoC we write no custom server code; we only write two clients. A small ASP.NET Core service can come later if Jellyfin ever falls short (it fits your C# background).
 
 ```text
- Phone remote ──HTTP + WebSocket──▶ Jellyfin (PC) ◀──HTTP + WebSocket── TV app
+ Phone app ─────HTTP + WebSocket──▶ Jellyfin (PC) ◀──HTTP + WebSocket── TV app
       │                                                                     ▲
       └─────── optional: Samsung TV control API (power on, launch app) ─────┘
 ```
@@ -65,7 +65,7 @@ Reference: the open-source `jellyfin-tizen` app proves Jellyfin works on this ge
 
 **Login:** Quick Connect (Jellyfin feature: TV shows a code, approve it on the phone) so you never type a password with the remote.
 
-## 4. Phone remote: how it talks to the TV
+## 4. Phone app: how it talks to the TV
 
 **Recommendation: use Jellyfin's sessions (remote control) API as the channel.** Both apps connect to Jellyfin; the phone never talks to the TV directly for playback.
 
@@ -104,7 +104,7 @@ Caveats to know:
 - **Network:** give the PC a fixed LAN IP (DHCP reservation in your router), use wired Ethernet if possible (4K remuxes can exceed 80 Mbit/s; the TV's own LAN port is only 100 Mbit/s, which is enough for most files but tight for full UHD Blu-ray remuxes). Allow Jellyfin's port (8096) through Windows Firewall for private networks.
 - **Transcoding** uses your CPU/GPU. With a reasonably modern GPU (NVIDIA NVENC, Intel QSV, AMD AMF) enable hardware acceleration in Jellyfin. Good file choices (H.264/HEVC + AAC/AC3 + SRT subs) mean almost everything direct-plays and the PC barely works.
 - **Remote access** (outside the house): decided, Tailscale Serve on the PC, tailnet only (no Funnel), so no ports are opened to the internet. See [remote/tailscale.md](remote/tailscale.md).
-- **Phone remote over HTTPS:** decided, Tailscale's built-in HTTPS certificates. Tailscale Serve publishes the phone app on `https://<pc>.<tailnet>.ts.net` (port 443) and Jellyfin on port 8920. The TV stays on the home address over HTTP.
+- **Phone app over HTTPS:** decided, Tailscale's built-in HTTPS certificates. Tailscale Serve publishes the phone app on `https://<pc>.<tailnet>.ts.net` (port 443) and Jellyfin on port 8920. The TV stays on the home address over HTTP.
 
 ## 6. Media library conventions
 
@@ -124,7 +124,7 @@ Tips for this TV: prefer HEVC or H.264 video, AAC/AC3/E-AC3 audio (add an AC3 tr
 | **1. Server** | Jellyfin running on your PC with part of your library | You can browse and play in a browser on the PC and in the official Jellyfin app on your phone |
 | **2. TV spike** | Prove the platform | Tizen VS Code extension set up, certificate made, a "hello world" app with D-pad focus installed on the TV, and one movie (direct play) + one transcoded file playing via HTML5 video (or AVPlay) |
 | **3. TV MVP** | Usable app | Quick Connect login, profile picker, home rows, detail page, playback with resume and progress reporting |
-| **4. Phone remote MVP** | Phone controls the TV | PWA with search, browse, "Play on TV", play/pause/seek/next/prev, live now-playing view, and volume that reaches the soundbar |
+| **4. Phone app MVP** | Phone controls the TV | PWA with search, browse, "Play on TV", play/pause/seek/next/prev, live now-playing view, and volume that reaches the soundbar |
 | **5. Polish** | Feels polished | Series flow (Next Up, auto-next, skip intro), audio/subtitle switching, trickplay thumbnails, transitions, optional Samsung power-on/launch from phone, upload flow, then remote access and the move off the PC |
 
 Phase 2 is deliberately a spike: it de-risks the TV's old engine and player before we invest in UI.

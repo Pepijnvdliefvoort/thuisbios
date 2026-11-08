@@ -45,7 +45,7 @@ try {
   if (e && e.code === 'not-allowed') {
     console.error('The TV did not allow the connection. Run this again and press Allow with the TV remote.');
     console.error('If you pressed Deny before: on the TV go to Settings > General > External Device Manager >');
-    console.error('Device Connection Manager > Device List, set "Thuisbios Remote" to Allow (or remove it), then run this again.');
+    console.error('Device Connection Manager > Device List, set "Thuisbios" to Allow (or remove it), then run this again.');
   } else if (reason === 'timeout') {
     console.error(`No answer from the TV at ${host} within a minute. Check that the TV is on, that the address is right,`);
     console.error('and that you pressed Allow on the TV. Then run this again.');

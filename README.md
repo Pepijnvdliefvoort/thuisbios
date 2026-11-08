@@ -66,7 +66,7 @@ Regenerate them with `node scripts/screenshots/capture.mjs`, see [scripts/screen
 ## Architecture
 
 ```text
- Phone remote ──HTTP(S) + WebSocket──▶ Jellyfin (Windows PC) ◀──HTTP + WebSocket── TV app
+ Phone app ─────HTTP(S) + WebSocket──▶ Jellyfin (Windows PC) ◀──HTTP + WebSocket── TV app
  (PWA)                              NVIDIA RTX 4060 Ti                          (Samsung Tizen 4.0)
       │                             NVENC transcoding                                  ▲
       └──── same-origin relay in the remote's server (PC) ──▶ Samsung TV remote API (volume) ┘
@@ -83,12 +83,12 @@ docs/plan.md              project plan
 docs/images/              README banner and screenshots
 docs/server/              Jellyfin setup guide for Windows (windows-setup.md), autostart guide (autostart.md) and Intro Skipper guide (intro-skipper.md)
 docs/tv/                  TV app: Tizen setup, install and test guide (dev-setup.md)
-docs/remote/              phone remote: setup guide (setup.md), away from home via Tailscale (tailscale.md)
+docs/remote/              phone app: setup guide (setup.md), away from home via Tailscale (tailscale.md)
 scripts/                  repo tooling (version checks)
 scripts/screenshots/      mock Jellyfin server and Playwright script that generates the README screenshots
 packages/jellyfin-client/ planned: shared typed Jellyfin API client
 apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite), served to the TV browser
-apps/remote/              phone remote PWA, phase 4 (Preact + TypeScript + Vite)
+apps/remote/              phone and desktop app (PWA), phase 4 (Preact + TypeScript + Vite)
 apps/remote/relay/        Samsung TV volume relay and title requests (Node, runs inside the remote's vite server); apps/remote/scripts/tv-setup.mjs pairs the TV and jellyfin-setup.mjs saves the Jellyfin API key for title suggestions
 server/                   Jellyfin helper scripts (PowerShell) and Pester tests; device profile planned
 ```
@@ -147,7 +147,7 @@ committed.
 
 ## Phone app (phase 4)
 
-`apps/remote` is the phone remote: a PWA ("Thuisbios Remote", Preact + TypeScript + Vite) for modern
+`apps/remote` is the Thuisbios phone app: a PWA (Preact + TypeScript + Vite) for modern
 phone browsers (iOS Safari 15+, Android Chrome), so there is no legacy build. The phone is the main
 screen. It connects the TV: scan the QR code on the TV (the link is
 `http://<pc>:4174/?connect=<code>`) or tap "Connect TV" at the top right and type the 6-digit Quick Connect code
@@ -270,7 +270,7 @@ GitHub Actions in `.github/workflows`:
 - `ci.yml`: commitlint (commits and PR title), branch-name check (PR branches must start with `feat/`, `fix/`,
   `chore/`, `docs/`, `ci/`, `refactor/`, `perf/` or `test/`), markdownlint, version consistency check (root,
   `apps/tv/package.json`, `apps/remote/package.json` and the Tizen `config.xml` must agree), TV app
-  (typecheck, Vitest, build, ES2017 syntax check, `dist` uploaded as artifact), phone remote
+  (typecheck, Vitest, build, ES2017 syntax check, `dist` uploaded as artifact), phone app
   (typecheck, Vitest, build, `dist` uploaded as the `remote-dist` artifact), PowerShell (PSScriptAnalyzer and Pester tests
   for `server/` on Windows). The build and test jobs only run when their part of the repo changed (TV app,
   phone app, server scripts, Markdown, version files; a change to `ci.yml` runs everything). CI runs on pull
@@ -287,7 +287,7 @@ Docker image builds (GHCR) and the other test jobs are added together with the f
 | 1. Server | Jellyfin on the Windows PC with a test library | done |
 | 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
 | 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done; later reshaped: the TV only connects and shows a screensaver, browsing moved to the phone |
-| 4. Phone remote MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | done: browse, search, play on TV or on the phone, transport controls, volume slider (relay in the remote's server), title requests; volume and title suggestions not yet verified on the real TV/phone |
+| 4. Phone app MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | done: browse, search, play on TV or on the phone, transport controls, volume slider (relay in the app's server), title requests; volume and title suggestions not yet verified on the real TV/phone |
 | 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve and start with Windows and automatic updates from releases (autostart and update scripts, not yet run on the real PC) done; skip intro (needs the Intro Skipper plugin, on the TV and the phone; not yet verified on the real TV) done; next episode autoplay (card with countdown, on the TV and the phone; not yet verified on the real TV) done; the rest planned |
 
 ## License

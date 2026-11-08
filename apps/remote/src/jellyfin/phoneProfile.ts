@@ -60,7 +60,7 @@ export function buildPhoneProfile(canPlay: (mime: string) => boolean): DevicePro
   }
 
   return {
-    Name: 'Thuisbios Remote (phone browser)',
+    Name: 'Thuisbios (phone browser)',
     MaxStreamingBitrate: 20000000,
     MaxStaticBitrate: 100000000,
     MusicStreamingTranscodingBitrate: 384000,

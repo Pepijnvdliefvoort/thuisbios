@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { buildAuthHeader, createDeviceId, defaultServerUrl, normalizeServerUrl } from './auth';
 
-const info = { client: 'Thuisbios Remote', device: 'Phone', deviceId: 'abc123', version: '0.1.0' };
+const info = { client: 'Thuisbios', device: 'Phone', deviceId: 'abc123', version: '0.1.0' };
 
 describe('buildAuthHeader', () => {
   it('builds the header without a token', () => {
     expect(buildAuthHeader(info)).toBe(
-      'MediaBrowser Client="Thuisbios Remote", Device="Phone", DeviceId="abc123", Version="0.1.0"',
+      'MediaBrowser Client="Thuisbios", Device="Phone", DeviceId="abc123", Version="0.1.0"',
     );
   });
   it('adds the token and strips double quotes', () => {
     expect(buildAuthHeader({ ...info, device: 'My "Phone"' }, 'tok')).toBe(
-      'MediaBrowser Client="Thuisbios Remote", Device="My Phone", DeviceId="abc123", Version="0.1.0", Token="tok"',
+      'MediaBrowser Client="Thuisbios", Device="My Phone", DeviceId="abc123", Version="0.1.0", Token="tok"',
     );
   });
 });

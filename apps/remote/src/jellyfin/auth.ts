@@ -1,6 +1,6 @@
 import type { ClientInfo } from './types';
 
-export const CLIENT_NAME = 'Thuisbios Remote';
+export const CLIENT_NAME = 'Thuisbios';
 /** The client name the Thuisbios TV app registers with; used to recognise the TV among sessions. */
 export const TV_CLIENT_NAME = 'Thuisbios TV';
 
@@ -9,7 +9,7 @@ const clean = (value: string): string => value.replace(/"/g, '');
 
 /**
  * Builds the value of the `Authorization` header Jellyfin expects, e.g.
- * `MediaBrowser Client="Thuisbios Remote", Device="Phone", DeviceId="abc", Version="0.1.0", Token="xyz"`.
+ * `MediaBrowser Client="Thuisbios", Device="Phone", DeviceId="abc", Version="0.1.0", Token="xyz"`.
  */
 export function buildAuthHeader(info: ClientInfo, token?: string): string {
   const parts = [
