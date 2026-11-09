@@ -4,11 +4,12 @@ import { setCapabilitiesState, setLastRemote, setSocketState } from '../debug/ke
 import { emitRemote } from './bus';
 import { describeCommand, keepAliveIntervalMs, parseSocketMessage, reconnectDelayMs, socketUrl } from './messages';
 
-const CAPABILITIES_INTERVAL_MS = 5 * 60 * 1000;
+const HEARTBEAT_MS = 60 * 1000;
 
 /**
  * Keeps this TV controllable from a phone: posts the capabilities (at start, on every socket open and every
- * 5 minutes, independent of the socket), holds the Jellyfin WebSocket open
+ * minute, independent of the socket; each request refreshes the session's last activity, so it doubles as a
+ * heartbeat that lets phones tell the TV is still on), holds the Jellyfin WebSocket open
  * (answering keep-alive requests, reconnecting with backoff) and publishes commands on the remote bus.
  * Returns a function that stops everything.
  */
@@ -28,7 +29,7 @@ export function startRemoteSocket(client: JellyfinClient, session: Session, devi
       );
   };
   postCapabilities();
-  const capabilitiesTimer = window.setInterval(postCapabilities, CAPABILITIES_INTERVAL_MS);
+  const capabilitiesTimer = window.setInterval(postCapabilities, HEARTBEAT_MS);
 
   const clearKeepAlive = () => {
     if (keepAlive) window.clearInterval(keepAlive);

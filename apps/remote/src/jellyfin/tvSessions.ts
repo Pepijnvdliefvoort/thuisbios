@@ -53,3 +53,29 @@ export function activeTv(
 ): RemoteSession | null {
   return disconnected ? null : pickTv(sessions, ownDeviceId, preferredDeviceId);
 }
+
+/** How long a Thuisbios TV may stay silent before the phone treats it as switched off. */
+export const TV_STALE_MS = 3 * 60 * 1000;
+
+/**
+ * Removes Thuisbios TV sessions that have not been active for {@link TV_STALE_MS}. The TV app posts a heartbeat
+ * every minute; when the TV is switched off that stops, but Jellyfin keeps the session listed for up to 16 minutes.
+ * Sessions without a (parsable) LastActivityDate and sessions of other clients (which send no such heartbeat) are kept.
+ */
+export function dropStaleTvs(sessions: RemoteSession[], nowMs: number): RemoteSession[] {
+  return sessions.filter((s) => {
+    if (!isTvApp(s)) return true;
+    const last = s.LastActivityDate ? Date.parse(s.LastActivityDate) : NaN;
+    if (isNaN(last)) return true;
+    return last >= nowMs - TV_STALE_MS;
+  });
+}
+
+/** True when the TV this phone was controlling vanished by itself (not on the first poll, not after a manual disconnect). */
+export function tvLostSilently(
+  previousDeviceId: string | null,
+  currentDeviceId: string | null,
+  disconnected: boolean,
+): boolean {
+  return !!previousDeviceId && !currentDeviceId && !disconnected;
+}

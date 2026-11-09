@@ -171,6 +171,8 @@ remote-controllable) and polls `/Sessions` every 2 seconds while the page is vis
 
 The TV sheet in the header has "Disconnect from TV", which signs the TV out so it shows a new Quick
 Connect code and QR again (the choice survives a reload). Reconnecting needs the code or the QR again.
+If the TV is switched off, the phone shows it as gone after a few minutes (the TV page sends a sign of
+life every minute) and picks it up again by itself when the TV is on again.
 
 Without a TV connected, the play buttons play the video on the phone itself: direct play when the
 phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
