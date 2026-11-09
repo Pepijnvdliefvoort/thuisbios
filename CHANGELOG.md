@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.11.1...v0.12.0) (2026-11-09)
+
+
+### Features
+
+* run on a Linux home server with Docker and automatic updates from GHCR ([7a62680](https://github.com/Pepijnvdliefvoort/thuisbios/commit/7a626806e8dc6a889f98fb7b742295dc7e79a4b6))
+* run on a Linux home server with Docker and automatic updates from GHCR ([90aeccf](https://github.com/Pepijnvdliefvoort/thuisbios/commit/90aeccf36b3e3db4ee8c0464bb3d3a5bf0c36776))
+
 ## [0.11.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.11.0...v0.11.1) (2026-11-08)
 
 
