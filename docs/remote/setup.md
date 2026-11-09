@@ -42,7 +42,8 @@ and you pick everything on the phone.
 From now on, open Thuisbios on the phone, pick a movie and press **Play on TV**. The button at the top
 right shows the TV with a green dot. Tap it to open the TV sheet: pick a TV if you have more than one,
 adjust the volume, connect another TV or disconnect. The round avatar next to it opens the account
-sheet with Sign out and the app version.
+sheet with Sign out and the app version. If the TV is switched off, the phone shows it as disconnected
+after a few minutes and reconnects by itself when the TV is on again.
 
 ## What the buttons do
 
