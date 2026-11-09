@@ -177,7 +177,8 @@ life every minute) and picks it up again by itself when the TV is on again.
 Without a TV connected, the play buttons play the video on the phone itself: direct play when the
 phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
 no native HLS). The phone plays in the app's own player, which fills the screen: tap the picture to
-show or hide the controls (play/pause, -10 s / +10 s, a scrub bar and a subtitles picker). Text
+show or hide the controls (play/pause, -10 s / +10 s, a scrub bar and a subtitles picker), double-tap
+the left or right side to skip 10 s back or forward (keep tapping to skip more). Text
 subtitles are drawn by the app itself and the app remembers the subtitle language you picked.
 Without a choice yet, the player starts with the track Jellyfin would pick for you (from your
 Jellyfin subtitle settings), as before. Subtitles are never burned into the picture unless you pick
