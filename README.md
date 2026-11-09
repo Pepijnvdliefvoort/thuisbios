@@ -199,8 +199,8 @@ you picked and uses it the next time when the item has that language.
 
 The app also works in a desktop browser (a wide window with a mouse). The tabs move to a floating top bar
 (see-through at the top of a page, solid once it scrolls), Home opens with a full-width spotlight of recently added
-titles, the details page is a full-width backdrop with the title and buttons on it (a blurred copy of the poster when there is
-no backdrop), rows run edge to edge with side arrow panels, grey skeleton placeholders show while content loads, Search groups
+titles, the details page is a full-width backdrop with the title and buttons on it (the spotlight and details fall back to a blurred copy of the poster
+when there is no backdrop or it fails to load), rows run edge to edge with side arrow panels, grey skeleton placeholders show while content loads, Search groups
 results into Movies, Shows and Episodes and remembers recent searches, Requests are cards in a grid with a coloured status
 badge, the sign-in page is a card over a slowly drifting wall of abstract poster tiles, and Play and Resume use the app's own player on that computer even when a TV is
 connected ("Play on TV" sits next to them). The player has a full-width scrub bar (hover shows the time above it) over one row of controls (play, -10 s/+10 s, volume with a slider that opens on hover, time, the audio and subtitles menu, fullscreen), a Skip intro pill above the bar, and these keys:
