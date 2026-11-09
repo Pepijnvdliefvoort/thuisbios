@@ -39,14 +39,25 @@ sudo systemctl restart jellyfin
 
 ### 2. Docker
 
-Install Docker Engine with the compose plugin. On Ubuntu and Linux Mint, use Docker's own
-repository (see the [Docker documentation](https://docs.docker.com/engine/install/ubuntu/); on Mint use
-the Ubuntu codename from `/etc/upstream-release/lsb-release`). Then:
+Install Docker Engine with the compose plugin from Docker's own repository (see the
+[Docker documentation](https://docs.docker.com/engine/install/ubuntu/)). On Linux Mint the Ubuntu
+codename comes from `/etc/upstream-release/lsb-release`; on plain Ubuntu use `/etc/os-release` and
+`$VERSION_CODENAME` instead:
 
 ```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/upstream-release/lsb-release && echo "$DISTRIB_CODENAME") stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo usermod -aG docker polm   # log out and in again afterwards
-docker compose version
 ```
+
+After logging in again, `docker compose version` prints a version number.
 
 ### 3. Thuisbios
 
