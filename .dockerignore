@@ -1,0 +1,17 @@
+.git
+.github
+**/node_modules
+**/dist
+**/coverage
+docs
+server
+scripts/screenshots
+*.log
+.env
+.env.*
+*.p12
+*.wgt
+.sign
+.buildResult
+media
+samsung-tv.json
