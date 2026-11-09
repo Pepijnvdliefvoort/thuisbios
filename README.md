@@ -81,7 +81,7 @@ sessions (remote control) API. The phone sends commands to the TV session throug
 .github/                  CI, release and dependency automation, PR template
 docs/plan.md              project plan
 docs/images/              README banner and screenshots
-docs/server/              Jellyfin setup guide for Windows (windows-setup.md), autostart guide (autostart.md) and Intro Skipper guide (intro-skipper.md)
+docs/server/              Jellyfin setup guide for Windows (windows-setup.md), autostart guide (autostart.md), Linux home server with Docker (linux-docker.md) and Intro Skipper guide (intro-skipper.md)
 docs/tv/                  TV app: Tizen setup, install and test guide (dev-setup.md)
 docs/remote/              phone app: setup guide (setup.md), away from home via Tailscale (tailscale.md)
 scripts/                  repo tooling (version checks)
@@ -91,6 +91,8 @@ apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite),
 apps/remote/              phone and desktop app (PWA), phase 4 (Preact + TypeScript + Vite)
 apps/remote/relay/        Samsung TV volume relay and title requests (Node, runs inside the remote's vite server); apps/remote/scripts/tv-setup.mjs pairs the TV and jellyfin-setup.mjs saves the Jellyfin API key for title suggestions
 server/                   Jellyfin helper scripts (PowerShell) and Pester tests; device profile planned
+server/linux/             compose file and update timer (systemd) for the Linux home server
+Dockerfile                one image with the TV page and phone app, for the Linux home server
 ```
 
 ## Server (phase 1)
@@ -115,6 +117,13 @@ Optional: the Intro Skipper plugin lets Jellyfin find the intro of each episode,
 show a "Skip intro" button. See [docs/server/intro-skipper.md](docs/server/intro-skipper.md).
 
 Run the tests with `Invoke-Pester -Path server/tests` (Pester 5).
+
+### Linux home server (Docker)
+
+Thuisbios can also run on a Linux server next to a native Jellyfin, as two containers from one image
+(`ghcr.io/pepijnvdliefvoort/thuisbios`). Every release builds and pushes that image, and a systemd timer on the
+server pulls it every 30 minutes, so the server follows the releases without building anything itself.
+See [docs/server/linux-docker.md](docs/server/linux-docker.md).
 
 ## TV app
 
@@ -277,10 +286,10 @@ GitHub Actions in `.github/workflows`:
   for `server/` on Windows). The build and test jobs only run when their part of the repo changed (TV app,
   phone app, server scripts, Markdown, version files; a change to `ci.yml` runs everything). CI runs on pull
   requests into `develop` and `main` and on pushes to `develop`; runs on a PR are cancelled when a newer commit is pushed.
-- `release-please.yml`: on push to `main`, opens or updates the release PR, creates the `vX.Y.Z` tag and GitHub release, and then opens a PR from `main` back into `develop`.
+- `release-please.yml`: on push to `main`, opens or updates the release PR, creates the `vX.Y.Z` tag and GitHub release, and then opens a PR from `main` back into `develop`; for a new release it also builds the Docker image and pushes it to GHCR (`vX.Y.Z` and `latest`).
 
 Dependabot updates GitHub Actions and npm weekly, targeting `develop`.
-Docker image builds (GHCR) and the other test jobs are added together with the first containerized service.
+Docker: `ci.yml` builds the image and starts both apps when the `Dockerfile`, `.dockerignore`, `server/linux` or the release workflow changed (nothing is pushed); the `docker` job in `release-please.yml` pushes `vX.Y.Z` and `latest` to GHCR for every release.
 
 ## Roadmap
 
@@ -290,7 +299,7 @@ Docker image builds (GHCR) and the other test jobs are added together with the f
 | 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
 | 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done; later reshaped: the TV only connects and shows a screensaver, browsing moved to the phone |
 | 4. Phone app MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | done: browse, search, play on TV or on the phone, transport controls, volume slider (relay in the app's server), title requests; volume and title suggestions not yet verified on the real TV/phone |
-| 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve and start with Windows and automatic updates from releases (autostart and update scripts, not yet run on the real PC) done; skip intro (needs the Intro Skipper plugin, on the TV and the phone; not yet verified on the real TV) done; next episode autoplay (card with countdown, on the TV and the phone; not yet verified on the real TV) done; the rest planned |
+| 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve and start with Windows and automatic updates from releases (autostart and update scripts, not yet run on the real PC) done; Linux home server with Docker and automatic updates from GHCR (not yet run on the real server) done; skip intro (needs the Intro Skipper plugin, on the TV and the phone; not yet verified on the real TV) done; next episode autoplay (card with countdown, on the TV and the phone; not yet verified on the real TV) done; the rest planned |
 
 ## License
 
