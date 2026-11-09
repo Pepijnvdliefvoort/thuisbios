@@ -41,7 +41,7 @@ jobs:
             --body "Automated back-merge of release $TAG from main into develop. Merge with a merge commit."
 
   # Builds the Docker image for the Linux home server (docs/server/linux-docker.md) and pushes it
-  # to GHCR as vX.Y.Z and latest. The server pulls `latest` every 30 minutes.
+  # to GHCR as vX.Y.Z and latest. The server pulls `latest` every 15 minutes.
   docker:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}
