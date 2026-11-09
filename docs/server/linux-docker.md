@@ -11,7 +11,7 @@ New releases arrive by themselves:
 1. A release PR is merged into `main` and release-please creates the `vX.Y.Z` tag and release.
 2. The `docker` job in `release-please.yml` builds the image and pushes it to GitHub Container
    Registry as `ghcr.io/pepijnvdliefvoort/thuisbios:vX.Y.Z` and `:latest`.
-3. On the server, a systemd timer runs `docker compose pull` and `docker compose up -d` every 30
+3. On the server, a systemd timer runs `docker compose pull` and `docker compose up -d` every 15
    minutes. The containers are only recreated when the image changed, which takes a few seconds.
    A movie that is already playing keeps playing, because the video comes from Jellyfin.
 

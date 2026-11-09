@@ -1,9 +1,9 @@
 [Unit]
-Description=Check for a new Thuisbios release every 30 minutes
+Description=Check for a new Thuisbios release every 15 minutes
 
 [Timer]
 OnBootSec=5min
-OnUnitActiveSec=30min
+OnUnitActiveSec=15min
 RandomizedDelaySec=2min
 
 [Install]

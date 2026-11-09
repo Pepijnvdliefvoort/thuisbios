@@ -122,7 +122,7 @@ Run the tests with `Invoke-Pester -Path server/tests` (Pester 5).
 
 Thuisbios can also run on a Linux server next to a native Jellyfin, as two containers from one image
 (`ghcr.io/pepijnvdliefvoort/thuisbios`). Every release builds and pushes that image, and a systemd timer on the
-server pulls it every 30 minutes, so the server follows the releases without building anything itself.
+server pulls it every 15 minutes, so the server follows the releases without building anything itself.
 See [docs/server/linux-docker.md](docs/server/linux-docker.md).
 
 ## TV app
