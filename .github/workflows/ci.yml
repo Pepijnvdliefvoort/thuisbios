@@ -24,6 +24,7 @@ jobs:
       powershell: ${{ steps.filter.outputs.powershell }}
       markdown: ${{ steps.filter.outputs.markdown }}
       versions: ${{ steps.filter.outputs.versions }}
+      docker: ${{ steps.filter.outputs.docker }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -43,7 +44,8 @@ jobs:
           powershell=false
           markdown=false
           versions=false
-          all() { tv=true; remote=true; powershell=true; markdown=true; versions=true; }
+          docker=false
+          all() { tv=true; remote=true; powershell=true; markdown=true; versions=true; docker=true; }
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
             BASE="$PR_BASE"
@@ -79,6 +81,9 @@ jobs:
                 server/*|.github/scripts/*) powershell=true ;;
               esac
               case "$f" in
+                Dockerfile|.dockerignore|server/linux/*|.github/workflows/release-please.yml) docker=true ;;
+              esac
+              case "$f" in
                 *.md|.markdownlint-cli2.jsonc) markdown=true ;;
               esac
               case "$f" in
@@ -93,12 +98,14 @@ jobs:
           echo "powershell=$powershell"
           echo "markdown=$markdown"
           echo "versions=$versions"
+          echo "docker=$docker"
           {
             echo "tv=$tv"
             echo "remote=$remote"
             echo "powershell=$powershell"
             echo "markdown=$markdown"
             echo "versions=$versions"
+            echo "docker=$docker"
           } >> "$GITHUB_OUTPUT"
 
   commitlint:
@@ -212,6 +219,37 @@ jobs:
           name: remote-dist
           path: apps/remote/dist
           if-no-files-found: error
+
+  docker:
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the image (not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: thuisbios:ci
+      - name: Check the compose file
+        run: docker compose -f server/linux/compose.yaml config --quiet
+      - name: Start both apps and check that they answer
+        run: |
+          set -euo pipefail
+          docker run -d --name tv --network host thuisbios:ci npm run preview -w apps/tv
+          docker run -d --name remote --network host thuisbios:ci
+          for port in 4173 4174; do
+            for i in $(seq 1 30); do
+              curl -fsS -o /dev/null "http://127.0.0.1:$port/" && break
+              sleep 1
+            done
+            curl -fsS -o /dev/null "http://127.0.0.1:$port/"
+            echo "Port $port answers."
+          done
+          docker logs remote
 
   powershell:
     needs: changes

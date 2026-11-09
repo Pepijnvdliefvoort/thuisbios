@@ -1,0 +1,13 @@
+[Unit]
+Description=Update Thuisbios to the newest released Docker image
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/thuisbios
+# Pulls the image; `up -d` only recreates the containers when the image changed.
+ExecStart=/usr/bin/docker compose pull --quiet
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecStartPost=/usr/bin/docker image prune -f

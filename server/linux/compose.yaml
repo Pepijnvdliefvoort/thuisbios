@@ -1,0 +1,33 @@
+# Thuisbios on a Linux home server, next to a native Jellyfin on port 8096.
+# Put this file in /opt/thuisbios and run `docker compose up -d` there (docs/server/linux-docker.md).
+# To go back to an older release, replace `latest` with that version (for example v0.11.1) in both places.
+
+services:
+  tv:
+    image: ghcr.io/pepijnvdliefvoort/thuisbios:latest
+    command: ["npm", "run", "preview", "-w", "apps/tv"]
+    # Host network: port 4173 as before, and the page reaches Jellyfin on this machine's port 8096.
+    network_mode: host
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4173/"]
+      interval: 1m
+      timeout: 5s
+      retries: 3
+
+  remote:
+    image: ghcr.io/pepijnvdliefvoort/thuisbios:latest
+    command: ["npm", "run", "preview", "-w", "apps/remote"]
+    # Host network: port 4174, Jellyfin on localhost:8096 and the Samsung TV on the home network.
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      THUISBIOS_JELLYFIN_URL: http://localhost:8096
+    volumes:
+      # samsung-tv.json, jellyfin.json and requests.json. Create the folder first (mkdir -p ~/.thuisbios).
+      - /home/polm/.thuisbios:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4174/"]
+      interval: 1m
+      timeout: 5s
+      retries: 3
