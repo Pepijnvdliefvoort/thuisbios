@@ -92,8 +92,12 @@ export interface JellyfinClient {
   mediaStreams(userId: string, itemId: string): Promise<MediaStream[]>;
   /** Asks the server how this phone can play an item; see {@link PlaybackOptions}. */
   playbackInfo(userId: string, itemId: string, profile: DeviceProfile, options?: PlaybackOptions): Promise<PlaybackInfoResponse>;
-  /** Downloads `bytes` of filler from the server and returns how many bytes arrived (to time the link). */
-  bitrateTest(bytes: number, signal?: AbortSignal): Promise<number>;
+  /**
+   * Downloads `bytes` of filler from the server and returns how many bytes arrived (to time the link).
+   * `onHeaders` is called when the response headers arrive, before the body, so the caller can leave the
+   * request latency out of the timing.
+   */
+  bitrateTest(bytes: number, signal?: AbortSignal, onHeaders?: () => void): Promise<number>;
   /** Tells the server to stop (and clean up) the transcode of a play session. Used when a download has finished. */
   stopTranscode(deviceId: string, playSessionId: string): Promise<void>;
   reportStart(report: PlaybackReport): Promise<void>;
@@ -140,6 +144,7 @@ async function doDownload(
   { serverUrl, info, token, fetchFn, onUnauthorized }: ClientOptions,
   path: string,
   signal?: AbortSignal,
+  onHeaders?: () => void,
 ): Promise<number> {
   const response = await (fetchFn || fetch)(`${serverUrl}${path}`, {
     method: 'GET',
@@ -148,6 +153,7 @@ async function doDownload(
   });
   if (response.status === 401 && token && onUnauthorized) onUnauthorized();
   if (!response.ok) throw new JellyfinError(response.status, `GET ${path} -> HTTP ${response.status}`);
+  onHeaders?.();
   return (await response.arrayBuffer()).byteLength;
 }
 
@@ -272,7 +278,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
         DeviceProfile: profile,
       });
     },
-    bitrateTest: (bytes, signal) => doDownload(options, `/Playback/BitrateTest?Size=${bytes}`, signal),
+    bitrateTest: (bytes, signal, onHeaders) => doDownload(options, `/Playback/BitrateTest?Size=${bytes}`, signal, onHeaders),
     stopTranscode: async (deviceId, playSessionId) => {
       await req<void>('DELETE', `/Videos/ActiveEncodings?deviceId=${enc(deviceId)}&playSessionId=${enc(playSessionId)}`);
     },
