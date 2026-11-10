@@ -45,7 +45,7 @@ interface Props {
   audioTracks: AudioTrack[];
   /** Jellyfin stream index of the audio playing; null when unknown. */
   audioSelected: number | null;
-  /** Picture quality choices (Auto first); the Quality section of the menu only shows with 2 or more. */
+  /** Picture quality choices (Auto first); the Quality menu (cog button) only shows with 2 or more. */
   qualityOptions: QualityOption[];
   qualitySelected: QualityId;
   onBack(): void;
@@ -55,7 +55,7 @@ interface Props {
   onSelectSubtitle(index: number): void;
   onSelectAudio(index: number): void;
   onSelectQuality(id: QualityId): void;
-  /** Reports whether the user is busy with the bar or the subtitle panel, which keeps the controls up. */
+  /** Reports whether the user is busy with the bar or one of the menus, which keeps the controls up. */
   onBusy(busy: boolean): void;
   /** Any touch on the controls, so the hide timer restarts. */
   onInteract(): void;
@@ -63,9 +63,10 @@ interface Props {
   episodeNav?: EpisodeNav;
 }
 
-/** Streaming-style overlay: top bar, centre buttons and a bottom bar with the scrub bar and the audio and subtitle menu. */
+/** Streaming-style overlay: top bar, centre buttons and a bottom bar with the scrub bar, the audio and subtitle menu and the quality menu. */
 export function PlayerControls(p: Props) {
-  const [panel, setPanel] = useState(false);
+  // Which menu is open; only one at a time.
+  const [open, setOpen] = useState<'cc' | 'quality' | null>(null);
   // While dragging: the time under the finger. The video only seeks on release.
   const [preview, setPreview] = useState<number | null>(null);
   // Mouse: the fraction of the bar under the pointer, for the time tooltip.
@@ -106,94 +107,94 @@ export function PlayerControls(p: Props) {
     if (preview === null) return;
     p.onSeek(fractionOf(e) * total);
     setPreview(null);
-    p.onBusy(panel);
+    p.onBusy(open !== null);
   };
   const onCancel = () => {
     setPreview(null);
-    p.onBusy(panel);
+    p.onBusy(open !== null);
   };
 
-  // Esc closes the audio and subtitle menu first (before the player's own Esc handling sees it).
+  // Esc closes an open menu first (before the player's own Esc handling sees it).
   useEffect(() => {
-    if (!panel || !d) return;
+    if (open === null || !d) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       e.stopImmediatePropagation();
       e.preventDefault();
-      setPanel(false);
+      setOpen(null);
       p.onBusy(false);
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [panel, !!d]);
+  }, [open, !!d]);
 
   const tipAt = preview !== null && total > 0 ? preview / total : hover;
 
-  const togglePanel = () => {
-    setPanel(!panel);
-    p.onBusy(!panel);
+  const toggleMenu = (menu: 'cc' | 'quality') => {
+    const next = open === menu ? null : menu;
+    setOpen(next);
+    p.onBusy(next !== null);
   };
-  const closePanel = () => {
-    setPanel(false);
+  const closeMenu = () => {
+    setOpen(null);
     p.onBusy(false);
   };
   const pick = (index: number) => {
     p.onSelectSubtitle(index);
-    closePanel();
+    closeMenu();
   };
   const pickAudio = (index: number) => {
     // The current track needs no restart of the stream.
     if (index !== p.audioSelected) p.onSelectAudio(index);
-    closePanel();
+    closeMenu();
   };
   const pickQuality = (id: QualityId) => {
     p.onSelectQuality(id);
-    closePanel();
+    closeMenu();
   };
   const showAudio = p.audioTracks.length >= 2;
   const showQuality = p.qualityOptions.length >= 2;
-  const menuLabel = [showAudio ? 'Audio' : '', showQuality ? 'quality' : '', 'subtitles']
-    .filter(Boolean)
-    .join(', ')
-    .replace(/, ([^,]*)$/, ' and $1')
-    .replace(/^./, (c) => c.toUpperCase());
+  const menuLabel = showAudio ? 'Audio and subtitles' : 'Subtitles';
 
-  const panelEl = panel ? (
-    <div class="pc-panel" role="menu" aria-label={menuLabel}>
-      {showAudio ? (
-        <>
-          <p class="pc-panel-h">Audio</p>
-          {p.audioTracks.map((t) => (
-            <button key={t.index} type="button" role="menuitemradio" aria-checked={p.audioSelected === t.index} onClick={() => pickAudio(t.index)}>
-              <span class="pc-check">{p.audioSelected === t.index ? <Icon name="check" size={20} /> : null}</span>
-              {t.label}
-            </button>
-          ))}
-        </>
-      ) : null}
-      {showQuality ? (
-        <>
-          <p class="pc-panel-h">Quality</p>
-          {p.qualityOptions.map((o) => (
-            <button key={o.id} type="button" role="menuitemradio" aria-checked={p.qualitySelected === o.id} onClick={() => pickQuality(o.id)}>
-              <span class="pc-check">{p.qualitySelected === o.id ? <Icon name="check" size={20} /> : null}</span>
-              {o.label}
-            </button>
-          ))}
-        </>
-      ) : null}
-      {showAudio || showQuality ? <p class="pc-panel-h">Subtitles</p> : null}
-      <button type="button" role="menuitemradio" aria-checked={p.selected < 0} onClick={() => pick(-1)}>
-        <span class="pc-check">{p.selected < 0 ? <Icon name="check" size={20} /> : null}</span>Off
-      </button>
-      {p.tracks.map((t, i) => (
-        <button key={t.index} type="button" role="menuitemradio" aria-checked={p.selected === i} onClick={() => pick(i)}>
-          <span class="pc-check">{p.selected === i ? <Icon name="check" size={20} /> : null}</span>
-          {t.label}
+  const ccPanel =
+    open === 'cc' ? (
+      <div class="pc-panel" role="menu" aria-label={menuLabel}>
+        {showAudio ? (
+          <>
+            <p class="pc-panel-h">Audio</p>
+            {p.audioTracks.map((t) => (
+              <button key={t.index} type="button" role="menuitemradio" aria-checked={p.audioSelected === t.index} onClick={() => pickAudio(t.index)}>
+                <span class="pc-check">{p.audioSelected === t.index ? <Icon name="check" size={20} /> : null}</span>
+                {t.label}
+              </button>
+            ))}
+          </>
+        ) : null}
+        {showAudio ? <p class="pc-panel-h">Subtitles</p> : null}
+        <button type="button" role="menuitemradio" aria-checked={p.selected < 0} onClick={() => pick(-1)}>
+          <span class="pc-check">{p.selected < 0 ? <Icon name="check" size={20} /> : null}</span>Off
         </button>
-      ))}
-    </div>
-  ) : null;
+        {p.tracks.map((t, i) => (
+          <button key={t.index} type="button" role="menuitemradio" aria-checked={p.selected === i} onClick={() => pick(i)}>
+            <span class="pc-check">{p.selected === i ? <Icon name="check" size={20} /> : null}</span>
+            {t.label}
+          </button>
+        ))}
+      </div>
+    ) : null;
+
+  const qualityPanel =
+    open === 'quality' && showQuality ? (
+      <div class="pc-panel" role="menu" aria-label="Quality">
+        <p class="pc-panel-h">Quality</p>
+        {p.qualityOptions.map((o) => (
+          <button key={o.id} type="button" role="menuitemradio" aria-checked={p.qualitySelected === o.id} onClick={() => pickQuality(o.id)}>
+            <span class="pc-check">{p.qualitySelected === o.id ? <Icon name="check" size={20} /> : null}</span>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    ) : null;
 
   if (d) {
     const tipFrac = tipAt === null ? null : Math.max(0, Math.min(1, tipAt));
@@ -202,7 +203,7 @@ export function PlayerControls(p: Props) {
         class={'pc pc-desk' + (p.visible ? ' show' : '') + (p.buffering ? ' buffering' : '') + (p.paused ? ' paused' : '')}
         onPointerDown={p.onInteract}
       >
-        {panel ? <div class="pc-backdrop" onClick={togglePanel} /> : null}
+        {open !== null ? <div class="pc-backdrop" onClick={closeMenu} /> : null}
         <div class="pc-top">
           <button type="button" class="pc-btn pc-back" onClick={p.onBack} aria-label="Back">
             <Icon name="back" size={26} />
@@ -285,14 +286,29 @@ export function PlayerControls(p: Props) {
               </span>
             </div>
             <div class="pc-group">
+              {showQuality ? (
+                <div class="pc-menu">
+                  {qualityPanel}
+                  <button
+                    type="button"
+                    class="pc-btn"
+                    onClick={() => toggleMenu('quality')}
+                    aria-label="Quality"
+                    aria-expanded={open === 'quality'}
+                    aria-haspopup="menu"
+                  >
+                    <Icon name="gear" size={26} />
+                  </button>
+                </div>
+              ) : null}
               <div class="pc-menu">
-                {panelEl}
+                {ccPanel}
                 <button
                   type="button"
                   class={'pc-btn pc-cc' + (p.selected >= 0 ? ' on' : '')}
-                  onClick={togglePanel}
+                  onClick={() => toggleMenu('cc')}
                   aria-label={menuLabel}
-                  aria-expanded={panel}
+                  aria-expanded={open === 'cc'}
                   aria-haspopup="menu"
                 >
                   <Icon name="bubble" size={26} />
@@ -319,7 +335,7 @@ export function PlayerControls(p: Props) {
 
   return (
     <div class={'pc' + (p.visible ? ' show' : '') + (p.buffering ? ' buffering' : '')} onPointerDown={p.onInteract}>
-      {panel ? <div class="pc-backdrop" onClick={togglePanel} /> : null}
+      {open !== null ? <div class="pc-backdrop" onClick={closeMenu} /> : null}
       <div class="pc-top">
         <button type="button" class="pc-btn" onClick={p.onBack} aria-label="Back">
           <Icon name="back" />
@@ -353,7 +369,8 @@ export function PlayerControls(p: Props) {
       </div>
 
       <div class="pc-bottom">
-        {panelEl}
+        {ccPanel}
+        {qualityPanel}
         <div class="pc-row">
           <span class="pc-time">{formatClock(shown)}</span>
           <div
@@ -375,12 +392,17 @@ export function PlayerControls(p: Props) {
             <i class="pc-thumb" style={{ left: pct(shown) }} />
           </div>
           <span class="pc-time">{total > 0 ? `-${formatClock(total - shown)}` : ''}</span>
+          {showQuality ? (
+            <button type="button" class="pc-btn" onClick={() => toggleMenu('quality')} aria-label="Quality" aria-expanded={open === 'quality'}>
+              <Icon name="gear" />
+            </button>
+          ) : null}
           <button
             type="button"
             class={'pc-btn pc-cc' + (p.selected >= 0 ? ' on' : '')}
-            onClick={togglePanel}
+            onClick={() => toggleMenu('cc')}
             aria-label={menuLabel}
-            aria-expanded={panel}
+            aria-expanded={open === 'cc'}
           >
             <Icon name="captions" />
           </button>
