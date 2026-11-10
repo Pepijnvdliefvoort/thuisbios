@@ -27,12 +27,12 @@ export interface AppContext {
   playHere(item: BaseItem, startTicks: number): void;
   /** Opens the Connect TV screen (enter the Quick Connect code shown on the TV). */
   openConnectTv(): void;
-  /** Opens the Downloads screen. */
-  openDownloads(): void;
   /** Plays a finished download in the normal player, resuming from the newest saved position. Works offline. */
   playDownload(id: string): Promise<void>;
   /** Sends watch progress made offline to Jellyfin (queued by the player), now if the device is online. */
   progress: ProgressSync;
+  /** True while the phone is offline and Downloads is the only main screen (never on a desktop). */
+  offline: boolean;
   toast(message: string): void;
 }
 

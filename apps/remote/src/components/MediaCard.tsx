@@ -19,7 +19,7 @@ const DESKTOP_SIZES = { poster: [352, 528], thumb: [608, 342] } as const;
  * a play button over the art (a button cannot hold another button); a phone renders the plain card.
  */
 export function MediaCard({ item, shape }: { item: BaseItem; shape: CardShape }) {
-  const { client, session, openItem, playHere, toast } = useApp();
+  const { client, session, openItem, playHere, toast, downloads } = useApp();
   const desktop = useDesktop();
   const looking = useRef(false);
   const [w, h] = (desktop ? DESKTOP_SIZES : SIZES)[shape];
@@ -31,6 +31,7 @@ export function MediaCard({ item, shape }: { item: BaseItem; shape: CardShape })
       ? String(item.ProductionYear)
       : '';
   const progress = progressFraction(item.UserData, item.RunTimeTicks);
+  const saved = !desktop && (downloads.get(item.Id) || { state: '' }).state === 'done';
   /** Starts playback here without opening the details (a series plays its next episode). */
   const play = async () => {
     if (looking.current) return;
@@ -50,6 +51,11 @@ export function MediaCard({ item, shape }: { item: BaseItem; shape: CardShape })
       <span class="card-art">
         <Img src={artUrl(client.serverUrl, item, shape === 'poster' ? 'poster' : 'thumb', w, h)} />
         {desktop ? <span class="card-shade" /> : null}
+        {saved ? (
+          <span class="dl-mark" role="img" aria-label="Downloaded">
+            <Icon name="downloadDone" size={14} />
+          </span>
+        ) : null}
         {progress > 0 ? (
           <span class="progress">
             <i style={{ width: `${Math.round(progress * 100)}%` }} />

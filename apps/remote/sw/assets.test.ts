@@ -40,7 +40,7 @@ describe('worker template', () => {
       clients: { claim: () => Promise.resolve() },
     };
     const cachesStub = {
-      keys: () => Promise.resolve(['thuisbios-shell-old', 'thuisbios-shell-v1', 'thuisbios-offline-test', 'other']),
+      keys: () => Promise.resolve(['thuisbios-shell-old', 'thuisbios-shell-v1', 'thuisbios-downloads', 'other']),
       open: () => Promise.resolve({ match: () => Promise.resolve(new Response('x')) }),
       delete: (n: string) => (deleted.push(n), Promise.resolve(true)),
     };

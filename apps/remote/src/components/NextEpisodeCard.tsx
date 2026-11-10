@@ -5,6 +5,8 @@ import type { BaseItem } from '../jellyfin/types';
 
 interface Props {
   serverUrl: string;
+  /** A picture saved on this device (a download's); it is used instead of asking the server. */
+  localArt?: string;
   next: BaseItem;
   remaining: number;
   /** Where the next episode will play: the TV (Now Playing) or this phone (the player overlay). */
@@ -14,11 +16,11 @@ interface Props {
 }
 
 /** "Next episode" card with a countdown, a Play now button and a Cancel button. */
-export function NextEpisodeCard({ serverUrl, next, remaining, target, onPlayNow, onCancel }: Props) {
+export function NextEpisodeCard({ serverUrl, localArt, next, remaining, target, onPlayNow, onCancel }: Props) {
   const label = [episodeLabel(next), next.Name].filter(Boolean).join(' · ');
   return (
     <div class={'next-card' + (target === 'phone' ? ' overlay' : '')} role="group" aria-label="Next episode">
-      <Img class="next-thumb" src={artUrl(serverUrl, next, 'thumb', 128, 72)} />
+      <Img class="next-thumb" src={localArt || artUrl(serverUrl, next, 'thumb', 128, 72)} />
       <div class="next-body">
         <p class="eyebrow">Next episode</p>
         <p class="next-name">{label}</p>

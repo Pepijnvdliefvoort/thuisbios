@@ -46,6 +46,15 @@ export function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1e3))} KB`;
 }
 
+/** "120 of 290 MB": both numbers in the unit of the total. */
+export function formatBytesOf(done: number, total: number): string {
+  if (!Number.isFinite(done) || !Number.isFinite(total) || total <= 0) return formatBytes(done);
+  const d = Math.min(Math.max(0, done), total);
+  if (total >= 1e9) return `${(d / 1e9).toFixed(1)} of ${(total / 1e9).toFixed(1)} GB`;
+  if (total >= 1e6) return `${Math.round(d / 1e6)} of ${Math.round(total / 1e6)} MB`;
+  return `${Math.round(d / 1e3)} of ${Math.max(1, Math.round(total / 1e3))} KB`;
+}
+
 /** "About 1.4 GB", or "Size unknown" when the runtime is not known. */
 export function estimateLabel(bytes: number): string {
   return bytes > 0 ? `About ${formatBytes(bytes)}` : 'Size unknown';

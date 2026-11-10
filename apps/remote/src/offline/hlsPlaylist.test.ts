@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLocalPlaylist, parseMasterPlaylist, parseMediaPlaylist, resolveUri, trimSegments } from './hlsPlaylist';
+import { buildLocalPlaylist, parseMasterPlaylist, parseMediaPlaylist, resolveUri } from './hlsPlaylist';
 
 const BASE = 'https://jf.example/videos/abc/master.m3u8?api_key=t';
 
@@ -45,21 +45,6 @@ describe('parseMediaPlaylist', () => {
   });
   it('has no init segment for plain TS', () => {
     expect(parseMediaPlaylist('#EXTM3U\n#EXTINF:3,\na.ts\n', BASE).initUri).toBeNull();
-  });
-});
-
-describe('trimSegments', () => {
-  const seg = (n: number) => ({ duration: 6, uri: `s${n}` });
-  const all = Array.from({ length: 10 }, (_, i) => seg(i));
-  it('stops once the total reaches the minimum', () => {
-    expect(trimSegments(all, 120)).toHaveLength(10);
-    expect(trimSegments(all, 20)).toHaveLength(4);
-    expect(trimSegments(all, 18)).toHaveLength(3);
-  });
-  it('keeps at least one segment and handles short lists', () => {
-    expect(trimSegments(all, 0)).toHaveLength(1);
-    expect(trimSegments([seg(0)], 120)).toHaveLength(1);
-    expect(trimSegments([], 120)).toEqual([]);
   });
 });
 

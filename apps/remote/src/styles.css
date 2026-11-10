@@ -184,6 +184,10 @@ input:focus { outline: none; border-color: var(--accent); }
 .tabbar { display: flex; height: var(--tabbar-h); border-top: 1px solid var(--surface-2); padding: 0 var(--safe-left) 0 var(--safe-right); }
 .tabbar button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; color: var(--muted); }
 .tabbar button.active { color: var(--fg); }
+.tabbar button { min-width: 0; }
+.tabbar button:disabled { opacity: 0.4; }
+/* Five tabs on a 320 px phone. */
+@media (max-width: 360px) { .tabbar button { font-size: 11px; } }
 .mini { position: relative; display: flex; align-items: center; height: var(--mini-h); background: var(--surface); margin: 0 8px 6px; border-radius: var(--radius); overflow: hidden; }
 .mini-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 100%; padding: 0 0 0 8px; text-align: left; }
 .mini-art { width: 36px; height: 54px; flex: none; border-radius: 4px; }
@@ -256,6 +260,12 @@ input:focus { outline: none; border-color: var(--accent); }
 .ep-dl.downloading, .ep-dl.queued, .ep-dl.paused { color: var(--fg); }
 .ep-play { width: 48px; height: 48px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface-2); }
 .ep-play:disabled { opacity: 0.35; }
+/* Phones: the row holds a picture, a title and three round buttons; give the title room. */
+@media (max-width: 430px) {
+  .ep-art { width: 112px; }
+  .ep-open { gap: 10px; }
+  .ep-watch, .ep-dl { width: 36px; height: 36px; }
+}
 @media (max-width: 380px) {
   .ep-art { width: 72px; }
   .ep-open { gap: 8px; }
@@ -1158,15 +1168,21 @@ button.rs-row:active { background: var(--surface-2); }
 /* Downloads */
 .dl-ring { flex: none; display: block; }
 .dl-btn.done .icon { color: #6fcf8e; }
+/* Small green mark on art that is saved on the phone. */
+.dl-mark { position: absolute; top: 4px; left: 4px; z-index: 1; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #2f9e5b; color: #fff; }
+.ep-sub .dl-done { color: #6fcf8e; }
 .dl-btn.failed .icon { color: #ff6b6b; }
 .btn-small.danger { color: #ff6b6b; }
 .btn-small:disabled { opacity: 0.5; }
-.downloads { padding: calc(var(--ui-top) + 64px) var(--gutter) calc(var(--safe-bottom) + 24px); display: flex; flex-direction: column; gap: 10px; }
-.downloads h1 { font-size: 22px; }
+.downloads { padding: 4px var(--gutter) 24px; display: flex; flex-direction: column; gap: 10px; }
+.downloads .page-title { padding: 8px 0 0; }
 .downloads h2 { font-size: 16px; margin: 14px 0 6px; }
-.downloads .empty { padding: 32px 0; }
-.downloads .warn { color: #ff6b6b; }
-.dl-space { color: var(--muted); font-size: 14px; margin: 0; min-height: 1.4em; }
+.downloads .empty { padding: 40px 8px; line-height: 1.5; }
+.downloads .hint { padding: 16px 0; }
+.downloads .warn { color: #ff6b6b; margin: 0; }
+.dl-space { color: var(--muted); font-size: 14px; margin: 0; }
+/* Offline line: calm, one row, no alarm colours. */
+.dl-offline { display: block; margin: 0; padding: 10px 14px; border-radius: var(--radius); background: var(--surface); color: var(--muted); font-size: 14px; }
 .dl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .dl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; background: var(--surface); border-radius: var(--radius); }
 .dl-open { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 12px; text-align: left; }

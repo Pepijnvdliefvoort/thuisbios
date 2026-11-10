@@ -62,18 +62,6 @@ export function parseMediaPlaylist(text: string, baseUrl: string): MediaPlaylist
   return { initUri, segments };
 }
 
-/** The first segments, stopping once their total duration reaches `minSeconds` (at least one segment). */
-export function trimSegments(segments: Segment[], minSeconds: number): Segment[] {
-  const out: Segment[] = [];
-  let total = 0;
-  for (const s of segments) {
-    if (total >= minSeconds && out.length > 0) break;
-    out.push(s);
-    total += s.duration;
-  }
-  return out;
-}
-
 /** A complete VOD media playlist whose URIs are the given local (relative) keys. */
 export function buildLocalPlaylist(segments: Segment[], initKey: string | null): string {
   const target = Math.max(1, Math.ceil(Math.max(0, ...segments.map((s) => s.duration))));
