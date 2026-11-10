@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.14.0...v0.14.1) (2026-11-10)
+
+
+### Documentation
+
+* update README screenshots ([#144](https://github.com/Pepijnvdliefvoort/thuisbios/issues/144)) ([316a67b](https://github.com/Pepijnvdliefvoort/thuisbios/commit/316a67b4b1ed9f038a5b5ecefad9a787a621cb00))
+
 ## [0.14.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.13.0...v0.14.0) (2026-11-10)
 
 
