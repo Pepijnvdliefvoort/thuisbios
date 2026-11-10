@@ -1,6 +1,6 @@
 {
   "name": "@thuisbios/remote",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "private": true,
   "type": "module",
   "description": "Thuisbios phone and desktop app (PWA) that browses the library and plays on the phone or the TV",
