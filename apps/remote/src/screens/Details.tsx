@@ -1,4 +1,4 @@
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { DownloadButton, DownloadSeasonButton } from '../components/DownloadButton';
 import { Icon } from '../components/Icon';
 import { PullSpinner } from '../components/PullSpinner';
@@ -6,6 +6,7 @@ import { BackdropImg, Img } from '../components/Img';
 import { Skeleton } from '../components/Skeleton';
 import { useApp } from '../context';
 import { artUrl, artUrls } from '../jellyfin/art';
+import { warmBitrate } from '../jellyfin/bitrate';
 import { findPlayTarget, resumeTicks } from '../jellyfin/playTarget';
 import { chooseSeasonId } from '../jellyfin/seasons';
 import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from '../jellyfin/format';
@@ -34,7 +35,11 @@ function useSetWatched(refresh: () => Promise<unknown>) {
 }
 
 export function Details({ id, onBack }: { id: string; onBack: () => void }) {
-  const { client, session } = useApp();
+  const { client, session, offline } = useApp();
+  // Measure the connection now, so pressing Play does not wait for it.
+  useEffect(() => {
+    if (!offline) warmBitrate(client);
+  }, [client, offline]);
   const item = useAsync(() => client.item(session.userId, id), [client, session.userId, id]);
   // Children (next episode, seasons, episodes) register their reloads here so a pull refreshes them too.
   const reloaders = useRef(new Set<() => Promise<void>>());
