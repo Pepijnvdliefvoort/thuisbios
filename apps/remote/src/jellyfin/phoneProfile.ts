@@ -42,8 +42,13 @@ export interface DeviceProfile {
  * Builds the profile from what the browser says it can decode. `canPlay` gets a MIME type with codecs
  * (for example `video/mp4; codecs="hvc1.1.6.L93.B0"`) and answers whether the browser supports it.
  * `maxStreamingBitrate` is what the connection can carry, so the server picks a transcode that fits.
+ * `maxSize` is a picture size cap chosen in the player: anything taller or wider gets scaled down by the server.
  */
-export function buildPhoneProfile(canPlay: (mime: string) => boolean, maxStreamingBitrate = 20000000): DeviceProfile {
+export function buildPhoneProfile(
+  canPlay: (mime: string) => boolean,
+  maxStreamingBitrate = 20000000,
+  maxSize?: { height: number; width: number },
+): DeviceProfile {
   const mp4Video = ['h264'];
   if (canPlay('video/mp4; codecs="hvc1.1.6.L93.B0"')) mp4Video.push('hevc');
 
@@ -86,6 +91,17 @@ export function buildPhoneProfile(canPlay: (mime: string) => boolean, maxStreami
         Codec: 'h264',
         Conditions: [{ Condition: 'LessThanEqual', Property: 'VideoBitDepth', Value: '8', IsRequired: false }],
       },
+      ...(maxSize
+        ? [
+            {
+              Type: 'Video' as const,
+              Conditions: [
+                { Condition: 'LessThanEqual' as const, Property: 'Height', Value: String(maxSize.height), IsRequired: true },
+                { Condition: 'LessThanEqual' as const, Property: 'Width', Value: String(maxSize.width), IsRequired: true },
+              ],
+            },
+          ]
+        : []),
     ],
     SubtitleProfiles: [],
   };

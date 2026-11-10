@@ -127,7 +127,7 @@ const TV_ITEM = 'series-e-s1e5';
 
 // Streams every item "has", for the audio and subtitle sheet: two audio tracks, two text subtitles and one image subtitle.
 const STREAMS = [
-  { Type: 'Video', Index: 0, Codec: 'h264' },
+  { Type: 'Video', Index: 0, Codec: 'h264', Height: 1080, Width: 1920 },
   { Type: 'Audio', Index: 1, Language: 'eng', Codec: 'ac3', Channels: 6, IsDefault: true },
   { Type: 'Audio', Index: 2, Language: 'nld', Codec: 'aac', Channels: 2 },
   { Type: 'Subtitle', Index: 3, Language: 'eng', Codec: 'subrip', IsTextSubtitleStream: true },

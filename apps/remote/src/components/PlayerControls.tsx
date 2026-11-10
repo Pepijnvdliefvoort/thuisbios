@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { AudioTrack } from '../jellyfin/audio';
+import type { QualityId, QualityOption } from '../jellyfin/quality';
 import { formatClock } from '../jellyfin/format';
 import type { SubtitleTrack } from '../jellyfin/subtitles';
 import { scrubFraction } from '../scrub';
@@ -36,12 +37,16 @@ interface Props {
   audioTracks: AudioTrack[];
   /** Jellyfin stream index of the audio playing; null when unknown. */
   audioSelected: number | null;
+  /** Picture quality choices (Auto first); the Quality section of the menu only shows with 2 or more. */
+  qualityOptions: QualityOption[];
+  qualitySelected: QualityId;
   onBack(): void;
   onTogglePlay(): void;
   onSkip(seconds: number): void;
   onSeek(seconds: number): void;
   onSelectSubtitle(index: number): void;
   onSelectAudio(index: number): void;
+  onSelectQuality(id: QualityId): void;
   /** Reports whether the user is busy with the bar or the subtitle panel, which keeps the controls up. */
   onBusy(busy: boolean): void;
   /** Any touch on the controls, so the hide timer restarts. */
@@ -131,10 +136,20 @@ export function PlayerControls(p: Props) {
     if (index !== p.audioSelected) p.onSelectAudio(index);
     closePanel();
   };
+  const pickQuality = (id: QualityId) => {
+    p.onSelectQuality(id);
+    closePanel();
+  };
   const showAudio = p.audioTracks.length >= 2;
+  const showQuality = p.qualityOptions.length >= 2;
+  const menuLabel = [showAudio ? 'Audio' : '', showQuality ? 'quality' : '', 'subtitles']
+    .filter(Boolean)
+    .join(', ')
+    .replace(/, ([^,]*)$/, ' and $1')
+    .replace(/^./, (c) => c.toUpperCase());
 
   const panelEl = panel ? (
-    <div class="pc-panel" role="menu" aria-label={showAudio ? 'Audio and subtitles' : 'Subtitles'}>
+    <div class="pc-panel" role="menu" aria-label={menuLabel}>
       {showAudio ? (
         <>
           <p class="pc-panel-h">Audio</p>
@@ -144,9 +159,20 @@ export function PlayerControls(p: Props) {
               {t.label}
             </button>
           ))}
-          <p class="pc-panel-h">Subtitles</p>
         </>
       ) : null}
+      {showQuality ? (
+        <>
+          <p class="pc-panel-h">Quality</p>
+          {p.qualityOptions.map((o) => (
+            <button key={o.id} type="button" role="menuitemradio" aria-checked={p.qualitySelected === o.id} onClick={() => pickQuality(o.id)}>
+              <span class="pc-check">{p.qualitySelected === o.id ? <Icon name="check" size={20} /> : null}</span>
+              {o.label}
+            </button>
+          ))}
+        </>
+      ) : null}
+      {showAudio || showQuality ? <p class="pc-panel-h">Subtitles</p> : null}
       <button type="button" role="menuitemradio" aria-checked={p.selected < 0} onClick={() => pick(-1)}>
         <span class="pc-check">{p.selected < 0 ? <Icon name="check" size={20} /> : null}</span>Off
       </button>
@@ -245,7 +271,7 @@ export function PlayerControls(p: Props) {
                   type="button"
                   class={'pc-btn pc-cc' + (p.selected >= 0 ? ' on' : '')}
                   onClick={togglePanel}
-                  aria-label={showAudio ? 'Audio and subtitles' : 'Subtitles'}
+                  aria-label={menuLabel}
                   aria-expanded={panel}
                   aria-haspopup="menu"
                 >
@@ -323,7 +349,7 @@ export function PlayerControls(p: Props) {
             type="button"
             class={'pc-btn pc-cc' + (p.selected >= 0 ? ' on' : '')}
             onClick={togglePanel}
-            aria-label={showAudio ? 'Audio and subtitles' : 'Subtitles'}
+            aria-label={menuLabel}
             aria-expanded={panel}
           >
             <Icon name="captions" />
