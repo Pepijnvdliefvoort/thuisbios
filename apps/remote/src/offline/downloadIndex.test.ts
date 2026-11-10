@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BaseItem } from '../jellyfin/types';
 import {
+  activeCount,
   entryEpisodeLabel,
   entryFromItem,
   entryProgress,
@@ -8,7 +9,9 @@ import {
   isDownloadable,
   parseIndex,
   percentOf,
+  progressText,
   serializeIndex,
+  totalBytes,
   unfinished,
   type DownloadEntry,
 } from './downloadIndex';
@@ -108,5 +111,23 @@ describe('labels and groups', () => {
   it('puts episodes without a series together', () => {
     const g = groupDownloaded([entry({ id: 'e1', type: 'Episode', state: 'done' })]);
     expect(g.series.map((s) => s.seriesName)).toEqual(['Other episodes']);
+  });
+});
+
+describe('activeCount, totalBytes and progressText', () => {
+  it('counts waiting and running downloads only', () => {
+    const list = [entry({ state: 'queued' }), entry({ state: 'downloading' }), entry({ state: 'paused' }), entry({ state: 'failed' }), entry({ state: 'done' })];
+    expect(activeCount(list)).toBe(2);
+  });
+  it('adds up the saved bytes', () => {
+    expect(totalBytes([entry({ bytes: 5 }), entry({ bytes: 7 })])).toBe(12);
+  });
+  it('words each state', () => {
+    expect(progressText(entry({ state: 'queued' }))).toBe('Waiting');
+    expect(progressText(entry({ state: 'failed', error: 'No space left.' }))).toBe('No space left.');
+    expect(progressText(entry({ state: 'failed' }))).toBe('This download failed.');
+    expect(progressText(entry({ state: 'paused', segmentsDone: 1, segmentsTotal: 4 }))).toBe('Paused at 25%');
+    expect(progressText(entry({ state: 'downloading' }))).toBe('Starting…');
+    expect(progressText(entry({ state: 'downloading', segmentsDone: 1, segmentsTotal: 4, bytes: 100_000_000 }))).toBe('25% · 100 of 400 MB');
   });
 });

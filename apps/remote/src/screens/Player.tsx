@@ -30,6 +30,8 @@ import { startGapTarget } from '../offline/startGap';
 import { useDownloadedAdjacent } from '../offline/useDownloadedAdjacent';
 import { useLocalAssets } from '../offline/useLocalAssets';
 import { useOnline } from '../offline/useOnline';
+import { usePosters } from '../offline/usePosters';
+import { createCacheStore } from '../offline/downloadStore';
 import { useViewportPortrait } from '../useViewportPortrait';
 
 /** The picture quality picked in the player. Lives for the app session only: the next episode keeps it, a fresh start is Auto. */
@@ -186,6 +188,9 @@ export function Player({
   const fromDownloads = useDownloadedAdjacent(downloads.entries, item, offlineLocal);
   const { previous, next } = offlineLocal ? fromDownloads : fromServer;
   const [cancelled, setCancelled] = useState(false);
+  // The next episode's picture comes from its download when it has one (offline there is no server to ask).
+  const posterStore = useMemo(() => (isLocal ? createCacheStore() : null), [isLocal]);
+  const nextPosters = usePosters(posterStore, next ? [next.Id] : []);
   // Jellyfin index of the subtitle track chosen (-1 = off), for progress reports.
   const subIndex = useRef(-1);
   const stopRef = useRef<() => Promise<void>>(() => Promise.resolve());
@@ -1021,6 +1026,7 @@ export function Player({
           {next && card && card.show && (
             <NextEpisodeCard
               serverUrl={client.serverUrl}
+              localArt={nextPosters[next.Id]}
               next={next}
               remaining={card.remaining}
               target="phone"

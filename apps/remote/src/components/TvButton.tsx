@@ -10,8 +10,10 @@ import { VolumeControls } from './VolumeControls';
  * TV's name and opens the TV sheet.
  */
 export function TvButton() {
-  const { tv, openConnectTv, toast } = useApp();
+  const { tv, openConnectTv, toast, offline } = useApp();
   const [open, setOpen] = useState(false);
+  // The TV needs the server: not offered offline.
+  if (offline) return null;
   if (!tv.loaded) {
     return (
       <span class="tv-btn looking">

@@ -3,7 +3,6 @@ import {
   DOWNLOADS_ROOT,
   INDEX_KEY,
   initKey,
-  itemIdOfKey,
   itemJsonKey,
   itemPrefix,
   keyToUrl,
@@ -29,7 +28,6 @@ describe('download keys', () => {
   it('keeps the index outside every item prefix', () => {
     expect(INDEX_KEY).toBe('./downloads/index.json');
     expect(INDEX_KEY.startsWith(itemPrefix('index.json'))).toBe(false);
-    expect(itemIdOfKey(INDEX_KEY)).toBeNull();
   });
 
   it('does not mix up ids that start the same', () => {
@@ -38,7 +36,6 @@ describe('download keys', () => {
 
   it('encodes ids that are not url safe', () => {
     expect(itemPrefix('a/b c')).toBe(`${DOWNLOADS_ROOT}a%2Fb%20c/`);
-    expect(itemIdOfKey(segmentKey('a/b c', 2))).toBe('a/b c');
   });
 
   it('resolves a key against the app url', () => {
@@ -46,8 +43,4 @@ describe('download keys', () => {
     expect(keyToUrl('./downloads/a1/seg-0', 'https://host/')).toBe('https://host/downloads/a1/seg-0');
   });
 
-  it('reads the item id of a key', () => {
-    expect(itemIdOfKey('./downloads/xyz/seg-0')).toBe('xyz');
-    expect(itemIdOfKey('./other/xyz')).toBeNull();
-  });
 });

@@ -1,6 +1,6 @@
 /** The index of all downloads: its entries, (de)serialization and the grouping the Downloads screen shows. */
 import type { BaseItem } from '../jellyfin/types';
-import { DEFAULT_QUALITY, isQuality, type DownloadQuality } from './downloadQuality';
+import { DEFAULT_QUALITY, formatBytesOf, isQuality, type DownloadQuality } from './downloadQuality';
 
 export type DownloadState = 'queued' | 'downloading' | 'paused' | 'failed' | 'done';
 export const DOWNLOAD_STATES: DownloadState[] = ['queued', 'downloading', 'paused', 'failed', 'done'];
@@ -156,3 +156,26 @@ export function groupDownloaded(entries: DownloadEntry[]): DownloadedLists {
 
 /** Everything not finished, in queue order (the one downloading is first because the queue runs in order). */
 export const unfinished = (entries: DownloadEntry[]): DownloadEntry[] => entries.filter((e) => e.state !== 'done');
+
+/** How many downloads are waiting or running (the number on the Downloads tab). Paused and failed ones are not counted. */
+export const activeCount = (entries: DownloadEntry[]): number => entries.filter((e) => e.state === 'queued' || e.state === 'downloading').length;
+
+/** Bytes saved so far by all downloads, finished or not. */
+export const totalBytes = (entries: DownloadEntry[]): number => entries.reduce((sum, e) => sum + e.bytes, 0);
+
+/** The text under an unfinished download's title: percent and "x of y MB" (y is estimated from the share done). */
+export function progressText(entry: Pick<DownloadEntry, 'state' | 'segmentsDone' | 'segmentsTotal' | 'bytes' | 'error'>): string {
+  switch (entry.state) {
+    case 'queued':
+      return 'Waiting';
+    case 'failed':
+      return entry.error || 'This download failed.';
+    case 'paused':
+      return `Paused at ${percentOf(entry)}%`;
+    default: {
+      const fraction = entryProgress(entry);
+      if (fraction <= 0 || entry.bytes <= 0) return 'Starting…';
+      return `${percentOf(entry)}% · ${formatBytesOf(entry.bytes, entry.bytes / fraction)}`;
+    }
+  }
+}

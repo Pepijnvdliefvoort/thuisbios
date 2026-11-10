@@ -25,16 +25,3 @@ export const planKey = (itemId: string): string => `${itemPrefix(itemId)}plan.js
 
 /** Resolves a relative key to the absolute URL used as the Cache API request. */
 export const keyToUrl = (key: string, base: string): string => new URL(key, base).href;
-
-/** The item id a key belongs to, or null when the key is not under an item's prefix (like the index). */
-export function itemIdOfKey(key: string): string | null {
-  if (!key.startsWith(DOWNLOADS_ROOT)) return null;
-  const rest = key.slice(DOWNLOADS_ROOT.length);
-  const slash = rest.indexOf('/');
-  if (slash <= 0) return null;
-  try {
-    return decodeURIComponent(rest.slice(0, slash));
-  } catch (e) {
-    return null;
-  }
-}
