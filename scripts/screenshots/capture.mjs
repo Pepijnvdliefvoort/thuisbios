@@ -9,7 +9,7 @@
 // Needs Playwright with a Chromium (global install); set PLAYWRIGHT_CHROMIUM to point at another binary.
 import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { mkdirSync, existsSync } from 'node:fs';
+import { mkdirSync, existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startMock, SAMPLE } from './mock-jellyfin.mjs';
 
@@ -65,8 +65,30 @@ async function settle(page, extraMs = 400) {
   await sleep(extraMs);
 }
 
+/** Pins every running CSS animation at `ms`, so the frame does not depend on wall-clock timing. */
+async function freezeAnimations(page, ms) {
+  await page.evaluate((t) => {
+    for (const a of document.getAnimations()) {
+      a.pause();
+      a.currentTime = t;
+    }
+  }, ms);
+  // Let the paused frame reach the compositor before the screenshot.
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await sleep(200);
+}
+
 async function shot(page, name) {
-  await page.screenshot({ path: `${out}${name}.png` });
+  // Rasterization of large gradients occasionally settles a frame late: shoot until two frames match.
+  let buf = await page.screenshot();
+  for (let i = 0; i < 5; i++) {
+    await sleep(150);
+    const next = await page.screenshot();
+    const same = next.equals(buf);
+    buf = next;
+    if (same) break;
+  }
+  writeFileSync(`${out}${name}.png`, buf);
   console.log(`wrote docs/images/${name}.png`);
 }
 
@@ -178,7 +200,8 @@ async function main() {
       const remote = encodeURIComponent('http://thuisbios.local:4174');
       await page.goto(`${TV_URL}/?server=${encodeURIComponent(MOCK_URL)}&remote=${remote}`);
       await page.waitForSelector('.code');
-      await settle(page, 5000); // let the background animation drift into a nice frame
+      await settle(page, 300);
+      await freezeAnimations(page, 5000); // a fixed frame of the background drift
       await shot(page, 'tv-connect');
       await context.close();
     }
@@ -186,10 +209,12 @@ async function main() {
     if (want('tv-screensaver')) {
       const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
       await context.addInitScript(([key, value]) => localStorage.setItem(key, value), ['thuisbios.session', JSON.stringify(session)]);
+      await context.clock.setFixedTime(new Date('2026-01-15T20:30:00')); // the screensaver shows a clock
       const page = await context.newPage();
       await page.goto(`${TV_URL}/?server=${encodeURIComponent(MOCK_URL)}`);
       await page.waitForSelector('.ss-img');
-      await settle(page, 4000);
+      await settle(page, 300);
+      await freezeAnimations(page, 4000);
       await shot(page, 'tv-screensaver');
       await context.close();
     }
