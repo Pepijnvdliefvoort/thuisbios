@@ -18,7 +18,7 @@
   "dependencies": {
     "hls.js": "^1.7.4",
     "jsqr": "^1.4.0",
-    "preact": "^11.1.0"
+    "preact": "^11.2.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
