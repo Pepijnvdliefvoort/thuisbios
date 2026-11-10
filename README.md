@@ -193,6 +193,8 @@ stay upright. The phone reports its progress to Jellyfin, so it counts toward Re
 Before playing, the app times a small download from the server and asks for a stream bitrate that fits
 the connection (at most 20 Mbit/s), so playback also starts on a slow mobile link.
 
+The Account sheet has a temporary "Offline download test" page that saves 2 minutes of a video in browser storage and plays it back offline, to check what an iPhone keeps.
+
 The CC button opens an "Audio, quality and subtitles" menu. Items with two or more audio tracks get an Audio
 section: picking one asks the server for that track (a remux or transcode, because a browser cannot
 switch audio inside a file) and continues from the same spot. The app remembers the audio language

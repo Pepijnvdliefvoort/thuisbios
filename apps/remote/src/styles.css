@@ -103,6 +103,7 @@ html.scroll-locked .scroller { overflow-y: hidden; }
 .sheet-label { color: var(--muted); font-size: 13px; font-weight: 600; margin: 4px 0 -4px; }
 .sheet-divider { height: 1px; background: var(--surface-2); margin: 4px 0; }
 .sheet-note { color: var(--muted); font-size: 13px; margin: 0; }
+.sheet-link { color: var(--muted); font-size: 13px; text-align: center; padding: 6px; text-decoration: underline; }
 .sheet-version { color: var(--muted); font-size: 12px; text-align: center; margin: 4px 0 0; }
 .btn.danger { background: var(--surface-2); color: #ff6b6b; }
 .btn.danger.solid { background: #d9363e; color: #fff; }
@@ -1144,3 +1145,18 @@ button.rs-row:active { background: var(--surface-2); }
   .pc-desk .pc-panel-h { padding: 8px 12px 4px; font-size: 11px; letter-spacing: 0.08em; }
   .pc-desk .pc-panel-h:not(:first-child) { margin-top: 6px; padding-top: 12px; }
 }
+
+/* Offline download test (temporary) */
+.offline-test { padding: calc(var(--ui-top) + 64px) var(--gutter) calc(var(--safe-bottom) + 24px); display: flex; flex-direction: column; gap: 12px; }
+.offline-test h1 { font-size: 22px; }
+.offline-test h2 { font-size: 16px; margin-top: 8px; }
+.offline-test ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.offline-test li { display: flex; justify-content: space-between; gap: 12px; background: var(--surface); padding: 8px 12px; border-radius: var(--radius); }
+.offline-test li > button.pick { text-align: left; width: 100%; padding: 4px 0; }
+.offline-test li > button.pick.selected { outline: 2px solid var(--accent); }
+.offline-test li > span:last-child { color: var(--muted); text-align: right; }
+.offline-test .warn { color: #ff6b6b; }
+.offline-test input[type="search"] { width: 100%; min-height: 44px; padding: 0 12px; border-radius: var(--radius); background: var(--surface); color: var(--fg); font-size: 16px; }
+.offline-test video { width: 100%; background: #000; border-radius: var(--radius); }
+.offline-test .actions { display: flex; gap: 8px; }
+.offline-test .actions .btn { min-height: 40px; }

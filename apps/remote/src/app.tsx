@@ -14,6 +14,7 @@ import { ConnectTv } from './screens/ConnectTv';
 import { Details } from './screens/Details';
 import { Home } from './screens/Home';
 import { Library } from './screens/Library';
+import { OfflineTest } from './screens/OfflineTest';
 import { NowPlaying } from './screens/NowPlaying';
 import { Player } from './screens/Player';
 import { Requests } from './screens/Requests';
@@ -167,6 +168,10 @@ function Shell({
       remember();
       nav.push({ kind: 'connect' });
     },
+    openOfflineTest: () => {
+      remember();
+      nav.push({ kind: 'offlineTest' });
+    },
     openNowPlaying: () => {
       remember();
       nav.push({ kind: 'nowPlaying' });
@@ -213,6 +218,7 @@ function Shell({
           </div>
           {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
           {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
+          {top && top.kind === 'offlineTest' ? <OfflineTest key={`${nav.stack.length}:offlineTest`} onBack={nav.back} /> : null}
           {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
           {top && top.kind === 'player' ? (
             <Player

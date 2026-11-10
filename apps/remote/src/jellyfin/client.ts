@@ -53,6 +53,8 @@ export interface PlaybackOptions {
   subtitleStreamIndex?: number | null;
   /** False asks for a remux or transcode: the original file would play its default audio only. */
   directPlay?: boolean;
+  /** False also rules out a remux, so the server has to transcode (offered through TranscodingUrl). */
+  directStream?: boolean;
 }
 
 export type MediaType = 'Movie' | 'Series';
@@ -229,11 +231,12 @@ export function createClient(options: ClientOptions): JellyfinClient {
       // -1 stops the server from burning in the item's default subtitle track (our own overlay draws text subtitles).
       const subtitleStreamIndex = options.subtitleStreamIndex === undefined ? -1 : options.subtitleStreamIndex;
       const directPlay = options.directPlay !== false;
+      const directStream = options.directStream !== false;
       const query = [
         `UserId=${enc(userId)}`,
         `MaxStreamingBitrate=${profile.MaxStreamingBitrate}`,
         `EnableDirectPlay=${directPlay}`,
-        'EnableDirectStream=true',
+        `EnableDirectStream=${directStream}`,
         'EnableTranscoding=true',
         // Never remux the video into HLS: copied segments do not line up with the playlist, so our subtitles drift.
         'AllowVideoStreamCopy=false',
@@ -245,7 +248,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
         UserId: userId,
         MaxStreamingBitrate: profile.MaxStreamingBitrate,
         EnableDirectPlay: directPlay,
-        EnableDirectStream: true,
+        EnableDirectStream: directStream,
         EnableTranscoding: true,
         AllowVideoStreamCopy: false,
         AutoOpenLiveStream: false,
