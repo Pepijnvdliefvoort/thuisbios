@@ -16,6 +16,9 @@ export interface StreamParams {
   audioStreamIndex?: number;
   /** An image subtitle to burn in (Jellyfin stream index): only a transcode can do that. Missing or -1 for none. */
   subtitleStreamIndex?: number;
+  /** Picture size cap chosen in the player; a transcode URL without MaxHeight/MaxWidth gets them added. */
+  maxHeight?: number;
+  maxWidth?: number;
 }
 
 /** URL for a direct (static) stream of the original file. */
@@ -38,13 +41,13 @@ export function selectPlayMethod(source: MediaSource, params: StreamParams): Pla
   const audio = params.audioStreamIndex;
   const sub = params.subtitleStreamIndex !== undefined ? params.subtitleStreamIndex : -1;
   // Burning in subtitles re-encodes the picture: only the transcode can do that.
-  if (sub >= 0 && source.TranscodingUrl) return transcodeSelection(source.TranscodingUrl, source, audio, sub);
+  if (sub >= 0 && source.TranscodingUrl) return transcodeSelection(source.TranscodingUrl, source, audio, sub, params);
   // A browser cannot pick another audio stream out of a file: the server has to remux or transcode it.
   if (audio !== undefined) {
     if (source.SupportsDirectStream && source.DirectStreamUrl) {
       return { method: 'DirectStream', url: withAudioStreamIndex(withSubtitleStreamIndex(source.DirectStreamUrl, sub), audio), hls: false };
     }
-    if (source.TranscodingUrl) return transcodeSelection(source.TranscodingUrl, source, audio, sub);
+    if (source.TranscodingUrl) return transcodeSelection(source.TranscodingUrl, source, audio, sub, params);
   }
   if (source.SupportsDirectPlay) {
     return { method: 'DirectPlay', url: buildStaticUrl(source, params), hls: false };
@@ -57,13 +60,13 @@ export function selectPlayMethod(source: MediaSource, params: StreamParams): Pla
     };
   }
   const transcodeUrl = source.TranscodingUrl;
-  if (transcodeUrl) return transcodeSelection(transcodeUrl, source, audio, sub);
+  if (transcodeUrl) return transcodeSelection(transcodeUrl, source, audio, sub, params);
   return null;
 }
 
-function transcodeSelection(url: string, source: MediaSource, audio: number | undefined, sub: number): PlaySelection {
+function transcodeSelection(url: string, source: MediaSource, audio: number | undefined, sub: number, params: StreamParams): PlaySelection {
   const hls = source.TranscodingSubProtocol === 'hls' || /\.m3u8(\?|$)/i.test(url);
-  const withSub = withNoVideoStreamCopy(withSubtitleStreamIndex(url, sub));
+  const withSub = withMaxSize(withNoVideoStreamCopy(withSubtitleStreamIndex(url, sub)), params.maxHeight, params.maxWidth);
   return { method: 'Transcode', url: audio === undefined ? withSub : withAudioStreamIndex(withSub, audio), hls };
 }
 
@@ -76,6 +79,20 @@ export function withNoVideoStreamCopy(url: string): string {
   const kept = query.split('&').filter((pair) => pair !== '' && pair.split('=')[0].toLowerCase() !== 'allowvideostreamcopy');
   kept.push('AllowVideoStreamCopy=false');
   return `${path}?${kept.join('&')}`;
+}
+
+/**
+ * Safety net for a chosen picture size: adds MaxHeight/MaxWidth to a transcode URL that lacks them (the server
+ * normally derives them from the device profile). Values already in the URL are kept.
+ */
+export function withMaxSize(url: string, maxHeight?: number, maxWidth?: number): string {
+  const [, query = ''] = url.split('?');
+  const keys = query.split('&').map((pair) => pair.split('=')[0].toLowerCase());
+  const add: string[] = [];
+  if (maxHeight && !keys.includes('maxheight')) add.push(`MaxHeight=${maxHeight}`);
+  if (maxWidth && !keys.includes('maxwidth')) add.push(`MaxWidth=${maxWidth}`);
+  if (add.length === 0) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}${add.join('&')}`;
 }
 
 /** Makes sure a stream URL asks for this audio stream (the server normally adds it itself; this is the safety net). */

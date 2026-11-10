@@ -12,7 +12,8 @@ import { getDeviceId, loadAudioLang, loadPlayerVolume, loadSubtitleLang, loadSub
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { maxBitrateFor, measureBitrate } from '../jellyfin/bitrate';
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
-import { nextArmedAt, nextEpisodeCard, planNextEpisode } from '../jellyfin/nextEpisode';
+import { playingResolution, qualityOptions, requestFor, sourceLevel, type QualityId } from '../jellyfin/quality';
+import { nextArmedAt, nextEpisodeCard, planNextEpisode, shouldMarkPlayedOnSkip } from '../jellyfin/nextEpisode';
 import { mpegTsShift } from '../jellyfin/hlsTimeline';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { createThrottle, resolveStreamUrl, selectPlayMethod, type PlaySelection } from '../jellyfin/playback';
@@ -20,8 +21,11 @@ import { activeCueText, listSubtitles, parseVtt, pickInitialSubtitle, subtitleVt
 import type { BaseItem, MediaSource, PlaybackReport } from '../jellyfin/types';
 import { COARSE_QUERY, useFinePointer } from '../useDesktop';
 import { useMediaQuery } from '../useMediaQuery';
-import { useNextEpisode } from '../useNextEpisode';
+import { useAdjacentEpisodes } from '../useNextEpisode';
 import { useViewportPortrait } from '../useViewportPortrait';
+
+/** The picture quality picked in the player. Lives for the app session only: the next episode keeps it, a fresh start is Auto. */
+let sessionQuality: QualityId = 'auto';
 
 const PROGRESS_MS = 10000;
 /** Pause, play and seek reports go out at once, but never more often than this. */
@@ -92,13 +96,13 @@ export function Player({
   item,
   startTicks,
   onBack,
-  onNext,
+  onPlayEpisode,
 }: {
   item: BaseItem;
   startTicks: number;
   onBack: () => void;
-  /** Plays the next episode in place of this one (from its start). */
-  onNext: (next: BaseItem) => void;
+  /** Plays another episode (autoplay, or the previous/next buttons) in place of this one, from its start. */
+  onPlayEpisode: (episode: BaseItem) => void;
 }) {
   const { client, session } = useApp();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -144,6 +148,11 @@ export function Player({
   const [probe, setProbe] = useState(() => loadSubtitleLang() === null);
   const restartTicks = useRef(startTicks);
   const picked = useRef(false);
+  const [qualitySel, setQualitySel] = useState<QualityId>(sessionQuality);
+  /** The source's own level, known after the first answer; a chosen level at or above it means the original. */
+  const srcLevel = useRef<number | null>(null);
+  /** Bumped to ask again once the source is known and the first request was capped for nothing. */
+  const [requery, setRequery] = useState(0);
   // Last playing position, for reports after the video has been reset.
   const lastTime = useRef(ticksToSeconds(startTicks));
   // Seconds from the video's currentTime to the original file time (hls.js only, see hlsTimeline.ts).
@@ -151,7 +160,7 @@ export function Player({
   const toMedia = (t: number) => t + shift.current;
   const toVideo = (position: number) => position - shift.current;
   // Next episode autoplay: the card, and the hooks into the reporting effect below.
-  const next = useNextEpisode(client, session.userId, item);
+  const { previous, next } = useAdjacentEpisodes(client, session.userId, item);
   const [cancelled, setCancelled] = useState(false);
   // Jellyfin index of the subtitle track chosen (-1 = off), for progress reports.
   const subIndex = useRef(-1);
@@ -217,6 +226,11 @@ export function Player({
     };
   }, [loaded, tracks, subSel]);
   const audioTracks = useMemo(() => (loaded ? listAudio(loaded.source) : []), [loaded]);
+  // Auto shows what it ended up playing ("Auto (720p)"); a fixed level is already named by its own entry.
+  const qualityChoices = useMemo(
+    () => (loaded ? qualityOptions(loaded.source, qualitySel === 'auto' ? playingResolution(loaded.source, loaded.selection.method, loaded.selection.url) : null) : []),
+    [loaded, qualitySel],
+  );
   /** Notes the current position so the new stream starts there, and shows the loading state. */
   const prepareRestart = () => {
     const el = video.current;
@@ -229,6 +243,12 @@ export function Player({
     setAudioSel(index);
     const track = audioTracks.filter((t) => t.index === index)[0];
     if (track && track.lang) saveAudioLang(track.lang);
+  };
+  const chooseQuality = (id: QualityId) => {
+    if (id === qualitySel) return;
+    prepareRestart();
+    sessionQuality = id;
+    setQualitySel(id);
   };
   const chooseSubtitle = (index: number) => {
     setSubSel(index);
@@ -398,21 +418,38 @@ export function Player({
   useEffect(() => {
     let cancelled = false;
     const canPlay = document.createElement('video');
+    const known = srcLevel.current;
+    const fixed = qualitySel === 'auto' ? null : requestFor(qualitySel, known);
+    // A level below the source's own size forces a transcode (the profile's size cap would anyway; this is explicit).
+    const lowered = !!fixed && !fixed.original && known !== null;
     // Measure the connection first: a mobile link that cannot carry the full bitrate never starts playing.
     measureBitrate(client)
       .then((bps) => {
         if (cancelled) return undefined;
-        const profile = buildPhoneProfile((mime) => canPlay.canPlayType(mime) !== '', maxBitrateFor(bps));
+        // A fixed quality replaces the measured bitrate with its own cap and scales the picture down to its height.
+        // Once the source's size is known, a level at or above it is the original: direct play stays possible.
+        const profile = buildPhoneProfile(
+          (mime) => canPlay.canPlayType(mime) !== '',
+          fixed ? fixed.bitrate : maxBitrateFor(bps),
+          fixed && fixed.maxHeight && fixed.maxWidth ? { height: fixed.maxHeight, width: fixed.maxWidth } : undefined,
+        );
         return client.playbackInfo(session.userId, item.Id, profile, {
           startTicks: restartTicks.current,
           audioStreamIndex: audioSel === null ? undefined : audioSel,
           subtitleStreamIndex: probe ? null : burnSel === null ? undefined : burnSel,
-          directPlay: audioSel === null && burnSel === null ? undefined : false,
+          directPlay: audioSel === null && burnSel === null && !lowered ? undefined : false,
         });
       })
       .then((info) => {
         if (cancelled || !info) return;
         const source = info.MediaSources[0];
+        const level = source ? sourceLevel(source) : null;
+        srcLevel.current = level ? level.height : null;
+        // The first request knew nothing of the source and capped the chosen level; ask again for the original.
+        if (source && qualitySel !== 'auto' && level && known === null && qualitySel >= level.height) {
+          setRequery((n) => n + 1);
+          return;
+        }
         const audio = source ? listAudio(source) : [];
         const defaultAudio = defaultAudioIndex(audio);
         // First answer: if the remembered audio language is not the default one, or the first subtitle track is an
@@ -441,6 +478,8 @@ export function Player({
             playSessionId: info.PlaySessionId,
             audioStreamIndex: audioSel !== null && audioSel !== defaultAudio ? audioSel : undefined,
             subtitleStreamIndex: burnSel === null ? undefined : burnSel,
+            maxHeight: fixed && fixed.maxHeight ? fixed.maxHeight : undefined,
+            maxWidth: fixed && fixed.maxWidth ? fixed.maxWidth : undefined,
           });
         if (!source || !selection) {
           setError(true);
@@ -462,7 +501,7 @@ export function Player({
     return () => {
       cancelled = true;
     };
-  }, [client, session, item.Id, audioSel, burnSel, probe]);
+  }, [client, session, item.Id, audioSel, burnSel, probe, qualitySel, requery]);
 
   // Attach the stream: native playback, or hls.js where the browser cannot play HLS itself.
   useEffect(() => {
@@ -588,23 +627,40 @@ export function Player({
   }, [client, loaded, item.Id]);
 
   /**
-   * Starts the next episode: reports Stopped for this one first, and marks it played when it is cut off
-   * before the natural end (the server only does that itself near the end). False when there is no next
-   * episode or autoplay was cancelled, so the caller does what it did before.
+   * Switches to another episode: reports Stopped for this one first and, with `markPlayed`, marks it played
+   * (the server only does that itself near the end). Keeps fullscreen. A second call while switching does nothing.
+   */
+  const switchTo = (episode: BaseItem, markPlayed: boolean) => {
+    if (advancing.current) return;
+    advancing.current = true;
+    const done = stopRef.current();
+    if (markPlayed) void done.then(() => client.markPlayed(session.userId, item.Id)).catch(() => undefined);
+    onPlayEpisode(episode);
+  };
+  /**
+   * Autoplay: starts the next episode, marking this one played when it is cut off before the natural end.
+   * False when there is no next episode or autoplay was cancelled, so the caller does what it did before.
    */
   const advance = (early: boolean): boolean => {
     if (advancing.current) return true;
     if (!next || cancelled) return false;
-    advancing.current = true;
-    const done = stopRef.current();
-    if (early) void done.then(() => client.markPlayed(session.userId, item.Id)).catch(() => undefined);
-    onNext(next);
+    switchTo(next, early);
     return true;
   };
   const advanceRef = useRef(advance);
   advanceRef.current = advance;
 
   const plan = planNextEpisode(segments, ticksToSeconds(item.RunTimeTicks || 0));
+  // The buttons work with autoplay cancelled; only a next pressed in the credits counts the episode as watched.
+  const episodeNav =
+    item.Type === 'Episode'
+      ? {
+          hasPrevious: !!previous,
+          hasNext: !!next,
+          onPrevious: () => previous && switchTo(previous, false),
+          onNext: () => next && switchTo(next, shouldMarkPlayedOnSkip(plan, now)),
+        }
+      : undefined;
   // Where the countdown started: when the position entered the card zone (playing, seeking or resuming).
   const armed = useRef<{ at: number | null; last: number | null }>({ at: null, last: null });
   armed.current = { at: nextArmedAt(plan, armed.current.at, armed.current.last, now), last: now };
@@ -766,6 +822,9 @@ export function Player({
             selected={subSel}
             audioTracks={audioTracks}
             audioSelected={loaded ? loaded.audioIndex : null}
+            qualityOptions={qualityChoices}
+            qualitySelected={qualitySel}
+            onSelectQuality={chooseQuality}
             onBack={onBack}
             onTogglePlay={togglePlay}
             onSkip={skipBy}
@@ -773,6 +832,7 @@ export function Player({
             onSelectSubtitle={chooseSubtitle}
             onSelectAudio={chooseAudio}
             onBusy={setBusy}
+            episodeNav={episodeNav}
             onInteract={interact}
             desktop={
               mouse

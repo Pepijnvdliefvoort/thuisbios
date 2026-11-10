@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { AudioTrack } from '../jellyfin/audio';
+import type { QualityId, QualityOption } from '../jellyfin/quality';
 import { formatClock } from '../jellyfin/format';
 import type { SubtitleTrack } from '../jellyfin/subtitles';
 import { scrubFraction } from '../scrub';
@@ -15,6 +16,14 @@ export interface DesktopControls {
   onVolume(volume: number): void;
   onToggleMute(): void;
   onToggleFullscreen(): void;
+}
+
+/** Previous and next episode buttons; only passed for episodes. A missing neighbour (first or last episode) disables its button. */
+export interface EpisodeNav {
+  hasPrevious: boolean;
+  hasNext: boolean;
+  onPrevious(): void;
+  onNext(): void;
 }
 
 interface Props {
@@ -36,17 +45,22 @@ interface Props {
   audioTracks: AudioTrack[];
   /** Jellyfin stream index of the audio playing; null when unknown. */
   audioSelected: number | null;
+  /** Picture quality choices (Auto first); the Quality section of the menu only shows with 2 or more. */
+  qualityOptions: QualityOption[];
+  qualitySelected: QualityId;
   onBack(): void;
   onTogglePlay(): void;
   onSkip(seconds: number): void;
   onSeek(seconds: number): void;
   onSelectSubtitle(index: number): void;
   onSelectAudio(index: number): void;
+  onSelectQuality(id: QualityId): void;
   /** Reports whether the user is busy with the bar or the subtitle panel, which keeps the controls up. */
   onBusy(busy: boolean): void;
   /** Any touch on the controls, so the hide timer restarts. */
   onInteract(): void;
   desktop?: DesktopControls;
+  episodeNav?: EpisodeNav;
 }
 
 /** Streaming-style overlay: top bar, centre buttons and a bottom bar with the scrub bar and the audio and subtitle menu. */
@@ -60,6 +74,7 @@ export function PlayerControls(p: Props) {
   const [pulse, setPulse] = useState(false);
   const wasPaused = useRef(p.paused);
   const d = p.desktop;
+  const nav = p.episodeNav;
 
   useEffect(() => {
     if (!d) return;
@@ -131,10 +146,20 @@ export function PlayerControls(p: Props) {
     if (index !== p.audioSelected) p.onSelectAudio(index);
     closePanel();
   };
+  const pickQuality = (id: QualityId) => {
+    p.onSelectQuality(id);
+    closePanel();
+  };
   const showAudio = p.audioTracks.length >= 2;
+  const showQuality = p.qualityOptions.length >= 2;
+  const menuLabel = [showAudio ? 'Audio' : '', showQuality ? 'quality' : '', 'subtitles']
+    .filter(Boolean)
+    .join(', ')
+    .replace(/, ([^,]*)$/, ' and $1')
+    .replace(/^./, (c) => c.toUpperCase());
 
   const panelEl = panel ? (
-    <div class="pc-panel" role="menu" aria-label={showAudio ? 'Audio and subtitles' : 'Subtitles'}>
+    <div class="pc-panel" role="menu" aria-label={menuLabel}>
       {showAudio ? (
         <>
           <p class="pc-panel-h">Audio</p>
@@ -144,9 +169,20 @@ export function PlayerControls(p: Props) {
               {t.label}
             </button>
           ))}
-          <p class="pc-panel-h">Subtitles</p>
         </>
       ) : null}
+      {showQuality ? (
+        <>
+          <p class="pc-panel-h">Quality</p>
+          {p.qualityOptions.map((o) => (
+            <button key={o.id} type="button" role="menuitemradio" aria-checked={p.qualitySelected === o.id} onClick={() => pickQuality(o.id)}>
+              <span class="pc-check">{p.qualitySelected === o.id ? <Icon name="check" size={20} /> : null}</span>
+              {o.label}
+            </button>
+          ))}
+        </>
+      ) : null}
+      {showAudio || showQuality ? <p class="pc-panel-h">Subtitles</p> : null}
       <button type="button" role="menuitemradio" aria-checked={p.selected < 0} onClick={() => pick(-1)}>
         <span class="pc-check">{p.selected < 0 ? <Icon name="check" size={20} /> : null}</span>Off
       </button>
@@ -217,6 +253,16 @@ export function PlayerControls(p: Props) {
               <button type="button" class="pc-btn" onClick={() => p.onSkip(10)} aria-label="Forward 10 seconds">
                 <Icon name="forward10" size={26} />
               </button>
+              {nav ? (
+                <>
+                  <button type="button" class="pc-btn" onClick={nav.onPrevious} disabled={!nav.hasPrevious} aria-label="Previous episode">
+                    <Icon name="prev" size={26} />
+                  </button>
+                  <button type="button" class="pc-btn" onClick={nav.onNext} disabled={!nav.hasNext} aria-label="Next episode">
+                    <Icon name="next" size={26} />
+                  </button>
+                </>
+              ) : null}
               <div class="pc-vol">
                 <button type="button" class="pc-btn" onClick={d.onToggleMute} aria-label={d.muted ? 'Unmute' : 'Mute'}>
                   <Icon name={d.muted || d.volume === 0 ? 'volumeMute' : d.volume < 0.4 ? 'volumeDown' : 'volumeUp'} size={26} />
@@ -245,7 +291,7 @@ export function PlayerControls(p: Props) {
                   type="button"
                   class={'pc-btn pc-cc' + (p.selected >= 0 ? ' on' : '')}
                   onClick={togglePanel}
-                  aria-label={showAudio ? 'Audio and subtitles' : 'Subtitles'}
+                  aria-label={menuLabel}
                   aria-expanded={panel}
                   aria-haspopup="menu"
                 >
@@ -284,7 +330,12 @@ export function PlayerControls(p: Props) {
         </div>
       </div>
 
-      <div class="pc-center">
+      <div class={'pc-center' + (nav ? ' with-nav' : '')}>
+        {nav ? (
+          <button type="button" class="pc-btn pc-ep" onClick={nav.onPrevious} disabled={!nav.hasPrevious} aria-label="Previous episode">
+            <Icon name="prev" size={32} />
+          </button>
+        ) : null}
         <button type="button" class="pc-btn" onClick={() => p.onSkip(-10)} aria-label="Back 10 seconds">
           <Icon name="rewind10" size={40} />
         </button>
@@ -294,6 +345,11 @@ export function PlayerControls(p: Props) {
         <button type="button" class="pc-btn" onClick={() => p.onSkip(10)} aria-label="Forward 10 seconds">
           <Icon name="forward10" size={40} />
         </button>
+        {nav ? (
+          <button type="button" class="pc-btn pc-ep" onClick={nav.onNext} disabled={!nav.hasNext} aria-label="Next episode">
+            <Icon name="next" size={32} />
+          </button>
+        ) : null}
       </div>
 
       <div class="pc-bottom">
@@ -323,7 +379,7 @@ export function PlayerControls(p: Props) {
             type="button"
             class={'pc-btn pc-cc' + (p.selected >= 0 ? ' on' : '')}
             onClick={togglePanel}
-            aria-label={showAudio ? 'Audio and subtitles' : 'Subtitles'}
+            aria-label={menuLabel}
             aria-expanded={panel}
           >
             <Icon name="captions" />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildStaticUrl, createThrottle, resolveStreamUrl, selectPlayMethod, withAudioStreamIndex, withNoVideoStreamCopy, withSubtitleStreamIndex } from './playback';
+import { buildStaticUrl, createThrottle, resolveStreamUrl, selectPlayMethod, withAudioStreamIndex, withMaxSize, withNoVideoStreamCopy, withSubtitleStreamIndex } from './playback';
 import type { MediaSource } from './types';
 
 const params = { itemId: 'item1', deviceId: 'dev', playSessionId: 'ps' };
@@ -141,5 +141,21 @@ describe('withNoVideoStreamCopy', () => {
     const { SupportsDirectStream, ...hlsOnly } = src;
     expect(SupportsDirectStream).toBe(true);
     expect(selectPlayMethod(hlsOnly, params)?.url).toBe('/v/master.m3u8?AllowVideoStreamCopy=false');
+  });
+});
+
+describe('withMaxSize', () => {
+  it('adds the size cap a transcode URL lacks and keeps what is there', () => {
+    expect(withMaxSize('/v/master.m3u8?a=1', 720, 1280)).toBe('/v/master.m3u8?a=1&MaxHeight=720&MaxWidth=1280');
+    expect(withMaxSize('/v/master.m3u8?maxHeight=480', 720, 1280)).toBe('/v/master.m3u8?maxHeight=480&MaxWidth=1280');
+    expect(withMaxSize('/v/master.m3u8', 720, 1280)).toBe('/v/master.m3u8?MaxHeight=720&MaxWidth=1280');
+  });
+  it('leaves the URL alone without a cap', () => {
+    expect(withMaxSize('/v/master.m3u8?a=1')).toBe('/v/master.m3u8?a=1');
+  });
+  it('is applied to a transcode selection', () => {
+    const src: MediaSource = { Id: 'a', TranscodingUrl: '/v/master.m3u8?a=1', TranscodingSubProtocol: 'hls' };
+    const sel = selectPlayMethod(src, { itemId: 'i', deviceId: 'd', maxHeight: 720, maxWidth: 1280 });
+    expect(sel?.url).toContain('MaxHeight=720&MaxWidth=1280');
   });
 });
