@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.14.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.13.0...v0.14.0) (2026-11-10)
+
+
+### Features
+
+* **remote:** add an offline download test page ([#139](https://github.com/Pepijnvdliefvoort/thuisbios/issues/139)) ([0448761](https://github.com/Pepijnvdliefvoort/thuisbios/commit/04487610a8e4a06001af02e92146b756d5729b3f))
+* **remote:** add previous and next episode buttons to the player ([#137](https://github.com/Pepijnvdliefvoort/thuisbios/issues/137)) ([a42348a](https://github.com/Pepijnvdliefvoort/thuisbios/commit/a42348aa9bbdb9a158faa3cc739aed8da8855e1d))
+* **remote:** let the player choose the video quality ([#138](https://github.com/Pepijnvdliefvoort/thuisbios/issues/138)) ([8678a05](https://github.com/Pepijnvdliefvoort/thuisbios/commit/8678a054a179927238e59f8e850436576560d274))
+
 ## [0.13.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.12.0...v0.13.0) (2026-11-10)
 
 
