@@ -106,6 +106,9 @@ export interface MediaStream {
   Channels?: number;
   /** False for image subtitles (PGS, dvdsub). */
   IsTextSubtitleStream?: boolean;
+  /** Video picture size in pixels. */
+  Height?: number;
+  Width?: number;
 }
 
 /** One playable version of an item, from a PlaybackInfo response. */

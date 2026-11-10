@@ -55,4 +55,20 @@ describe('buildPhoneProfile', () => {
     expect(p.MaxStreamingBitrate).toBe(20000000);
     expect(p.SubtitleProfiles).toEqual([]);
   });
+
+  it('adds a height and width cap for every video codec when a size is chosen', () => {
+    const p = buildPhoneProfile(none, 4000000, { height: 720, width: 1280 });
+    expect(p.MaxStreamingBitrate).toBe(4000000);
+    expect(p.CodecProfiles).toContainEqual({
+      Type: 'Video',
+      Conditions: [
+        { Condition: 'LessThanEqual', Property: 'Height', Value: '720', IsRequired: true },
+        { Condition: 'LessThanEqual', Property: 'Width', Value: '1280', IsRequired: true },
+      ],
+    });
+  });
+
+  it('adds no size cap by default', () => {
+    expect(JSON.stringify(buildPhoneProfile(none).CodecProfiles)).not.toContain('Height');
+  });
 });
