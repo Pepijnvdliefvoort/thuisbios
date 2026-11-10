@@ -12,7 +12,7 @@ import { getDeviceId, loadAudioLang, loadPlayerVolume, loadSubtitleLang, loadSub
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { maxBitrateFor, measureBitrate } from '../jellyfin/bitrate';
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
-import { nextArmedAt, nextEpisodeCard, planNextEpisode } from '../jellyfin/nextEpisode';
+import { nextArmedAt, nextEpisodeCard, planNextEpisode, shouldMarkPlayedOnSkip } from '../jellyfin/nextEpisode';
 import { mpegTsShift } from '../jellyfin/hlsTimeline';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { createThrottle, resolveStreamUrl, selectPlayMethod, type PlaySelection } from '../jellyfin/playback';
@@ -20,7 +20,7 @@ import { activeCueText, listSubtitles, parseVtt, pickInitialSubtitle, subtitleVt
 import type { BaseItem, MediaSource, PlaybackReport } from '../jellyfin/types';
 import { COARSE_QUERY, useFinePointer } from '../useDesktop';
 import { useMediaQuery } from '../useMediaQuery';
-import { useNextEpisode } from '../useNextEpisode';
+import { useAdjacentEpisodes } from '../useNextEpisode';
 import { useViewportPortrait } from '../useViewportPortrait';
 
 const PROGRESS_MS = 10000;
@@ -92,13 +92,13 @@ export function Player({
   item,
   startTicks,
   onBack,
-  onNext,
+  onPlayEpisode,
 }: {
   item: BaseItem;
   startTicks: number;
   onBack: () => void;
-  /** Plays the next episode in place of this one (from its start). */
-  onNext: (next: BaseItem) => void;
+  /** Plays another episode (autoplay, or the previous/next buttons) in place of this one, from its start. */
+  onPlayEpisode: (episode: BaseItem) => void;
 }) {
   const { client, session } = useApp();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -151,7 +151,7 @@ export function Player({
   const toMedia = (t: number) => t + shift.current;
   const toVideo = (position: number) => position - shift.current;
   // Next episode autoplay: the card, and the hooks into the reporting effect below.
-  const next = useNextEpisode(client, session.userId, item);
+  const { previous, next } = useAdjacentEpisodes(client, session.userId, item);
   const [cancelled, setCancelled] = useState(false);
   // Jellyfin index of the subtitle track chosen (-1 = off), for progress reports.
   const subIndex = useRef(-1);
@@ -588,23 +588,40 @@ export function Player({
   }, [client, loaded, item.Id]);
 
   /**
-   * Starts the next episode: reports Stopped for this one first, and marks it played when it is cut off
-   * before the natural end (the server only does that itself near the end). False when there is no next
-   * episode or autoplay was cancelled, so the caller does what it did before.
+   * Switches to another episode: reports Stopped for this one first and, with `markPlayed`, marks it played
+   * (the server only does that itself near the end). Keeps fullscreen. A second call while switching does nothing.
+   */
+  const switchTo = (episode: BaseItem, markPlayed: boolean) => {
+    if (advancing.current) return;
+    advancing.current = true;
+    const done = stopRef.current();
+    if (markPlayed) void done.then(() => client.markPlayed(session.userId, item.Id)).catch(() => undefined);
+    onPlayEpisode(episode);
+  };
+  /**
+   * Autoplay: starts the next episode, marking this one played when it is cut off before the natural end.
+   * False when there is no next episode or autoplay was cancelled, so the caller does what it did before.
    */
   const advance = (early: boolean): boolean => {
     if (advancing.current) return true;
     if (!next || cancelled) return false;
-    advancing.current = true;
-    const done = stopRef.current();
-    if (early) void done.then(() => client.markPlayed(session.userId, item.Id)).catch(() => undefined);
-    onNext(next);
+    switchTo(next, early);
     return true;
   };
   const advanceRef = useRef(advance);
   advanceRef.current = advance;
 
   const plan = planNextEpisode(segments, ticksToSeconds(item.RunTimeTicks || 0));
+  // The buttons work with autoplay cancelled; only a next pressed in the credits counts the episode as watched.
+  const episodeNav =
+    item.Type === 'Episode'
+      ? {
+          hasPrevious: !!previous,
+          hasNext: !!next,
+          onPrevious: () => previous && switchTo(previous, false),
+          onNext: () => next && switchTo(next, shouldMarkPlayedOnSkip(plan, now)),
+        }
+      : undefined;
   // Where the countdown started: when the position entered the card zone (playing, seeking or resuming).
   const armed = useRef<{ at: number | null; last: number | null }>({ at: null, last: null });
   armed.current = { at: nextArmedAt(plan, armed.current.at, armed.current.last, now), last: now };
@@ -773,6 +790,7 @@ export function Player({
             onSelectSubtitle={chooseSubtitle}
             onSelectAudio={chooseAudio}
             onBusy={setBusy}
+            episodeNav={episodeNav}
             onInteract={interact}
             desktop={
               mouse

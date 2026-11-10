@@ -57,6 +57,11 @@ export function nextArmedAt(
   return Math.abs(position - previous) > JUMP_SECONDS ? position : armedAt;
 }
 
+/** Pressing "next" counts the episode as watched only from the credits (the card zone) on, not when skipping ahead early. */
+export function shouldMarkPlayedOnSkip(plan: NextEpisodePlan | null, position: number): boolean {
+  return !!plan && isFinite(position) && position >= plan.showAt;
+}
+
 export interface NextEpisodeCard {
   /** Whether the card is on screen. */
   show: boolean;
