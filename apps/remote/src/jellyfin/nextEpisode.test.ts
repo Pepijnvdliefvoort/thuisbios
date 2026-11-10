@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MediaSegment } from './segments';
-import { FALLBACK_LEAD_SECONDS, OUTRO_COUNTDOWN_SECONDS, nextArmedAt, nextEpisodeCard, planNextEpisode } from './nextEpisode';
+import { FALLBACK_LEAD_SECONDS, OUTRO_COUNTDOWN_SECONDS, nextArmedAt, nextEpisodeCard, planNextEpisode, shouldMarkPlayedOnSkip } from './nextEpisode';
 
 const sec = 10000000;
 const outro = (start: number, end: number): MediaSegment => ({ type: 'Outro', startTicks: start * sec, endTicks: end * sec });
@@ -73,5 +73,21 @@ describe('nextEpisodeCard', () => {
     expect(nextEpisodeCard(late, late.showAt, late.showAt).remaining).toBe(FALLBACK_LEAD_SECONDS);
     expect(nextEpisodeCard(late, late.showAt + 2, late.showAt).remaining).toBe(FALLBACK_LEAD_SECONDS - 2);
     expect(nextEpisodeCard(late, 1440, late.showAt)).toEqual({ show: false, remaining: 0, due: false });
+  });
+});
+
+describe('shouldMarkPlayedOnSkip', () => {
+  const plan = planNextEpisode([outro(1300, 1400)], 1440);
+  it('marks played from the credits on', () => {
+    expect(shouldMarkPlayedOnSkip(plan, 1300)).toBe(true);
+    expect(shouldMarkPlayedOnSkip(plan, 1435)).toBe(true);
+  });
+  it('does not when skipping ahead early', () => {
+    expect(shouldMarkPlayedOnSkip(plan, 300)).toBe(false);
+    expect(shouldMarkPlayedOnSkip(plan, 1299.9)).toBe(false);
+  });
+  it('does not without a plan or with an unknown position', () => {
+    expect(shouldMarkPlayedOnSkip(null, 1400)).toBe(false);
+    expect(shouldMarkPlayedOnSkip(plan, NaN)).toBe(false);
   });
 });
