@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.16.0...v0.17.0) (2026-11-10)
+
+
+### Features
+
+* **remote:** show downloads whenever the phone is offline ([#164](https://github.com/Pepijnvdliefvoort/thuisbios/issues/164)) ([2975ffc](https://github.com/Pepijnvdliefvoort/thuisbios/commit/2975ffc12ec0254f3c39f247e8047fcac0a9fcce))
+
+
+### Documentation
+
+* update README screenshots ([#166](https://github.com/Pepijnvdliefvoort/thuisbios/issues/166)) ([59552b1](https://github.com/Pepijnvdliefvoort/thuisbios/commit/59552b15c170579bfa689104b2476090e3699f8f))
+
 ## [0.16.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.15.0...v0.16.0) (2026-11-10)
 
 
