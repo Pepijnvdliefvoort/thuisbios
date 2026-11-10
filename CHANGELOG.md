@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.18.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.17.0...v0.18.0) (2026-11-10)
+
+
+### Features
+
+* **remote:** move quality to its own cogwheel button in the player ([#171](https://github.com/Pepijnvdliefvoort/thuisbios/issues/171)) ([25d60ea](https://github.com/Pepijnvdliefvoort/thuisbios/commit/25d60eaceb3c03cdbb9db0e225520e5d02b79faf))
+
+
+### Performance
+
+* **remote:** measure far-away links better and allow the original quality ([#170](https://github.com/Pepijnvdliefvoort/thuisbios/issues/170)) ([b8ac375](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b8ac3752c0d2ddc1cd1609134e183df68e575135))
+
 ## [0.17.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.16.0...v0.17.0) (2026-11-10)
 
 
