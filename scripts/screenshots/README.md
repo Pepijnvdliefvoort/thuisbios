@@ -24,8 +24,10 @@ node scripts/screenshots/capture.mjs phone-home banner  # only some shots
 The script starts `npm run dev -w apps/remote` (port 5174) and `npm run dev -w apps/tv`
 (port 5173) when they are not running yet. Set `PLAYWRIGHT_CHROMIUM` to use another browser binary.
 
-The workflow `.github/workflows/readme-screenshots.yml` runs this when a release PR from `develop` into
-`main` is opened (and on demand). When the images changed it force-pushes `docs/readme-screenshots` and opens a PR into `develop`
-(or updates the open one); merge it with Squash and merge. Runner fonts can differ from the committed
+The workflow `.github/workflows/readme-screenshots.yml` runs this on the `develop` to `main` release PR
+(when it is opened and on every update, and on demand). When the images changed it force-pushes
+`docs/readme-screenshots`, opens a PR into `develop` (or updates the open one) and fails the check until
+that PR is merged (Squash and merge); the check then re-runs and turns green. It can be made a required
+check on the `main` ruleset so the release PR cannot be merged too early. Runner fonts can differ from the committed
 images, so the first run may touch every image. The capture is deterministic on one machine: animations
 are frozen at a fixed time and the screensaver clock uses a fixed date.
