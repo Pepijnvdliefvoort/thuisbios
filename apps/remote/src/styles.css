@@ -993,8 +993,8 @@ button.rs-row:active { background: var(--surface-2); }
   .request-skel .skel-line.short { width: 40%; }
   .request-skel .skel-button { width: 90px; height: 32px; margin-top: auto; }
 
-  /* Details without a backdrop: a blurred, enlarged, darkened copy of the poster. The span clips the blurred edges. */
-  .hero-blur img { transform: scale(1.35); filter: blur(36px) brightness(0.7) saturate(1.25); object-position: center 30%; }
+  /* Details and Spotlight without a (working) backdrop: a blurred, enlarged, darkened copy of the poster. The span clips the blurred edges. */
+  .hero-blur img, .sp-blur img { transform: scale(1.35); filter: blur(36px) brightness(0.7) saturate(1.25); object-position: center 30%; }
 }
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
   .wall-col { animation: none; }
