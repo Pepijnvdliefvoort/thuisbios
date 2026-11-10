@@ -85,11 +85,12 @@ docs/server/              Jellyfin setup guide for Windows (windows-setup.md), a
 docs/tv/                  TV app: Tizen setup, install and test guide (dev-setup.md)
 docs/remote/              phone app: setup guide (setup.md), away from home via Tailscale (tailscale.md)
 scripts/                  repo tooling (version checks)
-scripts/screenshots/      mock Jellyfin server and Playwright script that generates the README screenshots
+scripts/screenshots/      mock Jellyfin server (also serves a tiny HLS stream for downloads) and Playwright script that generates the README screenshots
 packages/jellyfin-client/ planned: shared typed Jellyfin API client
 apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite), served to the TV browser
 apps/remote/              phone and desktop app (PWA), phase 4 (Preact + TypeScript + Vite)
 apps/remote/sw/           service worker generator (Vite plugin) that makes the app open offline
+apps/remote/src/offline/  offline downloads: download queue and engine, storage keys, HLS playlist helpers, player from storage
 apps/remote/relay/        Samsung TV volume relay and title requests (Node, runs inside the remote's vite server); apps/remote/scripts/tv-setup.mjs pairs the TV and jellyfin-setup.mjs saves the Jellyfin API key for title suggestions
 server/                   Jellyfin helper scripts (PowerShell) and Pester tests; device profile planned
 server/linux/             compose file and update timer (systemd) for the Linux home server
@@ -194,9 +195,7 @@ stay upright. The phone reports its progress to Jellyfin, so it counts toward Re
 Before playing, the app times a small download from the server and asks for a stream bitrate that fits
 the connection (at most 20 Mbit/s), so playback also starts on a slow mobile link.
 
-The Account sheet has a temporary "Offline download test" page that saves 2 minutes of a video in browser storage and plays it back offline, to check what an iPhone keeps.
-
-The app keeps a copy of itself on the phone (a service worker), so it opens with Wi-Fi and mobile data off. When it starts offline it opens the test downloads, so you can play them; this needs the https address (a secure context) and one earlier visit online.
+Downloads (phone only): movies and episodes have a Download button, and a season has "Download season". You choose High (1080p), Medium (720p, the default) or Small (480p) and see an estimated size first. The server converts the video into a stream that fits the phone, and the app saves it in the browser's storage (the Cache API) together with the picture, the text subtitles and the intro markers. Downloads run one at a time in the order you queued them, keep the screen on, and carry on after a restart or when the connection is back. The app has to stay open while it downloads, because a phone pauses a page that is in the background. The Account sheet has a Downloads screen with the space used, progress, pause, cancel and retry, and the finished downloads, which play without a network (a simple player for now; progress sync and removing watched episodes come later). The app keeps a copy of itself on the phone (a service worker), so it opens with Wi-Fi and mobile data off, and when it starts offline it opens the Downloads screen. This needs the https address (a secure context) and one earlier visit online. The Account sheet still has a temporary "Offline download test" page that saves 2 minutes of a video, to check what a phone keeps.
 
 The CC button opens an "Audio, quality and subtitles" menu. Items with two or more audio tracks get an Audio
 section: picking one asks the server for that track (a remux or transcode, because a browser cannot
@@ -226,7 +225,7 @@ The TV app now accepts remote-control commands through Jellyfin: the TV page reg
 remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on
 TV", audio and subtitle track choice and Disconnect (sign out).
 
-Every request uses the configured absolute server URL and there is no service worker, so the app can
+Every request uses the configured absolute server URL, so the app can
 be wrapped with Capacitor later. A volume pill on Now Playing (−, the level, +; the level opens the sheet) and a button in the TV sheet open a bottom sheet
 with a slider, a mute toggle and −/+ buttons (one step per tap) that control the Samsung TV through a small relay that runs inside
 the remote's own `vite preview` (and `vite dev`) server on the PC, under `/api/tv/`. The phone calls it on the same origin with its

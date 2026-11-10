@@ -12,6 +12,7 @@ import { useNav } from './nav';
 import { playbackJustEnded, type PlaybackState } from './playbackEnd';
 import { ConnectTv } from './screens/ConnectTv';
 import { Details } from './screens/Details';
+import { Downloads } from './screens/Downloads';
 import { Home } from './screens/Home';
 import { Library } from './screens/Library';
 import { OfflineTest } from './screens/OfflineTest';
@@ -22,8 +23,12 @@ import { Search } from './screens/Search';
 import { SignIn } from './screens/SignIn';
 import { enterLandscapeFullscreen } from './fullscreen';
 import { parseConnectParam } from './jellyfin/quickConnect';
-import { clearSession, getDeviceId, loadPendingConnect, loadSession, saveSession, savePendingConnect } from './storage';
+import { clearSession, getDeviceId, loadAudioLang, loadPendingConnect, loadSession, saveSession, savePendingConnect } from './storage';
 import { SCROLLER_ID, scrollOffset, scrollToOffset } from './scroller';
+import { DownloadEngine } from './offline/downloadEngine';
+import { createCacheStore, downloadsSupported } from './offline/downloadStore';
+import { useDownloadsApi } from './offline/useDownloads';
+import { createWakeLock } from './offline/wakeLock';
 import { useRequests } from './useRequests';
 import { isDesktop, useDesktop } from './useDesktop';
 import { useScrollerRefresh } from './useScrollerRefresh';
@@ -46,7 +51,7 @@ function takeConnectCode(): string | null {
   return loadPendingConnect();
 }
 
-const OFFLINE_TOAST = "You're offline. Your downloads are in Account → Offline download test.";
+const OFFLINE_TOAST = "You're offline. Your downloads are in Account → Downloads.";
 
 export function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
@@ -123,6 +128,31 @@ function Shell({
   const tv = useTv(client, session.userId, getDeviceId(), toast);
   const requests = useRequests(session);
 
+  // The download queue lives as long as the app, so progress keeps going while the user browses.
+  const engine = useMemo(() => {
+    if (!downloadsSupported()) return null;
+    const probe = document.createElement('video');
+    return new DownloadEngine({
+      client,
+      session,
+      deviceId: getDeviceId(),
+      store: createCacheStore(),
+      canPlay: (mime) => probe.canPlayType(mime) !== '',
+      audioLang: loadAudioLang,
+      wakeLock: createWakeLock(),
+      requestPersist: () => {
+        const storage = navigator.storage as StorageManager | undefined;
+        if (storage && storage.persist) void storage.persist().catch(() => undefined);
+      },
+    });
+  }, [client, session]);
+  useEffect(() => {
+    if (!engine) return;
+    void engine.start().catch(() => undefined);
+    return () => engine.stop();
+  }, [engine]);
+  const downloads = useDownloadsApi(engine);
+
   // Counts playback endings so Home can refresh its Resume watching row.
   const [playbackEnded, setPlaybackEnded] = useState(0);
   const [libraryChanged, setLibraryChanged] = useState(0);
@@ -153,12 +183,12 @@ function Shell({
     nav.push({ kind: 'connect', code: connectCode });
   }, []);
 
-  // Offline: start on the Offline download test screen (a QR-code link takes precedence), and tell the user
+  // Offline: start on the Downloads screen (a QR-code link takes precedence), and tell the user
   // once per offline transition where the downloads are.
   useEffect(() => {
     if (!connectCode && typeof navigator !== 'undefined' && navigator.onLine === false) {
       remember();
-      nav.push({ kind: 'offlineTest' });
+      nav.push({ kind: 'downloads' });
     }
     const onOffline = () => toast(OFFLINE_TOAST);
     window.addEventListener('offline', onOffline);
@@ -170,6 +200,7 @@ function Shell({
     session,
     tv,
     requests,
+    downloads,
     playbackEnded,
     libraryChanged,
     refreshLibrary: () => setLibraryChanged((n) => n + 1),
@@ -181,6 +212,10 @@ function Shell({
     openConnectTv: () => {
       remember();
       nav.push({ kind: 'connect' });
+    },
+    openDownloads: () => {
+      remember();
+      nav.push({ kind: 'downloads' });
     },
     openOfflineTest: () => {
       remember();
@@ -232,6 +267,7 @@ function Shell({
           </div>
           {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
           {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
+          {top && top.kind === 'downloads' ? <Downloads key={`${nav.stack.length}:downloads`} onBack={nav.back} /> : null}
           {top && top.kind === 'offlineTest' ? <OfflineTest key={`${nav.stack.length}:offlineTest`} onBack={nav.back} /> : null}
           {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
           {top && top.kind === 'player' ? (

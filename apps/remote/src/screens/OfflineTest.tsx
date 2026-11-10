@@ -4,9 +4,9 @@ import { useApp } from '../context';
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
 import { resolveStreamUrl, withNoVideoStreamCopy } from '../jellyfin/playback';
 import type { BaseItem } from '../jellyfin/types';
-import { OFFLINE_CACHE, CacheLoader } from '../offline/cacheLoader';
-import { buildLocalPlaylist, parseMasterPlaylist, parseMediaPlaylist, resolveUri, trimSegments } from '../offline/hlsPlaylist';
-import { startGapTarget } from '../offline/startGap';
+import { OFFLINE_CACHE } from '../offline/cacheLoader';
+import { buildLocalPlaylist, parseMasterPlaylist, parseMediaPlaylist, trimSegments } from '../offline/hlsPlaylist';
+import { OfflinePlayer } from '../offline/OfflinePlayer';
 
 const SECONDS = 120;
 const keyBase = (itemId: string) => `./offline-test/${encodeURIComponent(itemId)}/`;
@@ -38,17 +38,6 @@ const size = (bytes: number | null): string => {
   return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : `${(bytes / 1e6).toFixed(1)} MB`;
 };
 const yesNo = (v: boolean | null): string => (v === null ? 'unknown' : v ? 'yes' : 'no');
-const fmt = (n: number): string => n.toFixed(2).replace(/\.?0+$/, (m) => (m.startsWith('.') ? '' : m));
-const bufferedRanges = (el: HTMLVideoElement): Array<[number, number]> => {
-  const out: Array<[number, number]> = [];
-  for (let i = 0; i < el.buffered.length; i++) out.push([el.buffered.start(i), el.buffered.end(i)]);
-  return out;
-};
-const statusLine = (el: HTMLVideoElement): string => {
-  const ranges = bufferedRanges(el);
-  const buffered = ranges.length === 0 ? 'none' : ranges.map(([a, b]) => `${fmt(a)}-${fmt(b)}`).join(', ');
-  return `time ${el.currentTime.toFixed(2)} \u00b7 buffered ${buffered}`;
-};
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 async function readDiagnostics(): Promise<Diag> {
@@ -127,12 +116,9 @@ export function OfflineTest({ onBack }: { onBack: () => void }) {
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const [saved, setSaved] = useState<Meta[]>([]);
-  const [playing, setPlaying] = useState('');
+  const [playing, setPlaying] = useState<Meta | null>(null);
   const [playError, setPlayError] = useState('');
   const [status, setStatus] = useState('');
-  const unlisten = useRef<(() => void) | null>(null);
-  const video = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<{ destroy(): void } | null>(null);
   const alive = useRef(true);
 
   const refreshDiag = () => void readDiagnostics().then((d) => alive.current && setDiag(d));
@@ -147,8 +133,6 @@ export function OfflineTest({ onBack }: { onBack: () => void }) {
     refreshSaved();
     return () => {
       alive.current = false;
-      if (hlsRef.current) hlsRef.current.destroy();
-      if (unlisten.current) unlisten.current();
     };
   }, []);
 
@@ -270,72 +254,10 @@ export function OfflineTest({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const stop = () => {
-    if (hlsRef.current) hlsRef.current.destroy();
-    hlsRef.current = null;
-    if (unlisten.current) unlisten.current();
-    unlisten.current = null;
-  };
-
-  const play = async (meta: Meta) => {
-    const el = video.current;
-    if (!el) return;
-    stop();
+  const play = (meta: Meta) => {
     setPlayError('');
     setStatus('');
-    setPlaying(meta.name);
-    try {
-      const { default: Hls } = await import('hls.js');
-      if (!Hls.isSupported()) throw new Error('hls.js is not supported in this browser');
-      el.disableRemotePlayback = true;
-      const hls = new Hls({ loader: CacheLoader, maxBufferHole: 0.5 });
-      hlsRef.current = hls;
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (alive.current) setPlayError(`${data.fatal ? 'Fatal' : 'Non-fatal'} hls.js error: ${data.type} / ${data.details}${data.reason ? ` (${data.reason})` : ''}`);
-      });
-      hls.loadSource(resolveUri(window.location.href, `${keyBase(meta.itemId)}index.m3u8`));
-      hls.attachMedia(el);
-
-      // The transcode's buffered media can start slightly after 0; jump that gap until playback has started.
-      let started = false;
-      const jumpGap = () => {
-        if (started) return;
-        const target = startGapTarget(el.currentTime, bufferedRanges(el));
-        if (target === null) return;
-        el.currentTime = target;
-        void el.play().catch(() => undefined);
-      };
-      const refreshStatus = () => alive.current && setStatus(statusLine(el));
-      const onTimeUpdate = () => {
-        const ranges = bufferedRanges(el);
-        if (ranges.length > 0 && el.currentTime > ranges[0][0]) started = true;
-        refreshStatus();
-      };
-      const onPlaying = () => {
-        started = true;
-        if (alive.current) setPlayError('');
-        refreshStatus();
-      };
-      const onLoaded = () => {
-        void el.play().catch(() => undefined);
-        jumpGap();
-      };
-      const listeners: Array<[string, () => void]> = [
-        ['loadedmetadata', onLoaded],
-        ['canplay', jumpGap],
-        ['timeupdate', onTimeUpdate],
-        ['progress', refreshStatus],
-        ['waiting', refreshStatus],
-        ['playing', onPlaying],
-      ];
-      for (const [name, fn] of listeners) el.addEventListener(name, fn);
-      unlisten.current = () => {
-        for (const [name, fn] of listeners) el.removeEventListener(name, fn);
-      };
-      hls.on(Hls.Events.FRAG_BUFFERED, jumpGap);
-    } catch (e) {
-      setPlayError(`Playback failed. ${message(e)}`);
-    }
+    setPlaying(meta);
   };
 
   const remove = async (meta: Meta) => {
@@ -343,10 +265,7 @@ export function OfflineTest({ onBack }: { onBack: () => void }) {
       const cache = await caches.open(OFFLINE_CACHE);
       const prefix = keyUrl(keyBase(meta.itemId));
       for (const request of await cache.keys()) if (request.url.startsWith(prefix)) await cache.delete(request);
-      if (playing === meta.name) {
-        stop();
-        setPlaying('');
-      }
+      if (playing && playing.itemId === meta.itemId) setPlaying(null);
     } catch (e) {
       setError(`Delete failed. ${message(e)}`);
     }
@@ -431,7 +350,7 @@ export function OfflineTest({ onBack }: { onBack: () => void }) {
               {size(meta.bytes)}, {new Date(meta.date).toLocaleString()}
             </span>
             <span class="actions">
-              <button type="button" class="btn secondary" onClick={() => void play(meta)}>
+              <button type="button" class="btn secondary" onClick={() => play(meta)}>
                 Play offline
               </button>
               <button type="button" class="btn danger" onClick={() => void remove(meta)}>
@@ -441,8 +360,10 @@ export function OfflineTest({ onBack }: { onBack: () => void }) {
           </li>
         ))}
       </ul>
-      <video ref={video} playsInline controls hidden={!playing} />
-      {playing ? <p class="hint small">Playing from storage: {playing}</p> : null}
+      {playing ? (
+        <OfflinePlayer key={playing.itemId} playlistKey={`${keyBase(playing.itemId)}index.m3u8`} cacheName={OFFLINE_CACHE} onStatus={setStatus} onError={setPlayError} />
+      ) : null}
+      {playing ? <p class="hint small">Playing from storage: {playing.name}</p> : null}
       {playError ? <p class="warn" role="alert">{playError}</p> : null}
       {playing && status ? <p class="hint small">{status}</p> : null}
     </main>

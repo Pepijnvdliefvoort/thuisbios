@@ -2,6 +2,7 @@ import { createContext } from 'preact';
 import { useContext } from 'preact/hooks';
 import type { JellyfinClient } from './jellyfin/client';
 import type { BaseItem, Session } from './jellyfin/types';
+import type { DownloadsApi } from './offline/useDownloads';
 import type { RequestsState } from './useRequests';
 import type { TvApi } from './useTv';
 
@@ -11,6 +12,8 @@ export interface AppContext {
   tv: TvApi;
   /** Title requests ("Request a movie or show") and the admin's open count. */
   requests: RequestsState;
+  /** Offline downloads: the queue, live progress and the actions. Phone only in the UI. */
+  downloads: DownloadsApi;
   /** Increments each time playback ends (TV stopped or phone Player closed), so screens can refresh. */
   playbackEnded: number;
   /** Increments when the user marks something watched or unwatched, so Home can refresh its rows. */
@@ -23,6 +26,8 @@ export interface AppContext {
   playHere(item: BaseItem, startTicks: number): void;
   /** Opens the Connect TV screen (enter the Quick Connect code shown on the TV). */
   openConnectTv(): void;
+  /** Opens the Downloads screen. */
+  openDownloads(): void;
   /** Opens the temporary offline download test page. */
   openOfflineTest(): void;
   toast(message: string): void;

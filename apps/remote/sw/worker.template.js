@@ -69,7 +69,7 @@ self.addEventListener('activate', function (event) {
     caches
       .keys()
       .then(function (names) {
-        // Only older shell caches: the offline test downloads and anything else stay untouched.
+        // Only older shell caches: the downloads and anything else stay untouched.
         return Promise.all(
           names
             .filter(function (name) {
