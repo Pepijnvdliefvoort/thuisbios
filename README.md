@@ -179,7 +179,7 @@ life every minute) and picks it up again by itself when the TV is on again.
 Without a TV connected, the play buttons play the video on the phone itself: direct play when the
 phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
 no native HLS). The phone plays in the app's own player, which fills the screen: tap the picture to
-show or hide the controls (play/pause, -10 s / +10 s, previous and next episode for episodes, a scrub bar and a menu for audio, quality and subtitles), double-tap
+show or hide the controls (play/pause, -10 s / +10 s, previous and next episode for episodes, a scrub bar, a menu for audio and subtitles and a cogwheel button for the video quality), double-tap
 the left or right side to skip 10 s back or forward (keep tapping to skip more). Text
 subtitles are drawn by the app itself and the app remembers the subtitle language you picked.
 Without a choice yet, the player starts with the track Jellyfin would pick for you (from your
@@ -197,12 +197,12 @@ the connection (at most 20 Mbit/s), so playback also starts on a slow mobile lin
 
 Downloads (phone only): movies and episodes have a Download button, and a season has "Download season". You choose High (1080p), Medium (720p, the default) or Small (480p) and see an estimated size first. The server converts the video into a stream that fits the phone, and the app saves it in the browser's storage (the Cache API) together with the picture, the text subtitles and the intro markers. Downloads run one at a time in the order you queued them, keep the screen on, and carry on after a restart or when the connection is back. The app has to stay open while it downloads, because a phone pauses a page that is in the background. The phone's Downloads tab (with a badge while something downloads) shows the space used, progress with "x of y MB", pause, cancel and retry, and the finished downloads (series grouped with their episodes in order, movies A to Z); downloaded movies and episodes carry a small green mark, and the quality sheet remembers your last choice. A finished download plays in the normal player, without a network and always from the phone when a copy exists (it saves data): with seeking, double-tap skips, the saved text subtitles and intro and credits buttons, and the next episode when that one is downloaded too (no audio or quality menu, those need the server). Playback resumes from the newest position, this phone's or Jellyfin's. What you watch offline is kept on the phone and sent to Jellyfin when the connection is back (the latest position per item, and watched marks), so Resume watching stays right. An episode you have watched to the end is removed from the downloads when the player closes, with a short message; movies are never removed automatically. The app keeps a copy of itself on the phone (a service worker), so it opens with Wi-Fi and mobile data off, and while the phone is offline, Downloads is the only main screen: the app opens on it, switches to it when the connection drops (a video that is playing is not interrupted), dims the other tabs, hides the TV button and shows "You're offline. Your downloads still play." Nothing else changes when the connection returns: you stay on Downloads and the tabs work again. This needs the https address (a secure context) and one earlier visit online.
 
-The CC button opens an "Audio, quality and subtitles" menu. Items with two or more audio tracks get an Audio
+The CC button opens an "Audio and subtitles" menu. Items with two or more audio tracks get an Audio
 section: picking one asks the server for that track (a remux or transcode, because a browser cannot
 switch audio inside a file) and continues from the same spot. The app remembers the audio language
 you picked and uses it the next time when the item has that language.
 
-The same menu has a Quality section, named in plain resolution terms: Auto (the connection-based choice
+A separate cogwheel button next to it opens the Quality menu, named in plain resolution terms: Auto (the connection-based choice
 above, shown as for example "Auto (720p)" once it knows what plays) or a fixed 4K, 1440p, 1080p, 720p,
 480p or 360p, never in Mbit/s. Only levels up to the film's own resolution are offered (a wide 1920x800
 film counts as 1080p) and the top one is the original, which can still direct play. A lower level makes
@@ -215,7 +215,7 @@ titles, the details page is a full-width backdrop with the title and buttons on 
 when there is no backdrop or it fails to load), rows run edge to edge with side arrow panels, grey skeleton placeholders show while content loads, Search groups
 results into Movies, Shows and Episodes and remembers recent searches, Requests are cards in a grid with a coloured status
 badge, the sign-in page is a card over a slowly drifting wall of abstract poster tiles, and Play and Resume use the app's own player on that computer even when a TV is
-connected ("Play on TV" sits next to them). The player has a full-width scrub bar (hover shows the time above it) over one row of controls (play, -10 s/+10 s, previous and next episode for episodes, volume with a slider that opens on hover, time, the audio, quality and subtitles menu with Auto or a fixed resolution such as 1080p or 720p, fullscreen), a Skip intro pill above the bar, and these keys:
+connected ("Play on TV" sits next to them). The player has a full-width scrub bar (hover shows the time above it) over one row of controls (play, -10 s/+10 s, previous and next episode for episodes, volume with a slider that opens on hover, time, a cogwheel button for the quality menu with Auto or a fixed resolution such as 1080p or 720p, the CC button for the audio and subtitles menu, fullscreen), a Skip intro pill above the bar, and these keys:
 Space or K play/pause, Left/Right or J/L -10 s/+10 s, Up/Down volume, M mute, F fullscreen,
 C subtitles on/off and Esc to leave. A click on the picture plays or pauses, a double click toggles
 fullscreen. Hovering a poster shows a play button that starts playback directly (a click elsewhere on the
