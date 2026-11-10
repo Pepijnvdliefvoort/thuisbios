@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.16.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.15.0...v0.16.0) (2026-11-10)
+
+
+### Features
+
+* **remote:** play downloads in the normal player ([#157](https://github.com/Pepijnvdliefvoort/thuisbios/issues/157)) ([29eb001](https://github.com/Pepijnvdliefvoort/thuisbios/commit/29eb001d7b36fc15bd75551fbf16586c113476e9))
+
+
+### Bug Fixes
+
+* **ci:** ignore invisible pixel noise when checking README screenshots ([#160](https://github.com/Pepijnvdliefvoort/thuisbios/issues/160)) ([f5c3dd4](https://github.com/Pepijnvdliefvoort/thuisbios/commit/f5c3dd47dd3c801044d10cda4e0828653d074738))
+
+
+### Documentation
+
+* update README screenshots ([0446fa7](https://github.com/Pepijnvdliefvoort/thuisbios/commit/0446fa73f6fc44e35e115f5195343487d744802a))
+* update README screenshots ([#159](https://github.com/Pepijnvdliefvoort/thuisbios/issues/159)) ([92d7890](https://github.com/Pepijnvdliefvoort/thuisbios/commit/92d7890e5a07fe94116e0bf344cb309a0d4ff836))
+* update README screenshots ([#161](https://github.com/Pepijnvdliefvoort/thuisbios/issues/161)) ([edad4ad](https://github.com/Pepijnvdliefvoort/thuisbios/commit/edad4ad19e0db8161c7a3bbe7806157636022dc5))
+
 ## [0.15.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.14.1...v0.15.0) (2026-11-10)
 
 
