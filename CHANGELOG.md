@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.13.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.12.0...v0.13.0) (2026-11-10)
+
+
+### Features
+
+* **remote:** double-tap left or right to skip 10 seconds in the phone player ([#131](https://github.com/Pepijnvdliefvoort/thuisbios/issues/131)) ([66e0c03](https://github.com/Pepijnvdliefvoort/thuisbios/commit/66e0c03913c3975c53695753b2d6256e50f296c7))
+* **remote:** show a switched-off TV as disconnected ([#122](https://github.com/Pepijnvdliefvoort/thuisbios/issues/122)) ([3814a56](https://github.com/Pepijnvdliefvoort/thuisbios/commit/3814a569629b7ea4b9ee3061556f5b3d18b48472))
+
+
+### Bug Fixes
+
+* **remote:** fall back when the spotlight or details backdrop fails to load ([#132](https://github.com/Pepijnvdliefvoort/thuisbios/issues/132)) ([387d64d](https://github.com/Pepijnvdliefvoort/thuisbios/commit/387d64d7468bb4728190eeb75441d67c9640f61e))
+* **remote:** hide Resume watching items from Next up on Home ([#133](https://github.com/Pepijnvdliefvoort/thuisbios/issues/133)) ([1e5875e](https://github.com/Pepijnvdliefvoort/thuisbios/commit/1e5875e1b89cd06fb4050077a1ebac40526fd611))
+
 ## [0.12.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.11.1...v0.12.0) (2026-11-09)
 
 
