@@ -51,6 +51,9 @@ jobs:
         run: python3 -m pip install --user pillow
       - name: Capture screenshots
         run: node scripts/screenshots/capture.mjs
+      # Drop images that only differ by invisible raster noise, so they do not count as changed.
+      - name: Ignore pixel noise
+        run: python3 scripts/screenshots/revert-noise.py
       - name: Commit and open or update the PR
         run: |
           set -euo pipefail
