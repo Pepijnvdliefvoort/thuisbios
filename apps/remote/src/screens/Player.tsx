@@ -7,6 +7,7 @@ import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscree
 import { artUrl } from '../jellyfin/art';
 import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
 import { playerKeyAction, stepVolume } from '../playerKeys';
+import { tapSide, type TapSide } from '../tapSide';
 import { getDeviceId, loadAudioLang, loadPlayerVolume, loadSubtitleLang, loadSubtitleOffset, saveAudioLang, savePlayerVolume, saveSubtitleLang } from '../storage';
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { maxBitrateFor, measureBitrate } from '../jellyfin/bitrate';
@@ -30,6 +31,14 @@ const HLS_MIME = 'application/vnd.apple.mpegurl';
 const HIDE_MS = 3000;
 /** Mouse: a second click within this time is a double click (fullscreen) and not a play / pause. */
 const DOUBLE_CLICK_MS = 220;
+/** Phone: a second tap within this time on the same side skips instead of toggling the controls. */
+const DOUBLE_TAP_MS = 250;
+/** Phone: after a double tap skipped, each further tap on that side skips again until this long after the last one. */
+const SEEK_STREAK_MS = 700;
+/** The skip indicator fades out this long after the last skip. */
+const SEEK_HINT_MS = 600;
+/** Seconds skipped by a double tap. */
+const TAP_SKIP_S = 10;
 /** Mouse moves restart the hide timer at most this often. */
 const MOVE_MS = 250;
 /** Esc right after leaving fullscreen is the browser's own exit, not a request to leave the player. */
@@ -115,6 +124,14 @@ export function Player({
   const lastSub = useRef(-1);
   const lastMove = useRef(0);
   const clickTimer = useRef<number | undefined>(undefined);
+  // Phone taps: the first tap waiting for a second one, and the double-tap skip streak.
+  const tapTimer = useRef<number | undefined>(undefined);
+  const tapAt = useRef<TapSide>('middle');
+  const streakTimer = useRef<number | undefined>(undefined);
+  const streakSide = useRef<TapSide>('middle');
+  const streakTotal = useRef(0);
+  const hintTimer = useRef<number | undefined>(undefined);
+  const [hint, setHint] = useState<{ side: TapSide; total: number; on: boolean }>({ side: 'right', total: 0, on: false });
   const fsChangedAt = useRef(0);
   // Our own subtitles: the chosen track (-1 = off) and its parsed cues.
   const [subSel, setSubSel] = useState(-1);
@@ -367,7 +384,15 @@ export function Player({
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, [mouse]);
-  useEffect(() => () => window.clearTimeout(clickTimer.current), []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(clickTimer.current);
+      window.clearTimeout(tapTimer.current);
+      window.clearTimeout(streakTimer.current);
+      window.clearTimeout(hintTimer.current);
+    },
+    [],
+  );
 
   // Ask the server how to play this item on this phone.
   useEffect(() => {
@@ -606,10 +631,56 @@ export function Player({
     }
   };
   // A phone tap shows or hides the controls. With a mouse a click plays / pauses and a double click toggles fullscreen.
-  const onStageClick = () => {
+  const toggleControls = () => {
+    if (shown && !busy) setShown(false);
+    else interact();
+  };
+  // Phone: a double tap on the left or right skips 10 s back or forward; more taps on that side keep skipping.
+  const skipFromTap = (side: TapSide) => {
+    const dir = side === 'right' ? 1 : -1;
+    skipBy(dir * TAP_SKIP_S);
+    // The streak total only counts one direction.
+    streakTotal.current = streakSide.current === side ? streakTotal.current + TAP_SKIP_S : TAP_SKIP_S;
+    streakSide.current = side;
+    setHint({ side, total: streakTotal.current, on: true });
+    window.clearTimeout(streakTimer.current);
+    streakTimer.current = window.setTimeout(() => {
+      streakTimer.current = undefined;
+      streakTotal.current = 0;
+    }, SEEK_STREAK_MS);
+    window.clearTimeout(hintTimer.current);
+    hintTimer.current = window.setTimeout(() => setHint((h) => ({ ...h, on: false })), SEEK_HINT_MS);
+  };
+  const onTouchTap = (side: TapSide) => {
+    if (streakTimer.current !== undefined && streakSide.current === side) {
+      skipFromTap(side);
+      return;
+    }
+    // Any other tap ends the streak.
+    window.clearTimeout(streakTimer.current);
+    streakTimer.current = undefined;
+    streakTotal.current = 0;
+    if (tapTimer.current !== undefined) {
+      window.clearTimeout(tapTimer.current);
+      tapTimer.current = undefined;
+      if (side !== 'middle' && side === tapAt.current) skipFromTap(side);
+      else if (side === tapAt.current) toggleControls();
+      else startTap(side);
+      return;
+    }
+    startTap(side);
+  };
+  const startTap = (side: TapSide) => {
+    tapAt.current = side;
+    tapTimer.current = window.setTimeout(() => {
+      tapTimer.current = undefined;
+      toggleControls();
+    }, DOUBLE_TAP_MS);
+  };
+  const onStageClick = (e: MouseEvent) => {
     if (!mouse) {
-      if (shown && !busy) setShown(false);
-      else interact();
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      onTouchTap(tapSide(e.clientX, e.clientY, rect, rotated));
       return;
     }
     if (clickTimer.current !== undefined) {
@@ -668,6 +739,14 @@ export function Player({
             onDurationChange={(e) => syncDuration(e.target as HTMLVideoElement)}
           />
           <div class="player-tap" onClick={onStageClick} />
+          {!mouse ? (
+            <div class={'seek-hint ' + hint.side + (hint.on ? ' on' : '')} aria-hidden="true">
+              <div class="seek-hint-body">
+                <Icon name={hint.side === 'left' ? 'rewind10' : 'forward10'} size={36} />
+                <span>{(hint.side === 'left' ? '\u2212' : '+') + hint.total + ' s'}</span>
+              </div>
+            </div>
+          ) : null}
           {subtitleText ? (
             <div class={'player-subs' + (controlsUp ? ' raised' : '')}>
               <span>{subtitleText}</span>
