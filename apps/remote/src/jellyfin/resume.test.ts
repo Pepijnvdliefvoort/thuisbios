@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recentResumes } from './resume';
+import { recentResumes, withoutResumed } from './resume';
 import type { BaseItem } from './types';
 
 const now = Date.parse('2026-10-19T12:00:00Z');
@@ -37,5 +37,25 @@ describe('recentResumes', () => {
       now,
     );
     expect(r.map((i) => i.Id)).toEqual(['e2', 'm', 'x']);
+  });
+});
+
+describe('withoutResumed', () => {
+  const ep = (Id: string, SeriesId?: string) => mk(Id, { Type: 'Episode', SeriesId });
+  it('removes items with the same id', () => {
+    expect(withoutResumed([ep('a', 's'), ep('b', 't')], [mk('a')]).map((i) => i.Id)).toEqual(['b']);
+  });
+  it('removes other episodes of a resumed series', () => {
+    expect(withoutResumed([ep('n1', 's'), ep('n2', 't')], [ep('r', 's')]).map((i) => i.Id)).toEqual(['n2']);
+  });
+  it('keeps unrelated items in order', () => {
+    expect(withoutResumed([ep('c', 'z'), ep('a', 'x'), ep('b', 'y')], [ep('r', 's')]).map((i) => i.Id)).toEqual(['c', 'a', 'b']);
+  });
+  it('returns everything when nothing is resumed', () => {
+    const next = [ep('a', 's'), ep('b')];
+    expect(withoutResumed(next, [])).toEqual(next);
+  });
+  it('matches items without a SeriesId only by id', () => {
+    expect(withoutResumed([mk('a'), mk('b')], [mk('x'), mk('b')]).map((i) => i.Id)).toEqual(['a']);
   });
 });

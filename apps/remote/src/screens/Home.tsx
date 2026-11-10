@@ -5,7 +5,7 @@ import { RowSkeleton } from '../components/Skeleton';
 import { Spotlight } from '../components/Spotlight';
 import { spotlightItems } from '../jellyfin/spotlight';
 import { useDesktop } from '../useDesktop';
-import { recentResumes } from '../jellyfin/resume';
+import { recentResumes, withoutResumed } from '../jellyfin/resume';
 import { useApp } from '../context';
 import { useAsync } from '../useAsync';
 import { usePullToRefresh } from '../usePullToRefresh';
@@ -49,7 +49,7 @@ export function Home() {
       <PullSpinner pull={pull} />
       {desktop ? <Spotlight items={slides} pending={spotlightPending} /> : null}
       <Row title="Resume watching" items={resume.data || []} shape="thumb" />
-      <Row title="Next up" items={nextUp.data || []} shape="thumb" />
+      <Row title="Next up" items={withoutResumed(nextUp.data || [], resume.data || [])} shape="thumb" />
       <Row title="Recently added movies" items={movies.data || []} shape="poster" />
       <Row title="Recently added shows" items={shows.data || []} shape="poster" />
       <Row title="Movies" items={library.data || []} shape="poster" />

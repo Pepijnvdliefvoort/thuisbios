@@ -28,3 +28,18 @@ export function recentResumes(items: BaseItem[], now: number, maxAgeDays = 7): B
   }
   return out;
 }
+
+/**
+ * Next up items minus anything already in Resume watching: the same item, or any episode
+ * of a series that has a resumed item. Input order is preserved.
+ */
+export function withoutResumed(nextUp: BaseItem[], resumed: BaseItem[]): BaseItem[] {
+  if (resumed.length === 0) return nextUp;
+  const ids: Record<string, boolean> = {};
+  const series: Record<string, boolean> = {};
+  for (const r of resumed) {
+    ids[r.Id] = true;
+    if (r.SeriesId) series[r.SeriesId] = true;
+  }
+  return nextUp.filter((n) => !ids[n.Id] && !(n.SeriesId && series[n.SeriesId]));
+}
