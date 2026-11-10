@@ -144,6 +144,10 @@ export function OfflineTest({ onBack }: { onBack: () => void }) {
       return;
     }
     const id = setTimeout(() => {
+      if (navigator.onLine === false) {
+        setSearchError('Search needs a connection. Saved downloads below still play.');
+        return;
+      }
       client
         .search(session.userId, term, 20)
         .then((items) => {

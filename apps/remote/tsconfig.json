@@ -16,5 +16,5 @@
     "allowJs": true,
     "types": ["vite/client", "node"]
   },
-  "include": ["src", "relay", "vite.config.ts"]
+  "include": ["src", "relay", "sw", "vite.config.ts"]
 }

@@ -46,6 +46,8 @@ function takeConnectCode(): string | null {
   return loadPendingConnect();
 }
 
+const OFFLINE_TOAST = "You're offline. Your downloads are in Account → Offline download test.";
+
 export function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
   // True when the server rejected the token, so SignIn can say why.
@@ -149,6 +151,18 @@ function Shell({
     if (!connectCode) return;
     onConnectTaken();
     nav.push({ kind: 'connect', code: connectCode });
+  }, []);
+
+  // Offline: start on the Offline download test screen (a QR-code link takes precedence), and tell the user
+  // once per offline transition where the downloads are.
+  useEffect(() => {
+    if (!connectCode && typeof navigator !== 'undefined' && navigator.onLine === false) {
+      remember();
+      nav.push({ kind: 'offlineTest' });
+    }
+    const onOffline = () => toast(OFFLINE_TOAST);
+    window.addEventListener('offline', onOffline);
+    return () => window.removeEventListener('offline', onOffline);
   }, []);
 
   const ctx: AppContext = {
