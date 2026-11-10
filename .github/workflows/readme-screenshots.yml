@@ -1,11 +1,13 @@
 name: README screenshots
 
-# Regenerates docs/images from the mock Jellyfin (scripts/screenshots) when a release PR from develop
-# into main is opened (and on demand), and opens (or updates) a PR into develop when the images changed.
-# The owner merges it like any other PR; the release PR picks it up because its head is develop.
+# Gate on the release PR from develop into main. Regenerates docs/images from the mock Jellyfin
+# (scripts/screenshots) when the release PR is opened or updated (and on demand). When the images are
+# out of date it opens (or updates) a docs/readme-screenshots PR into develop and fails the check until
+# that PR is merged; merging it moves develop, which re-runs this check against the updated release PR.
+# Make "README screenshots up to date" a required check on the main ruleset to block a too-early merge.
 on:
   pull_request:
-    types: [opened, reopened]
+    types: [opened, reopened, synchronize]
     branches: [main]
   workflow_dispatch:
 
@@ -14,11 +16,12 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: readme-screenshots
-  cancel-in-progress: false
+  group: readme-screenshots-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   screenshots:
+    name: README screenshots up to date
     # Manual runs, or release PRs whose head is develop in this same repo (not forks).
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -32,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: develop
+          ref: ${{ github.event.pull_request.head.sha || 'develop' }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -48,11 +51,14 @@ jobs:
         run: python3 -m pip install --user pillow
       - name: Capture screenshots
         run: node scripts/screenshots/capture.mjs
+      # Drop images that only differ by invisible raster noise, so they do not count as changed.
+      - name: Ignore pixel noise
+        run: python3 scripts/screenshots/revert-noise.py
       - name: Commit and open or update the PR
         run: |
           set -euo pipefail
           if [ -z "$(git status --porcelain docs/images)" ]; then
-            echo "Screenshots unchanged; nothing to do."
+            echo "README screenshots are up to date; nothing to do."
             exit 0
           fi
           git config user.name Pepijnvdliefvoort
@@ -64,10 +70,18 @@ jobs:
           existing=$(gh pr list --base develop --head "$BRANCH" --state open --json number --jq 'length')
           if [ "$existing" -gt 0 ]; then
             echo "PR from $BRANCH already open; the force-push updated it."
-            exit 0
-          fi
-          gh pr create --base develop --head "$BRANCH" \
-            --title "docs: update README screenshots" \
-            --body "**Merge with: Squash and merge**
+            url=$(gh pr list --head "$BRANCH" --state open --json url --jq '.[0].url')
+          else
+            url=$(gh pr create --base develop --head "$BRANCH" \
+              --title "docs: update README screenshots" \
+              --body "**Merge with: Squash and merge**
 
-          Regenerated automatically from the mock Jellyfin (\`scripts/screenshots\`) for the release PR into main. Merge this first (Squash and merge); the release PR then picks it up automatically because its head is develop."
+          Regenerated for the release PR into main. Merge this first (Squash and merge); the release PR's screenshot check then re-runs and turns green.")
+          fi
+          msg="README screenshots are out of date. Merge $url into develop first (Squash and merge); this check re-runs and turns green."
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "::error::$msg"
+            exit 1
+          fi
+          echo "$msg"

@@ -1,6 +1,8 @@
 import { createDeviceId } from './jellyfin/auth';
 import { parseView, type LibraryType, type LibraryView } from './jellyfin/libraryQuery';
 import type { Session } from './jellyfin/types';
+import { parseProgressMap, type LocalProgress } from './offline/localProgress';
+import { parseQueue, serializeQueue, type PendingProgress } from './offline/progressQueue';
 import { parseRecentSearches } from './searchGroups';
 
 const SESSION_KEY = 'thuisbios.remote.session';
@@ -133,3 +135,20 @@ export function loadRecentSearches(): string[] {
 }
 
 export const saveRecentSearches = (terms: string[]): void => write(RECENT_SEARCHES_KEY, terms.length > 0 ? JSON.stringify(terms) : null);
+
+const LOCAL_PROGRESS_KEY = 'thuisbios.remote.downloadProgress';
+
+/** The position saved on this device for a downloaded item (undefined when never played here). */
+export const loadLocalProgress = (itemId: string): LocalProgress | undefined => parseProgressMap(read(LOCAL_PROGRESS_KEY))[itemId];
+
+export function saveLocalProgress(itemId: string, progress: LocalProgress): void {
+  const map = parseProgressMap(read(LOCAL_PROGRESS_KEY));
+  map[itemId] = progress;
+  write(LOCAL_PROGRESS_KEY, JSON.stringify(map));
+}
+
+const PROGRESS_QUEUE_KEY = 'thuisbios.remote.progressQueue';
+
+/** Watch progress made offline that Jellyfin has not received yet. */
+export const loadProgressQueue = (): PendingProgress[] => parseQueue(read(PROGRESS_QUEUE_KEY));
+export const saveProgressQueue = (queue: PendingProgress[]): void => write(PROGRESS_QUEUE_KEY, queue.length > 0 ? serializeQueue(queue) : null);

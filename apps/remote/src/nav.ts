@@ -5,8 +5,8 @@ import type { BaseItem } from './jellyfin/types';
 export type Screen = { kind: 'details'; id: string } | { kind: 'nowPlaying' }
   | { kind: 'connect'; code?: string }
   | { kind: 'downloads' }
-  | { kind: 'offlineTest' }
-  | { kind: 'player'; item: BaseItem; startTicks: number };
+  /** `local`: play the finished download of this item (saved playlist, subtitles and markers) instead of asking Jellyfin. */
+  | { kind: 'player'; item: BaseItem; startTicks: number; local?: boolean };
 
 export type Tab = 'home' | 'search' | 'library' | 'requests';
 

@@ -1,8 +1,5 @@
 import type { Loader, LoaderCallbacks, LoaderConfiguration, LoaderContext, LoaderStats } from 'hls.js';
 
-/** Name of the Cache API cache that holds the offline test downloads. */
-export const OFFLINE_CACHE = 'thuisbios-offline-test';
-
 const emptyStats = (): LoaderStats => ({
   aborted: false,
   loaded: 0,
@@ -64,6 +61,3 @@ export function createCacheLoader(cacheName: string): new () => Loader<LoaderCon
     }
   };
 }
-
-/** The loader for the offline test's cache. */
-export const CacheLoader = createCacheLoader(OFFLINE_CACHE);

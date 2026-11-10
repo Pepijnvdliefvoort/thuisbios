@@ -75,6 +75,20 @@ describe('client', () => {
     expect(uinit.method).toBe('DELETE');
   });
 
+  it('saves a resume position, falling back to the older path', async () => {
+    const fetchFn = vi.fn(async () => ok(undefined));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    await client.saveProgress('u1', 'e1', 123);
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://pc/UserItems/e1/UserData?userId=u1');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ PlaybackPositionTicks: 123 });
+    const old = vi.fn(async (u: string) => (u.includes('/UserItems/') ? ({ ok: false, status: 404, text: async () => '' } as Response) : ok(undefined)));
+    const c2 = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: old as unknown as typeof fetch });
+    await c2.saveProgress('u1', 'e1', 5);
+    expect((old.mock.calls[1] as unknown as [string])[0]).toBe('http://pc/Users/u1/Items/e1/UserData');
+  });
+
   it('sends commands as POST and tolerates empty responses', async () => {
     const fetchFn = vi.fn(async () => ok(undefined));
     const client = createClient({ serverUrl: 'http://pc:8096', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });

@@ -2,6 +2,7 @@ import { createContext } from 'preact';
 import { useContext } from 'preact/hooks';
 import type { JellyfinClient } from './jellyfin/client';
 import type { BaseItem, Session } from './jellyfin/types';
+import type { ProgressSync } from './offline/progressSync';
 import type { DownloadsApi } from './offline/useDownloads';
 import type { RequestsState } from './useRequests';
 import type { TvApi } from './useTv';
@@ -22,14 +23,16 @@ export interface AppContext {
   refreshLibrary(): void;
   openItem(id: string): void;
   openNowPlaying(): void;
-  /** Plays an item in the app's own player on this device (the phone, or the desktop browser). */
+  /** Plays an item in the app's own player on this device (the phone, or the desktop browser). A finished download of it plays from the device. */
   playHere(item: BaseItem, startTicks: number): void;
   /** Opens the Connect TV screen (enter the Quick Connect code shown on the TV). */
   openConnectTv(): void;
   /** Opens the Downloads screen. */
   openDownloads(): void;
-  /** Opens the temporary offline download test page. */
-  openOfflineTest(): void;
+  /** Plays a finished download in the normal player, resuming from the newest saved position. Works offline. */
+  playDownload(id: string): Promise<void>;
+  /** Sends watch progress made offline to Jellyfin (queued by the player), now if the device is online. */
+  progress: ProgressSync;
   toast(message: string): void;
 }
 

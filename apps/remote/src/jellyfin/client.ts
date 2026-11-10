@@ -80,6 +80,8 @@ export interface JellyfinClient {
   markPlayed(userId: string, itemId: string): Promise<void>;
   /** Marks an item as not watched. On a season or series Jellyfin applies it to every episode. */
   markUnplayed(userId: string, itemId: string): Promise<void>;
+  /** Saves the resume position of an item without playing it (progress made offline). */
+  saveProgress(userId: string, itemId: string, positionTicks: number): Promise<void>;
   /** Intro, outro and similar markers (Jellyfin 10.10+ with a plugin). Any error means no segments. */
   mediaSegments(itemId: string): Promise<MediaSegment[]>;
   send(command: Command): Promise<void>;
@@ -210,6 +212,16 @@ export function createClient(options: ClientOptions): JellyfinClient {
     },
     markUnplayed: async (userId, itemId) => {
       await req<void>('DELETE', `${user(userId)}/PlayedItems/${enc(itemId)}`);
+    },
+    saveProgress: async (userId, itemId, positionTicks) => {
+      const body = { PlaybackPositionTicks: positionTicks };
+      try {
+        await req<void>('POST', `/UserItems/${enc(itemId)}/UserData?userId=${enc(userId)}`, body);
+      } catch (e) {
+        // Servers before 10.9 only know the older path.
+        if (!(e instanceof JellyfinError) || e.status !== 404) throw e;
+        await req<void>('POST', `${user(userId)}/Items/${enc(itemId)}/UserData`, body);
+      }
     },
     sessions: (userId) => req<RemoteSession[]>('GET', `/Sessions?ControllableByUserId=${enc(userId)}&ActiveWithinSeconds=960`),
     mediaSegments: async (itemId) => {

@@ -7,15 +7,15 @@ import { HeaderActions } from './components/HeaderActions';
 import { clientInfo } from './clientInfo';
 import { Ctx, type AppContext } from './context';
 import { createClient } from './jellyfin/client';
-import type { Session } from './jellyfin/types';
-import { useNav } from './nav';
+import { resumeTicks } from './jellyfin/playTarget';
+import type { BaseItem, Session } from './jellyfin/types';
+import { useNav, type Screen } from './nav';
 import { playbackJustEnded, type PlaybackState } from './playbackEnd';
 import { ConnectTv } from './screens/ConnectTv';
 import { Details } from './screens/Details';
 import { Downloads } from './screens/Downloads';
 import { Home } from './screens/Home';
 import { Library } from './screens/Library';
-import { OfflineTest } from './screens/OfflineTest';
 import { NowPlaying } from './screens/NowPlaying';
 import { Player } from './screens/Player';
 import { Requests } from './screens/Requests';
@@ -23,9 +23,14 @@ import { Search } from './screens/Search';
 import { SignIn } from './screens/SignIn';
 import { enterLandscapeFullscreen } from './fullscreen';
 import { parseConnectParam } from './jellyfin/quickConnect';
-import { clearSession, getDeviceId, loadAudioLang, loadPendingConnect, loadSession, saveSession, savePendingConnect } from './storage';
+import { clearSession, getDeviceId, loadAudioLang, loadPendingConnect, loadProgressQueue, loadSession, saveProgressQueue, saveSession, savePendingConnect } from './storage';
 import { SCROLLER_ID, scrollOffset, scrollToOffset } from './scroller';
 import { DownloadEngine } from './offline/downloadEngine';
+import { itemJsonKey } from './offline/downloadKeys';
+import { preferLocal } from './offline/localPlayback';
+import { createProgressSync } from './offline/progressSync';
+import { resolveStart } from './offline/startPosition';
+import { readSavedJson } from './offline/useLocalAssets';
 import { createCacheStore, downloadsSupported } from './offline/downloadStore';
 import { useDownloadsApi } from './offline/useDownloads';
 import { createWakeLock } from './offline/wakeLock';
@@ -50,6 +55,12 @@ function takeConnectCode(): string | null {
   }
   return loadPendingConnect();
 }
+
+/** The first version had a test page that kept its own copy of a video in this cache; it is gone now. */
+const RETIRED_CACHE = 'thuisbios-offline-test';
+
+/** How long Downloads waits for the server's resume point before it plays from what this device knows. */
+const FRESH_ITEM_MS = 2000;
 
 const OFFLINE_TOAST = "You're offline. Your downloads are in Account → Downloads.";
 
@@ -153,6 +164,26 @@ function Shell({
   }, [engine]);
   const downloads = useDownloadsApi(engine);
 
+  // Watch progress made while offline goes to Jellyfin now, when the app opens and whenever the network is back.
+  const progress = useMemo(
+    () => createProgressSync({ client, userId: session.userId, load: loadProgressQueue, save: saveProgressQueue }),
+    [client, session.userId],
+  );
+  useEffect(() => {
+    const flush = () => void progress.flush();
+    flush();
+    window.addEventListener('online', flush);
+    return () => window.removeEventListener('online', flush);
+  }, [progress]);
+  useEffect(() => {
+    // Once: delete the cache of the retired offline test page.
+    try {
+      if (typeof caches !== 'undefined') void caches.delete(RETIRED_CACHE).catch(() => undefined);
+    } catch (e) {
+      // No Cache API here: nothing to delete.
+    }
+  }, []);
+
   // Counts playback endings so Home can refresh its Resume watching row.
   const [playbackEnded, setPlaybackEnded] = useState(0);
   const [libraryChanged, setLibraryChanged] = useState(0);
@@ -217,22 +248,46 @@ function Shell({
       remember();
       nav.push({ kind: 'downloads' });
     },
-    openOfflineTest: () => {
-      remember();
-      nav.push({ kind: 'offlineTest' });
-    },
     openNowPlaying: () => {
       remember();
       nav.push({ kind: 'nowPlaying' });
     },
+    progress,
     playHere: (item, startTicks) => {
       // Inside the tap that started playback, so the browser allows fullscreen and the orientation lock.
       // Not on a desktop: the player fills the window and has a fullscreen button.
       if (!isDesktop()) enterLandscapeFullscreen();
       remember();
-      nav.push({ kind: 'player', item, startTicks });
+      nav.push(playScreen(item, startTicks));
+    },
+    playDownload: async (id) => {
+      if (!isDesktop()) enterLandscapeFullscreen();
+      const entry = downloads.get(id);
+      if (!entry) return;
+      const store = createCacheStore();
+      // The item as saved with the download; the list's own facts when that file is missing.
+      let item = await readSavedJson<BaseItem>(store, itemJsonKey(id)).catch(() => null);
+      if (!item) item = { Id: id, Name: entry.name, Type: entry.type, SeriesId: entry.seriesId, SeriesName: entry.seriesName, ParentIndexNumber: entry.seasonNumber, IndexNumber: entry.episodeNumber };
+      // Online, the server may know a newer position (watched on the TV meanwhile).
+      if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+        const fresh = await Promise.race([
+          client.item(session.userId, id).catch(() => null),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), FRESH_ITEM_MS)),
+        ]);
+        if (fresh && fresh.UserData) item = { ...item, UserData: fresh.UserData };
+      }
+      remember();
+      nav.push(playScreen(item, resolveStart(downloads.entries, item, resumeTicks(item))));
     },
   };
+
+  // A finished download plays from the device (it saves data); anything else asks Jellyfin. `startTicks` is final here.
+  const playScreen = (item: BaseItem, startTicks: number): Screen => ({
+    kind: 'player',
+    item,
+    startTicks,
+    ...(preferLocal(downloads.entries, item.Id) ? { local: true } : {}),
+  });
 
   const top = nav.stack[nav.stack.length - 1];
   const signOut = () => {
@@ -268,15 +323,15 @@ function Shell({
           {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
           {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
           {top && top.kind === 'downloads' ? <Downloads key={`${nav.stack.length}:downloads`} onBack={nav.back} /> : null}
-          {top && top.kind === 'offlineTest' ? <OfflineTest key={`${nav.stack.length}:offlineTest`} onBack={nav.back} /> : null}
           {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
           {top && top.kind === 'player' ? (
             <Player
               key={`${nav.stack.length}:player:${top.item.Id}`}
               item={top.item}
               startTicks={top.startTicks}
+              local={top.local}
               onBack={nav.back}
-              onPlayEpisode={(episode) => nav.replace({ kind: 'player', item: episode, startTicks: 0 })}
+              onPlayEpisode={(episode) => nav.replace(playScreen(episode, 0))}
             />
           ) : null}
         </div>
