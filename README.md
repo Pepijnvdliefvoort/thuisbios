@@ -177,7 +177,7 @@ life every minute) and picks it up again by itself when the TV is on again.
 Without a TV connected, the play buttons play the video on the phone itself: direct play when the
 phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
 no native HLS). The phone plays in the app's own player, which fills the screen: tap the picture to
-show or hide the controls (play/pause, -10 s / +10 s, a scrub bar and a menu for audio, quality and subtitles), double-tap
+show or hide the controls (play/pause, -10 s / +10 s, previous and next episode for episodes, a scrub bar and a menu for audio, quality and subtitles), double-tap
 the left or right side to skip 10 s back or forward (keep tapping to skip more). Text
 subtitles are drawn by the app itself and the app remembers the subtitle language you picked.
 Without a choice yet, the player starts with the track Jellyfin would pick for you (from your
@@ -211,7 +211,7 @@ titles, the details page is a full-width backdrop with the title and buttons on 
 when there is no backdrop or it fails to load), rows run edge to edge with side arrow panels, grey skeleton placeholders show while content loads, Search groups
 results into Movies, Shows and Episodes and remembers recent searches, Requests are cards in a grid with a coloured status
 badge, the sign-in page is a card over a slowly drifting wall of abstract poster tiles, and Play and Resume use the app's own player on that computer even when a TV is
-connected ("Play on TV" sits next to them). The player has a full-width scrub bar (hover shows the time above it) over one row of controls (play, -10 s/+10 s, volume with a slider that opens on hover, time, the audio, quality and subtitles menu with Auto or a fixed resolution such as 1080p or 720p, fullscreen), a Skip intro pill above the bar, and these keys:
+connected ("Play on TV" sits next to them). The player has a full-width scrub bar (hover shows the time above it) over one row of controls (play, -10 s/+10 s, previous and next episode for episodes, volume with a slider that opens on hover, time, the audio, quality and subtitles menu with Auto or a fixed resolution such as 1080p or 720p, fullscreen), a Skip intro pill above the bar, and these keys:
 Space or K play/pause, Left/Right or J/L -10 s/+10 s, Up/Down volume, M mute, F fullscreen,
 C subtitles on/off and Esc to leave. A click on the picture plays or pauses, a double click toggles
 fullscreen. Hovering a poster shows a play button that starts playback directly (a click elsewhere on the

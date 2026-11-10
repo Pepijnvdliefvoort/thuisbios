@@ -494,7 +494,10 @@ input:focus { outline: none; border-color: var(--accent); }
 .pc-eyebrow { font-size: 13px; color: rgba(255, 255, 255, 0.75); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pc-btn { flex: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; }
 .pc-btn:active { transform: scale(0.92); }
-.pc-center { top: 50%; left: 50%; display: flex; align-items: center; gap: 36px; margin: -36px 0 0 -120px; }
+.pc-center { top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 36px; }
+/* Five buttons: a tighter gap keeps the row inside a 320px screen. */
+.pc-center.with-nav { gap: 12px; }
+.pc-btn:disabled { opacity: 0.35; pointer-events: none; }
 .pc-play { width: 72px; height: 72px; background: rgba(0, 0, 0, 0.45); }
 .pc.buffering .pc-center { visibility: hidden; }
 .pc-bottom {

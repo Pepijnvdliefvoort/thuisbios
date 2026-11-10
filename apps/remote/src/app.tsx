@@ -220,7 +220,7 @@ function Shell({
               item={top.item}
               startTicks={top.startTicks}
               onBack={nav.back}
-              onNext={(next) => nav.replace({ kind: 'player', item: next, startTicks: 0 })}
+              onPlayEpisode={(episode) => nav.replace({ kind: 'player', item: episode, startTicks: 0 })}
             />
           ) : null}
         </div>
