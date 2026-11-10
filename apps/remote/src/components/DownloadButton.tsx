@@ -2,7 +2,8 @@ import { useState } from 'preact/hooks';
 import { useApp } from '../context';
 import type { BaseItem } from '../jellyfin/types';
 import { entryProgress, isDownloadable, percentOf, type DownloadEntry } from '../offline/downloadIndex';
-import { DEFAULT_QUALITY, estimateBytes, estimateLabel, QUALITY_PRESETS, type DownloadQuality } from '../offline/downloadQuality';
+import { estimateBytes, estimateLabel, QUALITY_PRESETS, type DownloadQuality } from '../offline/downloadQuality';
+import { loadDownloadQuality, saveDownloadQuality } from '../storage';
 import { useScrollLock } from '../useScrollLock';
 import { useDesktop } from '../useDesktop';
 import { Icon } from './Icon';
@@ -51,7 +52,7 @@ export function downloadLabel(entry: DownloadEntry | undefined): string {
 /** The quality choice for one or more items, with the estimated size of each level and of the total. */
 export function QualitySheet({ title, items, onClose, onConfirm }: { title: string; items: BaseItem[]; onClose: () => void; onConfirm: (quality: DownloadQuality) => void }) {
   useScrollLock();
-  const [quality, setQuality] = useState<DownloadQuality>(DEFAULT_QUALITY);
+  const [quality, setQuality] = useState<DownloadQuality>(loadDownloadQuality);
   const many = items.length > 1;
   return (
     <MenuSheet label={title} onClose={onClose}>
@@ -71,7 +72,14 @@ export function QualitySheet({ title, items, onClose, onConfirm }: { title: stri
         })}
       </div>
       <p class="sheet-note">Keep Thuisbios open while it downloads. Sizes are an estimate.</p>
-      <button type="button" class="btn primary" onClick={() => onConfirm(quality)}>
+      <button
+        type="button"
+        class="btn primary"
+        onClick={() => {
+          saveDownloadQuality(quality);
+          onConfirm(quality);
+        }}
+      >
         <Icon name="download" size={20} /> {many ? `Download ${items.length} episodes` : 'Download'}
       </button>
     </MenuSheet>
@@ -129,7 +137,7 @@ export function DownloadButton({ item, variant = 'button' }: { item: BaseItem; v
   const glyph = !entry ? (
     <Icon name="download" size={variant === 'icon' ? 22 : 20} />
   ) : entry.state === 'done' ? (
-    <Icon name="check" size={variant === 'icon' ? 22 : 20} />
+    <Icon name="downloadDone" size={variant === 'icon' ? 22 : 20} />
   ) : entry.state === 'failed' ? (
     <Icon name="info" size={variant === 'icon' ? 22 : 20} />
   ) : (

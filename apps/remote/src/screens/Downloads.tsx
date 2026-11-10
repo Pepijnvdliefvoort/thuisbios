@@ -3,27 +3,25 @@ import { downloadLabel } from '../components/DownloadButton';
 import { Icon } from '../components/Icon';
 import { ConfirmButton } from '../components/MenuSheet';
 import { useApp } from '../context';
-import { entryEpisodeLabel, entryProgress, groupDownloaded, percentOf, unfinished, type DownloadEntry } from '../offline/downloadIndex';
-import { spaceLine } from '../offline/downloadSpace';
+import { entryEpisodeLabel, entryProgress, groupDownloaded, percentOf, progressText, totalBytes, unfinished, type DownloadEntry } from '../offline/downloadIndex';
+import { downloadsLine, freeLine } from '../offline/downloadSpace';
+import { OFFLINE_LINE } from '../offline/offlineMode';
 import { presetFor, formatBytes } from '../offline/downloadQuality';
 import { createCacheStore } from '../offline/downloadStore';
 import { usePosters } from '../offline/usePosters';
 
-/** Storage numbers from the browser, re-read when the downloads change. */
-function useSpace(version: string): string {
+/** Free space on the phone from the browser, re-read when the downloads change ('' when it does not say). */
+function useFreeSpace(version: string): string {
   const [line, setLine] = useState('');
   useEffect(() => {
     let alive = true;
     const id = setTimeout(() => {
       const storage = typeof navigator !== 'undefined' ? (navigator.storage as StorageManager | undefined) : undefined;
-      if (!storage || !storage.estimate) {
-        setLine(spaceLine(null, null));
-        return;
-      }
+      if (!storage || !storage.estimate) return;
       storage
         .estimate()
-        .then((est) => alive && setLine(spaceLine(est.usage, est.quota)))
-        .catch(() => alive && setLine(spaceLine(null, null)));
+        .then((est) => alive && setLine(freeLine(est.usage, est.quota)))
+        .catch(() => undefined);
     }, 400);
     return () => {
       alive = false;
@@ -56,11 +54,7 @@ function ActiveRow({ entry, url }: { entry: DownloadEntry; url?: string }) {
   const [asking, setAsking] = useState(false);
   const pct = percentOf(entry);
   const title = entry.type === 'Episode' ? `${entry.seriesName ? `${entry.seriesName} · ` : ''}${entryEpisodeLabel(entry)} ${entry.name}`.trim() : entry.name;
-  let sub: string;
-  if (entry.state === 'failed') sub = entry.error || 'This download failed.';
-  else if (entry.state === 'downloading') sub = `${pct}% · ${formatBytes(entry.bytes)}`;
-  else if (entry.state === 'paused') sub = `Paused at ${pct}%`;
-  else sub = entry.error || 'Waiting in line';
+  const sub = progressText(entry);
   return (
     <li class={`dl-row ${entry.state}`}>
       <Thumb entry={entry} url={url} />
@@ -68,9 +62,11 @@ function ActiveRow({ entry, url }: { entry: DownloadEntry; url?: string }) {
         <span class="dl-title">{title}</span>
         <span class={entry.state === 'failed' ? 'dl-sub err' : 'dl-sub'}>{sub}</span>
         {entry.state === 'downloading' && entry.error ? <span class="dl-sub">{entry.error}</span> : null}
-        <span class="dl-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={downloadLabel(entry)}>
-          <i style={{ width: `${Math.round(entryProgress(entry) * 100)}%` }} />
-        </span>
+        {entry.state === 'downloading' || entry.state === 'paused' ? (
+          <span class="dl-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={downloadLabel(entry)}>
+            <i style={{ width: `${Math.round(entryProgress(entry) * 100)}%` }} />
+          </span>
+        ) : null}
       </span>
       <span class="dl-actions">
         {entry.state === 'failed' ? (
@@ -120,24 +116,34 @@ function DoneRow({ entry, url, label, onPlay }: { entry: DownloadEntry; url?: st
 }
 
 /** Everything saved for offline viewing: what is downloading, what is ready, and how much space it takes. Works without a network. */
-export function Downloads({ onBack }: { onBack: () => void }) {
-  const { downloads, playDownload } = useApp();
+export function Downloads() {
+  const { downloads, playDownload, offline } = useApp();
   const { entries, ready, supported } = downloads;
   const store = useMemo(() => (supported ? createCacheStore() : null), [supported]);
   const states = entries.map((e) => `${e.id}:${e.state}`).join('|');
   const posters = usePosters(store, entries.map((e) => e.id), states);
-  const space = useSpace(states);
+  const free = useFreeSpace(states);
   const active = unfinished(entries);
   const { movies, series } = groupDownloaded(entries);
   const empty = ready && entries.length === 0;
+  const summary = [downloadsLine(entries.length, totalBytes(entries)), free].filter(Boolean).join(' · ');
   return (
-    <main class="downloads">
-      <button type="button" class="back" onClick={onBack} aria-label="Back">
-        <Icon name="back" />
-      </button>
-      <h1>Downloads</h1>
-      {supported ? <p class="dl-space">{space}</p> : <p class="warn">Downloads need the app to be opened from its https address.</p>}
-      {empty ? <p class="empty">Nothing downloaded yet. Tap Download on a movie or episode.</p> : null}
+    <div class="page downloads">
+      <h1 class="page-title">Downloads</h1>
+      {offline ? (
+        <p class="dl-offline" role="status">
+          {OFFLINE_LINE}
+        </p>
+      ) : null}
+      {!supported ? <p class="warn">Downloads need the app to be opened from its https address.</p> : ready && entries.length > 0 ? <p class="dl-space">{summary}</p> : null}
+      {!ready && supported ? <p class="hint">Loading…</p> : null}
+      {empty ? (
+        <p class="empty">
+          Nothing downloaded yet.
+          <br />
+          Tap Download on a movie or episode to watch it without a connection.
+        </p>
+      ) : null}
 
       {active.length > 0 ? (
         <section>
@@ -145,17 +151,6 @@ export function Downloads({ onBack }: { onBack: () => void }) {
           <ul class="dl-list">
             {active.map((e) => (
               <ActiveRow key={e.id} entry={e} url={posters[e.id]} />
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {movies.length > 0 ? (
-        <section>
-          <h2>Movies</h2>
-          <ul class="dl-list">
-            {movies.map((e) => (
-              <DoneRow key={e.id} entry={e} url={posters[e.id]} onPlay={() => void playDownload(e.id)} />
             ))}
           </ul>
         </section>
@@ -172,11 +167,22 @@ export function Downloads({ onBack }: { onBack: () => void }) {
         </section>
       ))}
 
+      {movies.length > 0 ? (
+        <section>
+          <h2>Movies</h2>
+          <ul class="dl-list">
+            {movies.map((e) => (
+              <DoneRow key={e.id} entry={e} url={posters[e.id]} onPlay={() => void playDownload(e.id)} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {entries.length > 0 ? (
         <div class="dl-all">
           <ConfirmButton label="Remove all downloads" icon="trash" onConfirm={() => void downloads.removeAll()} />
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_QUALITY, estimateBytes, estimateLabel, formatBytes, isQuality, presetFor, QUALITY_PRESETS } from './downloadQuality';
+import { DEFAULT_QUALITY, estimateBytes, estimateLabel, formatBytes, formatBytesOf, isQuality, presetFor, QUALITY_PRESETS } from './downloadQuality';
 
 const hours = (h: number) => h * 3600 * 10_000_000;
 
@@ -49,5 +49,18 @@ describe('formatBytes', () => {
   it('labels an estimate', () => {
     expect(estimateLabel(1_400_000_000)).toBe('About 1.4 GB');
     expect(estimateLabel(0)).toBe('Size unknown');
+  });
+});
+
+describe('formatBytesOf', () => {
+  it('uses the unit of the total', () => {
+    expect(formatBytesOf(120_000_000, 290_000_000)).toBe('120 of 290 MB');
+    expect(formatBytesOf(900_000_000, 1_400_000_000)).toBe('0.9 of 1.4 GB');
+  });
+  it('never shows more done than the total', () => {
+    expect(formatBytesOf(500_000_000, 400_000_000)).toBe('400 of 400 MB');
+  });
+  it('falls back to the plain size without a total', () => {
+    expect(formatBytesOf(5_000_000, 0)).toBe('5 MB');
   });
 });

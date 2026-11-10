@@ -4,11 +4,11 @@ import type { BaseItem } from './jellyfin/types';
 /** A screen pushed on top of the current tab. */
 export type Screen = { kind: 'details'; id: string } | { kind: 'nowPlaying' }
   | { kind: 'connect'; code?: string }
-  | { kind: 'downloads' }
   /** `local`: play the finished download of this item (saved playlist, subtitles and markers) instead of asking Jellyfin. */
   | { kind: 'player'; item: BaseItem; startTicks: number; local?: boolean };
 
-export type Tab = 'home' | 'search' | 'library' | 'requests';
+/** `downloads` is a phone tab only (it has no entry in the desktop top bar). */
+export type Tab = 'home' | 'search' | 'library' | 'requests' | 'downloads';
 
 interface HistoryState {
   thuisbios?: number;

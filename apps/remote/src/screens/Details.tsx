@@ -349,11 +349,17 @@ function Episodes({
           const from = resumeTicks(ep);
           const played = isPlayed(ep);
           const current = ep.Id === currentEpisodeId;
+          const saved = !desktop && (downloads.get(ep.Id) || { state: '' }).state === 'done';
           return (
             <li key={ep.Id} class={current ? 'ep current' : 'ep'}>
               <button type="button" class="ep-open" onClick={() => onOpen(ep.Id)}>
                 <span class="ep-art">
                   <Img src={artUrl(client.serverUrl, ep, 'thumb', desktop ? 480 : 320, desktop ? 270 : 180)} />
+                  {saved ? (
+                    <span class="dl-mark" role="img" aria-label="Downloaded">
+                      <Icon name="downloadDone" size={14} />
+                    </span>
+                  ) : null}
                   {played ? (
                     <span class="ep-check" role="img" aria-label="Watched">
                       <Icon name="check" size={14} />
@@ -373,6 +379,7 @@ function Episodes({
                   <span class="ep-sub">
                     {current ? (onEpisodePage ? 'Now viewing · ' : 'Up next · ') : ''}
                     {formatRuntime(ep.RunTimeTicks)}
+                    {saved ? <span class="dl-done"> · Downloaded</span> : null}
                   </span>
                   {desktop && ep.Overview ? <span class="ep-overview">{ep.Overview}</span> : null}
                 </span>

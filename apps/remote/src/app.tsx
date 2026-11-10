@@ -31,6 +31,9 @@ import { preferLocal } from './offline/localPlayback';
 import { createProgressSync } from './offline/progressSync';
 import { resolveStart } from './offline/startPosition';
 import { readSavedJson } from './offline/useLocalAssets';
+import { effectiveTab, needsDownloadsTab, offlineModeOn, visibleTop } from './offline/offlineMode';
+import { activeCount } from './offline/downloadIndex';
+import { useOnline } from './offline/useOnline';
 import { createCacheStore, downloadsSupported } from './offline/downloadStore';
 import { useDownloadsApi } from './offline/useDownloads';
 import { createWakeLock } from './offline/wakeLock';
@@ -56,13 +59,11 @@ function takeConnectCode(): string | null {
   return loadPendingConnect();
 }
 
-/** The first version had a test page that kept its own copy of a video in this cache; it is gone now. */
+/** One-time cleanup: an early test build kept a copy of a video in this cache. Deleting it frees that space on phones that still have it. */
 const RETIRED_CACHE = 'thuisbios-offline-test';
 
 /** How long Downloads waits for the server's resume point before it plays from what this device knows. */
 const FRESH_ITEM_MS = 2000;
-
-const OFFLINE_TOAST = "You're offline. Your downloads are in Account → Downloads.";
 
 export function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
@@ -129,6 +130,7 @@ function Shell({
     [session],
   );
   const nav = useNav();
+  const online = useOnline();
   const [toastText, setToastText] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const toast = (message: string) => {
@@ -163,6 +165,8 @@ function Shell({
     return () => engine.stop();
   }, [engine]);
   const downloads = useDownloadsApi(engine);
+  // Offline, Downloads is the only main screen (phones that can store downloads; a desktop has no downloads UI).
+  const offline = offlineModeOn(online, desktop, downloads.supported);
 
   // Watch progress made while offline goes to Jellyfin now, when the app opens and whenever the network is back.
   const progress = useMemo(
@@ -176,7 +180,7 @@ function Shell({
     return () => window.removeEventListener('online', flush);
   }, [progress]);
   useEffect(() => {
-    // Once: delete the cache of the retired offline test page.
+    // Once: delete the retired test cache (see RETIRED_CACHE).
     try {
       if (typeof caches !== 'undefined') void caches.delete(RETIRED_CACHE).catch(() => undefined);
     } catch (e) {
@@ -191,6 +195,8 @@ function Shell({
     tv: !!tv.nowPlaying,
     phone: nav.stack.length > 0 && nav.stack[nav.stack.length - 1].kind === 'player',
   };
+  const top = visibleTop(offline, nav.stack);
+  const tab = effectiveTab(offline, nav.tab);
   const prevPlaying = useRef(playing);
   useEffect(() => {
     if (playbackJustEnded(prevPlaying.current, playing)) setPlaybackEnded((n) => n + 1);
@@ -199,7 +205,7 @@ function Shell({
 
   // Keep the tab's scroll position while a screen is open on top of it.
   const savedScroll = useRef(0);
-  const open = nav.stack.length > 0;
+  const open = !!top;
   useEffect(() => {
     scrollToOffset(open ? 0 : savedScroll.current);
   }, [open]);
@@ -209,22 +215,20 @@ function Shell({
 
   // A QR-code link: open the Connect TV screen, which authorizes the code straight away.
   useEffect(() => {
-    if (!connectCode) return;
+    // Offline there is no server to connect to: the code stays saved for the next start.
+    if (!connectCode || offline) return;
     onConnectTaken();
     nav.push({ kind: 'connect', code: connectCode });
   }, []);
 
-  // Offline: start on the Downloads screen (a QR-code link takes precedence), and tell the user
-  // once per offline transition where the downloads are.
+  // Offline: the screen shown is already Downloads (see `tab` and `top`); this moves the real navigation state there too,
+  // so it stays on Downloads when the network is back. Never while a video plays: it lands on Downloads once the player closes.
   useEffect(() => {
-    if (!connectCode && typeof navigator !== 'undefined' && navigator.onLine === false) {
-      remember();
-      nav.push({ kind: 'downloads' });
-    }
-    const onOffline = () => toast(OFFLINE_TOAST);
-    window.addEventListener('offline', onOffline);
-    return () => window.removeEventListener('offline', onOffline);
-  }, []);
+    if (!needsDownloadsTab(offline, nav.tab, nav.stack)) return;
+    savedScroll.current = 0;
+    scrollToOffset(0);
+    nav.setTab('downloads');
+  }, [offline, nav.tab, nav.stack.length, top ? top.kind : '']);
 
   const ctx: AppContext = {
     client,
@@ -235,6 +239,7 @@ function Shell({
     playbackEnded,
     libraryChanged,
     refreshLibrary: () => setLibraryChanged((n) => n + 1),
+    offline,
     toast,
     openItem: (id) => {
       remember();
@@ -243,10 +248,6 @@ function Shell({
     openConnectTv: () => {
       remember();
       nav.push({ kind: 'connect' });
-    },
-    openDownloads: () => {
-      remember();
-      nav.push({ kind: 'downloads' });
     },
     openNowPlaying: () => {
       remember();
@@ -289,7 +290,6 @@ function Shell({
     ...(preferLocal(downloads.entries, item.Id) ? { local: true } : {}),
   });
 
-  const top = nav.stack[nav.stack.length - 1];
   const signOut = () => {
     void client.logout().catch(() => undefined);
     onSignOut();
@@ -298,7 +298,7 @@ function Shell({
   return (
     <Ctx.Provider value={ctx}>
       <div class="shell">
-        {desktop && !(top && top.kind === 'player') ? <TopBar tab={nav.tab} onChange={nav.setTab} badge={requests.badge} onSignOut={signOut} /> : null}
+        {desktop && !(top && top.kind === 'player') ? <TopBar tab={tab === 'downloads' ? 'home' : tab} onChange={nav.setTab} badge={requests.badge} onSignOut={signOut} /> : null}
         <div class={top && top.kind === 'nowPlaying' ? 'scroller fixed' : 'scroller'} id={SCROLLER_ID}>
           <div hidden={open}>
             {desktop ? null : (
@@ -307,22 +307,26 @@ function Shell({
                 <HeaderActions onSignOut={signOut} />
               </header>
             )}
-            <main hidden={nav.tab !== 'home'}>
+            <main hidden={tab !== 'home'}>
               <Home />
             </main>
-            <main hidden={nav.tab !== 'search'}>
+            <main hidden={tab !== 'search'}>
               <Search />
             </main>
-            <main hidden={nav.tab !== 'library'}>
+            <main hidden={tab !== 'library'}>
               <Library />
             </main>
-            <main hidden={nav.tab !== 'requests'}>
-              <Requests active={nav.tab === 'requests'} />
+            <main hidden={tab !== 'requests'}>
+              <Requests active={tab === 'requests'} />
             </main>
+            {tab === 'downloads' ? (
+              <main>
+                <Downloads />
+              </main>
+            ) : null}
           </div>
           {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
           {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
-          {top && top.kind === 'downloads' ? <Downloads key={`${nav.stack.length}:downloads`} onBack={nav.back} /> : null}
           {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
           {top && top.kind === 'player' ? (
             <Player
@@ -343,8 +347,14 @@ function Shell({
           )
         ) : (
           <div class="bottom">
-            {top && (top.kind === 'nowPlaying' || top.kind === 'connect' || top.kind === 'player') ? null : <MiniPlayer />}
-            {top && (top.kind === 'connect' || top.kind === 'player') ? null : <TabBar tab={nav.tab} onChange={nav.setTab} badge={requests.badge} />}
+            {offline || (top && (top.kind === 'nowPlaying' || top.kind === 'connect' || top.kind === 'player')) ? null : <MiniPlayer />}
+            {top && (top.kind === 'connect' || top.kind === 'player') ? null : <TabBar
+                tab={tab}
+                onChange={nav.setTab}
+                badge={requests.badge}
+                downloads={downloads.supported ? { active: activeCount(downloads.entries) } : undefined}
+                offline={offline}
+              />}
           </div>
         )}
         <Toast message={toastText} />

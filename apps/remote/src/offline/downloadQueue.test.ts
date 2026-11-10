@@ -69,11 +69,6 @@ describe('queue', () => {
     expect(q.recoverAfterStart(same)).toBe(same);
   });
 
-  it('knows whether anything is waiting', () => {
-    expect(q.hasActive([make('a', 'done'), make('b', 'paused')])).toBe(false);
-    expect(q.hasActive([make('a', 'done'), make('b')])).toBe(true);
-  });
-
   it('leaves the list alone for an unknown id', () => {
     const list = [make('a')];
     expect(q.pause(list, 'zzz')).toBe(list);

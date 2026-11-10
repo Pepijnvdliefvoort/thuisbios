@@ -1,6 +1,7 @@
 import { createDeviceId } from './jellyfin/auth';
 import { parseView, type LibraryType, type LibraryView } from './jellyfin/libraryQuery';
 import type { Session } from './jellyfin/types';
+import { DEFAULT_QUALITY, isQuality, type DownloadQuality } from './offline/downloadQuality';
 import { parseProgressMap, type LocalProgress } from './offline/localProgress';
 import { parseQueue, serializeQueue, type PendingProgress } from './offline/progressQueue';
 import { parseRecentSearches } from './searchGroups';
@@ -152,3 +153,12 @@ const PROGRESS_QUEUE_KEY = 'thuisbios.remote.progressQueue';
 /** Watch progress made offline that Jellyfin has not received yet. */
 export const loadProgressQueue = (): PendingProgress[] => parseQueue(read(PROGRESS_QUEUE_KEY));
 export const saveProgressQueue = (queue: PendingProgress[]): void => write(PROGRESS_QUEUE_KEY, queue.length > 0 ? serializeQueue(queue) : null);
+
+const DOWNLOAD_QUALITY_KEY = 'thuisbios.remote.downloadQuality';
+
+/** The quality last chosen for a download (medium when never chosen or unreadable). */
+export function loadDownloadQuality(): DownloadQuality {
+  const v = read(DOWNLOAD_QUALITY_KEY);
+  return isQuality(v) ? v : DEFAULT_QUALITY;
+}
+export const saveDownloadQuality = (quality: DownloadQuality): void => write(DOWNLOAD_QUALITY_KEY, quality);

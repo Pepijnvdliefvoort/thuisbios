@@ -51,5 +51,3 @@ export function recoverAfterStart(entries: DownloadEntry[]): DownloadEntry[] {
   return entries.some((e) => e.state === 'downloading') ? entries.map((e) => (e.state === 'downloading' ? { ...e, state: 'queued' as const } : e)) : entries;
 }
 
-/** Whether anything is waiting or running. */
-export const hasActive = (entries: DownloadEntry[]): boolean => entries.some((e) => e.state === 'queued' || e.state === 'downloading');
