@@ -11,6 +11,7 @@ Jellyfin server, so no real movie or show ever appears. All content is generic p
 - `capture.mjs`: starts the mock, takes the screenshots with Playwright and shrinks the PNGs.
 - `banner.html`: the banner, rendered by `capture.mjs` to `docs/images/banner.png`.
 - `optimize.py`: optional PNG shrinker (needs Python with Pillow).
+- `revert-noise.py`: restores regenerated PNGs that differ from the committed ones by at most 8 per channel (invisible raster noise), so the workflow does not report them as changed.
 
 ## Regenerate
 
