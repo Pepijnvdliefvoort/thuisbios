@@ -10,6 +10,7 @@ import { findPlayTarget, resumeTicks } from '../jellyfin/playTarget';
 import { chooseSeasonId } from '../jellyfin/seasons';
 import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from '../jellyfin/format';
 import type { BaseItem } from '../jellyfin/types';
+import { resolveStart } from '../offline/startPosition';
 import { allWatched, isWatched, watchedToggle, type WatchedScope } from '../jellyfin/watched';
 import { useAsync, useRegisterReload, type Reloaders } from '../useAsync';
 import { useDesktop } from '../useDesktop';
@@ -79,7 +80,7 @@ function DetailsSkeleton() {
 }
 
 function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: Reloaders; refresh: () => Promise<unknown> }) {
-  const { client, session, tv, toast, openItem, playHere } = useApp();
+  const { client, session, tv, toast, openItem, playHere, downloads } = useApp();
   const desktop = useDesktop();
   const isSeries = item.Type === 'Series';
   const isEpisode = item.Type === 'Episode';
@@ -91,7 +92,7 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
 
   useRegisterReload(reloaders, target.reload);
   const playItem = target.data;
-  const resume = playItem ? resumeTicks(playItem) : 0;
+  const serverResume = playItem ? resumeTicks(playItem) : 0;
   const noTv = !tv.tv;
   const disabled = !playItem;
 
@@ -114,6 +115,8 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
   // Without a TV the video plays in the app's own player; a desktop does that even with a TV connected
   // (and then offers "Play on TV" next to it).
   const here = noTv || desktop;
+  // A downloaded copy plays from the device; its resume point is the newest of this device's and the server's.
+  const resume = playItem && here ? resolveStart(downloads.entries, playItem, serverResume) : serverResume;
   const start = (target: BaseItem, ticks: number) => {
     if (here) playHere(target, ticks);
     else void send(tv.play(target, ticks));
@@ -161,8 +164,8 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
       )}
       {isSeries ? null : <DownloadButton item={item} />}
       {desktop && !noTv ? (
-        <button type="button" class="btn secondary" disabled={disabled} onClick={() => playItem && void send(tv.play(playItem, resume))}>
-          <Icon name="tv" size={20} /> {resume > 0 ? 'Resume on TV' : 'Play on TV'}
+        <button type="button" class="btn secondary" disabled={disabled} onClick={() => playItem && void send(tv.play(playItem, serverResume))}>
+          <Icon name="tv" size={20} /> {serverResume > 0 ? 'Resume on TV' : 'Play on TV'}
         </button>
       ) : null}
       <div class="action-row">
@@ -287,7 +290,7 @@ function Episodes({
   reloaders: Reloaders;
   refresh: () => Promise<unknown>;
 }) {
-  const { client, session, tv, toast, playHere } = useApp();
+  const { client, session, tv, toast, playHere, downloads } = useApp();
   const desktop = useDesktop();
   const seasons = useAsync(() => client.seasons(session.userId, seriesId), [client, session.userId, seriesId]);
   const [picked, setPicked] = useState<string | null>(null);
@@ -389,7 +392,7 @@ function Episodes({
                 class="ep-play"
                 aria-label={tv.tv && !desktop ? `Play ${ep.Name} on TV` : `Play ${ep.Name}`}
                 onClick={async () => {
-                  if (!tv.tv || desktop) playHere(ep, from);
+                  if (!tv.tv || desktop) playHere(ep, resolveStart(downloads.entries, ep, from));
                   else if (await tv.play(ep, from)) toast('Sent to TV');
                 }}
               >
