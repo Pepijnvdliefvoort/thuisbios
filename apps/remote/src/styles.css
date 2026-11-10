@@ -452,6 +452,16 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 .player-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; pointer-events: none; }
 .player-tap { position: absolute; inset: 0; }
+.seek-hint {
+  position: absolute; top: 0; bottom: 0; width: 30%; z-index: 2; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.45); color: #fff; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+}
+.seek-hint.on { opacity: 1; }
+.seek-hint.left { left: 0; border-radius: 0 100% 100% 0 / 0 50% 50% 0; padding-right: 8%; }
+.seek-hint.right { right: 0; border-radius: 100% 0 0 100% / 50% 0 0 50%; padding-left: 8%; }
+.seek-hint.left .seek-hint-body { margin-left: var(--st-l); }
+.seek-hint.right .seek-hint-body { margin-right: var(--st-r); }
+.seek-hint-body { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 14px; font-weight: 700; }
 .player-subs {
   position: absolute; left: 0; right: 0; bottom: 7%; display: flex; justify-content: center; padding: 0 10%;
   pointer-events: none; transition: transform 0.2s ease;
@@ -983,8 +993,8 @@ button.rs-row:active { background: var(--surface-2); }
   .request-skel .skel-line.short { width: 40%; }
   .request-skel .skel-button { width: 90px; height: 32px; margin-top: auto; }
 
-  /* Details without a backdrop: a blurred, enlarged, darkened copy of the poster. The span clips the blurred edges. */
-  .hero-blur img { transform: scale(1.35); filter: blur(36px) brightness(0.7) saturate(1.25); object-position: center 30%; }
+  /* Details and Spotlight without a (working) backdrop: a blurred, enlarged, darkened copy of the poster. The span clips the blurred edges. */
+  .hero-blur img, .sp-blur img { transform: scale(1.35); filter: blur(36px) brightness(0.7) saturate(1.25); object-position: center 30%; }
 }
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
   .wall-col { animation: none; }

@@ -21,7 +21,7 @@ import {
   type NowPlaying,
 } from './jellyfin/nowPlaying';
 import type { BaseItem, RemoteSession } from './jellyfin/types';
-import { activeTv, listTvs } from './jellyfin/tvSessions';
+import { activeTv, dropStaleTvs, listTvs, tvLostSilently } from './jellyfin/tvSessions';
 import { loadTvDeviceId, loadTvDisconnected, saveTvDeviceId, saveTvDisconnected } from './storage';
 
 export const POLL_MS = 2000;
@@ -82,12 +82,14 @@ export function useTv(
   notifyRef.current = notify;
 
   const tv = activeTv(sessions, ownDeviceId, preferred, disconnected);
+  const prevActiveRef = useRef<string | null>(null);
   const tvRef = useRef(tv);
   tvRef.current = tv;
 
   const poll = useCallback(async () => {
     try {
-      const list = await client.sessions(userId);
+      // A stale TV (switched off) is only hidden, never "disconnected": it returns by itself when fresh again.
+      const list = dropStaleTvs(await client.sessions(userId), Date.now());
       setSessions(list);
       // Follow a TV that appeared when none was chosen or the chosen one is gone (not after a disconnect).
       const found = listTvs(list, ownDeviceId);
@@ -99,6 +101,11 @@ export function useTv(
       }
       // Re-resolve the TV on every poll: session ids change when the TV reconnects.
       const current = activeTv(list, ownDeviceId, preferredRef.current, disconnectedRef.current);
+      const currentId = current ? current.DeviceId : null;
+      if (tvLostSilently(prevActiveRef.current, currentId, disconnectedRef.current)) {
+        notifyRef.current('TV turned off or out of reach');
+      }
+      prevActiveRef.current = currentId;
       const fresh = toNowPlaying(current, Date.now());
       setNowPlaying((prev) => mergePoll(prev, fresh, Date.now()));
     } catch (e) {

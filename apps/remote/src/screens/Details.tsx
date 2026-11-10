@@ -1,10 +1,10 @@
 import { useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { PullSpinner } from '../components/PullSpinner';
-import { Img } from '../components/Img';
+import { BackdropImg, Img } from '../components/Img';
 import { Skeleton } from '../components/Skeleton';
 import { useApp } from '../context';
-import { artFor, artUrl } from '../jellyfin/art';
+import { artUrl, artUrls } from '../jellyfin/art';
 import { findPlayTarget, resumeTicks } from '../jellyfin/playTarget';
 import { chooseSeasonId } from '../jellyfin/seasons';
 import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from '../jellyfin/format';
@@ -209,12 +209,13 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
     return (
       <>
         <div class="details-hero">
-          {artFor(item, 'backdrop') ? (
-            <Img class="hero-img" src={artUrl(client.serverUrl, item, 'backdrop', backdropW, backdropH)} />
-          ) : (
-            // No backdrop art: a blurred, enlarged copy of the poster instead of a flat surface.
-            <Img class="hero-img hero-blur" src={artUrl(client.serverUrl, item, 'poster', 480, 720)} />
-          )}
+          {/* The backdrop, or a blurred, enlarged copy of the poster when it is missing or fails to load. */}
+          <BackdropImg
+            class="hero-img"
+            blurClass="hero-blur"
+            backdrops={artUrls(client.serverUrl, item, 'backdrop', backdropW, backdropH)}
+            poster={artUrl(client.serverUrl, item, 'poster', 480, 720)}
+          />
           <div class="hero-fade" />
           <div class="details-hero-body">
             {eyebrow}
@@ -243,7 +244,7 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
   return (
     <>
       <div class="hero">
-        <Img class="hero-img" src={artUrl(client.serverUrl, item, 'backdrop', backdropW, backdropH)} />
+        <Img class="hero-img" src={artUrls(client.serverUrl, item, 'backdrop', backdropW, backdropH)} />
         <div class="hero-fade" />
       </div>
       <div class="details-content">

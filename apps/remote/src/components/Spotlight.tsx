@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useApp } from '../context';
-import { artUrl } from '../jellyfin/art';
+import { artUrl, artUrls } from '../jellyfin/art';
 import { formatRuntime } from '../jellyfin/format';
 import { findPlayTarget, resumeTicks } from '../jellyfin/playTarget';
 import type { BaseItem } from '../jellyfin/types';
 import { Icon } from './Icon';
-import { Img } from './Img';
+import { BackdropImg } from './Img';
 import { Skeleton } from './Skeleton';
 
 /** Time a slide stays before the next one fades in. */
@@ -95,7 +95,12 @@ export function Spotlight({ items, pending }: { items: BaseItem[]; pending: bool
     >
       {items.map((item, i) => (
         <div key={item.Id} class={i === index ? 'sp-slide on' : 'sp-slide'} aria-hidden={i === index ? undefined : 'true'}>
-          <Img class="sp-img" src={artUrl(client.serverUrl, item, 'backdrop', 1920, 1080)} />
+          <BackdropImg
+            class="sp-img"
+            blurClass="sp-blur"
+            backdrops={artUrls(client.serverUrl, item, 'backdrop', 1920, 1080)}
+            poster={artUrl(client.serverUrl, item, 'poster', 480, 720)}
+          />
         </div>
       ))}
       <div class="sp-shade" />

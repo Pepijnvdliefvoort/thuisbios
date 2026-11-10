@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeTv, listTvs, pickTv } from './tvSessions';
+import { activeTv, dropStaleTvs, listTvs, pickTv, TV_STALE_MS, tvLostSilently } from './tvSessions';
 import type { RemoteSession } from './types';
 
 const s = (over: Partial<RemoteSession>): RemoteSession => ({
@@ -88,5 +88,46 @@ describe('activeTv', () => {
 
   it('is null while disconnected, even with a preferred TV present', () => {
     expect(activeTv(sessions, 'phone', 'tv1', true)).toBeNull();
+  });
+});
+
+describe('dropStaleTvs', () => {
+  const now = Date.parse('2026-01-01T10:10:00Z');
+  const ago = (ms: number): string => new Date(now - ms).toISOString();
+  const tv = (over: Partial<RemoteSession>): RemoteSession => s({ Client: 'Thuisbios TV', ...over });
+
+  it('keeps a fresh TV', () => {
+    const list = [tv({ LastActivityDate: ago(30_000) })];
+    expect(dropStaleTvs(list, now)).toEqual(list);
+  });
+
+  it('drops a stale TV', () => {
+    expect(dropStaleTvs([tv({ LastActivityDate: ago(TV_STALE_MS + 1000) })], now)).toEqual([]);
+  });
+
+  it('keeps a stale non-Thuisbios session', () => {
+    const list = [s({ LastActivityDate: ago(TV_STALE_MS * 4) })];
+    expect(dropStaleTvs(list, now)).toEqual(list);
+  });
+
+  it('keeps sessions with a missing or unparsable date', () => {
+    const list = [tv({ Id: 'a', LastActivityDate: undefined }), tv({ Id: 'b', LastActivityDate: 'nope' })];
+    expect(dropStaleTvs(list, now)).toEqual(list);
+  });
+
+  it('keeps a TV exactly at the boundary', () => {
+    const list = [tv({ LastActivityDate: ago(TV_STALE_MS) })];
+    expect(dropStaleTvs(list, now)).toEqual(list);
+  });
+});
+
+describe('tvLostSilently', () => {
+  it('is true when the active TV vanished on its own', () => {
+    expect(tvLostSilently('tv1', null, false)).toBe(true);
+  });
+  it('is false on the first poll, after a manual disconnect, or while a TV is active', () => {
+    expect(tvLostSilently(null, null, false)).toBe(false);
+    expect(tvLostSilently('tv1', null, true)).toBe(false);
+    expect(tvLostSilently('tv1', 'tv1', false)).toBe(false);
   });
 });
