@@ -23,6 +23,8 @@ export interface AppContext {
   playHere(item: BaseItem, startTicks: number): void;
   /** Opens the Connect TV screen (enter the Quick Connect code shown on the TV). */
   openConnectTv(): void;
+  /** Opens the temporary offline download test page. */
+  openOfflineTest(): void;
   toast(message: string): void;
 }
 
