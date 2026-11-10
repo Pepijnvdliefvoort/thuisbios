@@ -7,7 +7,7 @@ import { Avatar, ConfirmButton, MenuSheet } from './MenuSheet';
 
 /** Header avatar that opens the Account sheet: who is signed in, on which server, and Sign out. */
 export function AccountButton({ onSignOut }: { onSignOut: () => void }) {
-  const { session, openOfflineTest, openDownloads, downloads } = useApp();
+  const { session, openDownloads, downloads } = useApp();
   const desktop = useDesktop();
   const waiting = downloads.entries.filter((e) => e.state !== 'done').length;
   const [open, setOpen] = useState(false);
@@ -48,16 +48,6 @@ export function AccountButton({ onSignOut }: { onSignOut: () => void }) {
               onSignOut();
             }}
           />
-          <button
-            type="button"
-            class="sheet-link"
-            onClick={() => {
-              setOpen(false);
-              openOfflineTest();
-            }}
-          >
-            Offline download test
-          </button>
           <p class="sheet-version">Thuisbios v{__APP_VERSION__}</p>
         </MenuSheet>
       ) : null}

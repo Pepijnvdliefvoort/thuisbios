@@ -8,12 +8,12 @@ import { artUrl } from '../jellyfin/art';
 import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
 import { playerKeyAction, stepVolume } from '../playerKeys';
 import { tapSide, type TapSide } from '../tapSide';
-import { getDeviceId, loadAudioLang, loadPlayerVolume, loadSubtitleLang, loadSubtitleOffset, saveAudioLang, savePlayerVolume, saveSubtitleLang } from '../storage';
+import { getDeviceId, loadAudioLang, saveLocalProgress, loadPlayerVolume, loadSubtitleLang, loadSubtitleOffset, saveAudioLang, savePlayerVolume, saveSubtitleLang } from '../storage';
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { maxBitrateFor, measureBitrate } from '../jellyfin/bitrate';
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
 import { playingResolution, qualityOptions, requestFor, sourceLevel, type QualityId } from '../jellyfin/quality';
-import { nextArmedAt, nextEpisodeCard, planNextEpisode, shouldMarkPlayedOnSkip } from '../jellyfin/nextEpisode';
+import { nextArmedAt, nextEpisodeCard, planNextEpisode, shouldMarkPlayedOnSkip, type NextEpisodePlan } from '../jellyfin/nextEpisode';
 import { mpegTsShift } from '../jellyfin/hlsTimeline';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { createThrottle, resolveStreamUrl, selectPlayMethod, type PlaySelection } from '../jellyfin/playback';
@@ -22,6 +22,14 @@ import type { BaseItem, MediaSource, PlaybackReport } from '../jellyfin/types';
 import { COARSE_QUERY, useFinePointer } from '../useDesktop';
 import { useMediaQuery } from '../useMediaQuery';
 import { useAdjacentEpisodes } from '../useNextEpisode';
+import { createCacheLoader } from '../offline/cacheLoader';
+import { DOWNLOADS_CACHE, playlistKey } from '../offline/downloadKeys';
+import { resolveUri } from '../offline/hlsPlaylist';
+import { isFinished, removedToast, shouldAutoDelete } from '../offline/localPlayback';
+import { startGapTarget } from '../offline/startGap';
+import { useDownloadedAdjacent } from '../offline/useDownloadedAdjacent';
+import { useLocalAssets } from '../offline/useLocalAssets';
+import { useOnline } from '../offline/useOnline';
 import { useViewportPortrait } from '../useViewportPortrait';
 
 /** The picture quality picked in the player. Lives for the app session only: the next episode keeps it, a fresh start is Auto. */
@@ -85,6 +93,12 @@ interface Loaded {
  * our overlay drifts by seconds. A video re-encode lines them up exactly (the hls.js shift is then 0). Direct play
  * is unaffected.
  *
+ * Playing a download (`local`): nothing is asked of the server. hls.js plays the saved playlist straight from the
+ * Cache API (always hls.js, even where the browser has native HLS), the text subtitles and intro / credits markers come
+ * from the files saved with the download, and there is no audio or quality menu (they need the server). The position is
+ * saved on this device and queued for Jellyfin (see offline/progressSync.ts); online it is also reported as usual.
+ * An episode watched to the end is removed from the downloads when the player closes.
+ *
  * The video is always inline with our own controls and subtitles (see PlayerControls). iPhone cannot go
  * fullscreen or lock the orientation, so when the viewport is portrait the whole stage is turned 90° with CSS
  * (only on a touch device: a narrow desktop window never rotates).
@@ -95,16 +109,22 @@ interface Loaded {
 export function Player({
   item,
   startTicks,
+  local = false,
   onBack,
   onPlayEpisode,
 }: {
   item: BaseItem;
   startTicks: number;
+  /** Play the finished download of this item from the device instead of asking Jellyfin. */
+  local?: boolean;
   onBack: () => void;
   /** Plays another episode (autoplay, or the previous/next buttons) in place of this one, from its start. */
   onPlayEpisode: (episode: BaseItem) => void;
 }) {
-  const { client, session } = useApp();
+  const { client, session, downloads, toast, progress } = useApp();
+  const isLocal = local;
+  const assets = useLocalAssets(isLocal ? item.Id : null);
+  const online = useOnline();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
@@ -160,17 +180,30 @@ export function Player({
   const toMedia = (t: number) => t + shift.current;
   const toVideo = (position: number) => position - shift.current;
   // Next episode autoplay: the card, and the hooks into the reporting effect below.
-  const { previous, next } = useAdjacentEpisodes(client, session.userId, item);
+  // Offline there is no server to ask, so the neighbours are the episodes that are downloaded too.
+  const offlineLocal = isLocal && !online;
+  const fromServer = useAdjacentEpisodes(client, session.userId, offlineLocal ? null : item);
+  const fromDownloads = useDownloadedAdjacent(downloads.entries, item, offlineLocal);
+  const { previous, next } = offlineLocal ? fromDownloads : fromServer;
   const [cancelled, setCancelled] = useState(false);
   // Jellyfin index of the subtitle track chosen (-1 = off), for progress reports.
   const subIndex = useRef(-1);
   const stopRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const advancing = useRef(false);
+  // Playing a download: how the playback ended, for the watched mark and removing a watched episode.
+  const endedRef = useRef(false);
+  const markedRef = useRef(false);
+  const autoDelete = useRef(false);
+  const planRef = useRef<NextEpisodePlan | null>(null);
 
   // Intro markers (empty without the Intro Skipper plugin).
   useEffect(() => {
     let alive = true;
     setSegments([]);
+    if (isLocal) {
+      setSegments(assets.segments);
+      return;
+    }
     client
       .mediaSegments(item.Id)
       .then((list) => alive && setSegments(list))
@@ -178,7 +211,7 @@ export function Player({
     return () => {
       alive = false;
     };
-  }, [client, item.Id]);
+  }, [client, item.Id, isLocal, assets]);
 
   // Leaving the player (Back, Android back, end of video) also leaves fullscreen and frees the rotation.
   // Not when the next episode takes over: it stays fullscreen (autoplay has no tap to enter it again).
@@ -205,7 +238,7 @@ export function Player({
     };
   }, []);
 
-  const tracks = useMemo(() => (loaded ? listSubtitles(loaded.source) : []), [loaded]);
+  const tracks = useMemo(() => (isLocal ? assets.tracks : loaded ? listSubtitles(loaded.source) : []), [loaded, isLocal, assets]);
   subIndex.current = tracks[subSel] ? tracks[subSel].index : -1;
   const subOffset = useMemo(() => loadSubtitleOffset(item.Id), [item.Id]);
   // Fetch the WebVTT of the chosen track once; a failure just shows no subtitles.
@@ -213,6 +246,11 @@ export function Player({
     setCues([]);
     const track = tracks[subSel];
     if (!loaded || !track || track.burnIn) return;
+    if (isLocal) {
+      const text = assets.vtt[track.index];
+      if (text) setCues(parseVtt(text));
+      return;
+    }
     let alive = true;
     fetch(subtitleVttUrl(client.serverUrl, item.Id, loaded.mediaSourceId, track.index, session.token))
       .then((r) => {
@@ -225,11 +263,11 @@ export function Player({
       alive = false;
     };
   }, [loaded, tracks, subSel]);
-  const audioTracks = useMemo(() => (loaded ? listAudio(loaded.source) : []), [loaded]);
+  const audioTracks = useMemo(() => (loaded && !isLocal ? listAudio(loaded.source) : []), [loaded, isLocal]);
   // Auto shows what it ended up playing ("Auto (720p)"); a fixed level is already named by its own entry.
   const qualityChoices = useMemo(
-    () => (loaded ? qualityOptions(loaded.source, qualitySel === 'auto' ? playingResolution(loaded.source, loaded.selection.method, loaded.selection.url) : null) : []),
-    [loaded, qualitySel],
+    () => (loaded && !isLocal ? qualityOptions(loaded.source, qualitySel === 'auto' ? playingResolution(loaded.source, loaded.selection.method, loaded.selection.url) : null) : []),
+    [loaded, qualitySel, isLocal],
   );
   /** Notes the current position so the new stream starts there, and shows the loading state. */
   const prepareRestart = () => {
@@ -416,6 +454,7 @@ export function Player({
 
   // Ask the server how to play this item on this phone.
   useEffect(() => {
+    if (isLocal) return;
     let cancelled = false;
     const canPlay = document.createElement('video');
     const known = srcLevel.current;
@@ -501,7 +540,25 @@ export function Player({
     return () => {
       cancelled = true;
     };
-  }, [client, session, item.Id, audioSel, burnSel, probe, qualitySel, requery]);
+  }, [client, session, item.Id, audioSel, burnSel, probe, qualitySel, requery, isLocal]);
+
+  // A download: everything is on the device, so the stream is the saved playlist and no server is asked.
+  useEffect(() => {
+    if (!isLocal || !assets.ready) return;
+    const text = assets.tracks;
+    const def = text.filter((t) => t.isDefault)[0];
+    setSubSel(pickInitialSubtitle(text, loadSubtitleLang(), def ? def.index : undefined));
+    setProbe(false);
+    const key = playlistKey(item.Id);
+    setLoaded({
+      selection: { method: 'DirectPlay', url: key, hls: true },
+      url: resolveUri(window.location.href, key),
+      mediaSourceId: assets.mediaSourceId,
+      source: { Id: assets.mediaSourceId },
+      audioIndex: null,
+      startTicks: restartTicks.current,
+    });
+  }, [isLocal, assets, item.Id]);
 
   // Attach the stream: native playback, or hls.js where the browser cannot play HLS itself.
   useEffect(() => {
@@ -514,6 +571,69 @@ export function Player({
     };
     let destroyed = false;
     let hls: { destroy(): void } | null = null;
+    if (isLocal) {
+      // A transcode's buffered media can start slightly after 0: jump that gap until playback has begun.
+      let started = false;
+      const ranges = (): Array<[number, number]> => {
+        const out: Array<[number, number]> = [];
+        for (let i = 0; i < el.buffered.length; i++) out.push([el.buffered.start(i), el.buffered.end(i)]);
+        return out;
+      };
+      const jumpGap = () => {
+        if (started) return;
+        const target = startGapTarget(el.currentTime, ranges());
+        if (target === null) return;
+        el.currentTime = target;
+        void el.play().catch(() => undefined);
+      };
+      const onTime = () => {
+        const r = ranges();
+        if (r.length > 0 && el.currentTime > r[0][0]) started = true;
+      };
+      const onPlayingLocal = () => {
+        started = true;
+      };
+      const onLoadedLocal = () => {
+        void el.play().catch(() => undefined);
+        jumpGap();
+      };
+      el.addEventListener('loadedmetadata', onLoadedLocal);
+      el.addEventListener('canplay', jumpGap);
+      el.addEventListener('timeupdate', onTime);
+      el.addEventListener('playing', onPlayingLocal);
+      import('hls.js')
+        .then(({ default: Hls }) => {
+          if (destroyed) return;
+          if (!Hls.isSupported()) {
+            setError(true);
+            return;
+          }
+          el.disableRemotePlayback = true;
+          const instance = new Hls({
+            loader: createCacheLoader(DOWNLOADS_CACHE),
+            maxBufferHole: 0.5,
+            startPosition: startSeconds > 0 ? startSeconds : -1,
+          });
+          hls = instance;
+          instance.on(Hls.Events.ERROR, (_event, data) => {
+            if (data.fatal) setError(true);
+          });
+          instance.on(Hls.Events.FRAG_BUFFERED, jumpGap);
+          instance.loadSource(loaded.url);
+          instance.attachMedia(el);
+        })
+        .catch(() => {
+          if (!destroyed) setError(true);
+        });
+      return () => {
+        destroyed = true;
+        el.removeEventListener('loadedmetadata', onLoadedLocal);
+        el.removeEventListener('canplay', jumpGap);
+        el.removeEventListener('timeupdate', onTime);
+        el.removeEventListener('playing', onPlayingLocal);
+        if (hls) hls.destroy();
+      };
+    }
     const onMeta = () => {
       seekToStart();
       void el.play().catch(() => undefined); // blocked autoplay: stays paused, the big play button starts it
@@ -565,7 +685,7 @@ export function Player({
       el.removeEventListener('error', onError);
       if (hls) hls.destroy();
     };
-  }, [loaded]);
+  }, [loaded, isLocal]);
 
   // Progress reporting: start once playing, every 10 s, on pause/play/seek, stopped exactly once.
   useEffect(() => {
@@ -584,23 +704,48 @@ export function Player({
       ...(loaded.audioIndex !== null ? { audioStreamIndex: loaded.audioIndex } : {}),
       subtitleStreamIndex: subIndex.current,
     });
+    const reachable = () => typeof navigator === 'undefined' || navigator.onLine !== false;
+    /** A download: keeps the position on this device and in the queue for Jellyfin, so offline progress is not lost. */
+    const saveLocal = (played: boolean) => {
+      const at = Date.now();
+      const positionTicks = played ? 0 : report().positionTicks;
+      saveLocalProgress(item.Id, { positionTicks, played, at });
+      progress.enqueue({ itemId: item.Id, positionTicks, played, at });
+    };
     const send = () => {
-      if (started && !stopped) client.reportProgress(report()).catch(() => undefined);
+      if (!started || stopped) return;
+      if (isLocal) saveLocal(false);
+      if (!isLocal || reachable()) client.reportProgress(report()).catch(() => undefined);
     };
     const throttle = createThrottle(send, EVENT_REPORT_MS);
     const stop = (): Promise<void> => {
       if (!started || stopped) return Promise.resolve();
       stopped = true;
-      // keepalive: the page may be closing.
-      return client.reportStopped(report(), true).catch(() => undefined);
+      if (!isLocal) {
+        // keepalive: the page may be closing.
+        return client.reportStopped(report(), true).catch(() => undefined);
+      }
+      const p = planRef.current;
+      const finished = isFinished({
+        ended: endedRef.current,
+        marked: markedRef.current,
+        positionSeconds: ticksToSeconds(report().positionTicks),
+        creditsFromSeconds: p ? p.showAt : null,
+      });
+      saveLocal(finished);
+      // Removed once the player has closed, not while it is still playing.
+      if (shouldAutoDelete(item.Type, finished)) autoDelete.current = true;
+      const told = reachable() ? client.reportStopped(report(), true).catch(() => undefined) : Promise.resolve();
+      return told.then(() => progress.flush());
     };
     stopRef.current = stop;
     const onPlaying = () => {
       if (started) return;
       started = true;
-      client.reportStart(report()).catch(() => undefined);
+      if (!isLocal || reachable()) client.reportStart(report()).catch(() => undefined);
     };
     const onEnded = () => {
+      endedRef.current = true;
       if (advanceRef.current(false)) return;
       void stop();
       onBack();
@@ -624,7 +769,23 @@ export function Player({
       stopRef.current = () => Promise.resolve();
       void stop();
     };
-  }, [client, loaded, item.Id]);
+  }, [client, loaded, item.Id, isLocal]);
+
+  // A watched episode leaves the downloads once the player has closed (this cleanup runs after the one that stops
+  // the video and saves the position). Movies stay.
+  const latest = useRef({ downloads, toast });
+  latest.current = { downloads, toast };
+  useEffect(
+    () => () => {
+      if (!autoDelete.current) return;
+      const { downloads: list, toast: say } = latest.current;
+      void list
+        .remove(item.Id)
+        .then(() => say(removedToast(item.Name)))
+        .catch(() => undefined);
+    },
+    [],
+  );
 
   /**
    * Switches to another episode: reports Stopped for this one first and, with `markPlayed`, marks it played
@@ -633,8 +794,10 @@ export function Player({
   const switchTo = (episode: BaseItem, markPlayed: boolean) => {
     if (advancing.current) return;
     advancing.current = true;
+    if (markPlayed) markedRef.current = true;
     const done = stopRef.current();
-    if (markPlayed) void done.then(() => client.markPlayed(session.userId, item.Id)).catch(() => undefined);
+    // A download's watched mark goes through the queue (see stop), which also works offline.
+    if (markPlayed && !isLocal) void done.then(() => client.markPlayed(session.userId, item.Id)).catch(() => undefined);
     onPlayEpisode(episode);
   };
   /**
@@ -651,6 +814,7 @@ export function Player({
   advanceRef.current = advance;
 
   const plan = planNextEpisode(segments, ticksToSeconds(item.RunTimeTicks || 0));
+  planRef.current = plan;
   // The buttons work with autoplay cancelled; only a next pressed in the credits counts the episode as watched.
   const episodeNav =
     item.Type === 'Episode'
@@ -775,7 +939,7 @@ export function Player({
             webkit-playsinline=""
             autoPlay
             preload="auto"
-            poster={(mouse ? artUrl(client.serverUrl, item, 'backdrop', 1920, 1080) : artUrl(client.serverUrl, item, 'backdrop', 780, 440)) || undefined}
+            poster={isLocal ? undefined : (mouse ? artUrl(client.serverUrl, item, 'backdrop', 1920, 1080) : artUrl(client.serverUrl, item, 'backdrop', 780, 440)) || undefined}
             onTimeUpdate={(e) => {
               const v = (e.target as HTMLVideoElement).currentTime;
               const t = Math.max(0, duration > 0 ? Math.min(duration, toMedia(v)) : toMedia(v));

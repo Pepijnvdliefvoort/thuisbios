@@ -7,7 +7,7 @@ Jellyfin server, so no real movie or show ever appears. All content is generic p
 - `mock-jellyfin.mjs`: zero-dependency fake Jellyfin API on port 8097. Run it alone with
   `node scripts/screenshots/mock-jellyfin.mjs` to try the apps against it. It also serves a tiny HLS stream
   (six 2-second segments made in memory with ffmpeg when it is installed, stub bytes otherwise) for a forced
-  transcode, so the phone app's offline downloads can be tried. Nothing is written to the repository.
+  transcode, so the phone app's offline downloads can be tried. It also accepts the resume-position endpoint the phone uses to sync offline progress; with `MOCK_LOG=1` it prints every write request. Nothing is written to the repository.
 - `capture.mjs`: starts the mock, takes the screenshots with Playwright and shrinks the PNGs.
 - `banner.html`: the banner, rendered by `capture.mjs` to `docs/images/banner.png`.
 - `optimize.py`: optional PNG shrinker (needs Python with Pillow).

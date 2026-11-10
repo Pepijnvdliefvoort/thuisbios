@@ -374,8 +374,28 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       res.end();
     };
     if (req.method === 'OPTIONS') return empty();
-    req.resume(); // request bodies are ignored
+    if (process.env.MOCK_LOG === '1' && req.method !== 'GET') process.stderr.write(`[mock-jellyfin] ${req.method} ${req.url}\n`);
     let m;
+
+    // Saves a resume position (progress the phone made offline): /UserItems/{id}/UserData, or the older path.
+    if (req.method === 'POST' && ((m = /^\/UserItems\/([^/]+)\/UserData$/.exec(path)) || (m = /^\/Users\/[^/]+\/Items\/([^/]+)\/UserData$/.exec(path)))) {
+      let body = '';
+      req.on('data', (c) => (body += c));
+      req.on('end', () => {
+        const i = items.get(m[1]);
+        let data = {};
+        try {
+          data = JSON.parse(body || '{}');
+        } catch {
+          // ignore a broken body
+        }
+        if (process.env.MOCK_LOG === '1') process.stderr.write(`[mock-jellyfin] user data ${m[1]} ${JSON.stringify(data)}\n`);
+        if (i) i.UserData = { ...i.UserData, ...(data.PlaybackPositionTicks !== undefined ? { PlaybackPositionTicks: data.PlaybackPositionTicks } : {}), LastPlayedDate: new Date().toISOString() };
+        empty();
+      });
+      return;
+    }
+    req.resume(); // other request bodies are ignored
 
     if (path === '/System/Info/Public') return json({ ServerName: 'Thuisbios', Version: '10.10.0', Id: 'mock-server', ProductName: 'Jellyfin Server', LocalAddress: `http://localhost:${port}` });
     if (path === '/QuickConnect/Enabled') return json(true);
