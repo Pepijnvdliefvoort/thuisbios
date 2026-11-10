@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.15.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.14.1...v0.15.0) (2026-11-10)
+
+
+### Features
+
+* **remote:** download movies and episodes to watch offline ([#151](https://github.com/Pepijnvdliefvoort/thuisbios/issues/151)) ([d586e04](https://github.com/Pepijnvdliefvoort/thuisbios/commit/d586e04c531f89b4304f5b2068f12aec68fd88e8))
+* **remote:** open the app without internet ([#149](https://github.com/Pepijnvdliefvoort/thuisbios/issues/149)) ([00c47a5](https://github.com/Pepijnvdliefvoort/thuisbios/commit/00c47a5b8545a9d264efeb5c608c53c369dcfb92))
+
+
+### Bug Fixes
+
+* **remote:** jump the start gap in offline test playback ([#150](https://github.com/Pepijnvdliefvoort/thuisbios/issues/150)) ([8f9d0e0](https://github.com/Pepijnvdliefvoort/thuisbios/commit/8f9d0e0da3655a75771dea8ce7439d5e2d54e731))
+
 ## [0.14.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.14.0...v0.14.1) (2026-11-10)
 
 
