@@ -7,6 +7,10 @@
 // Options (env): MOCK_QC_AUTHENTICATED=1 makes Quick Connect approve the TV at once.
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const TICKS = 10_000_000; // 100 ns ticks per second
@@ -259,6 +263,46 @@ ${text}
 </svg>`;
 }
 
+// ---------- tiny HLS stream (for the offline download flow) ----------
+
+const HLS_SEGMENT_SECONDS = 2;
+const HLS_SEGMENTS = 6;
+let hlsCache = null;
+
+/**
+ * Six 2-second MPEG-TS segments of a generated test picture, made once with ffmpeg and kept in memory
+ * (nothing is written to the repository). Without ffmpeg the segments are stub bytes: the download flow
+ * still works, but they cannot be played.
+ */
+function hlsSegments() {
+  if (hlsCache) return hlsCache;
+  const dir = mkdtempSync(join(tmpdir(), 'mock-hls-'));
+  try {
+    const run = spawnSync(
+      'ffmpeg',
+      [
+        '-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=320x180:rate=15', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=44100',
+        '-t', String(HLS_SEGMENT_SECONDS * HLS_SEGMENTS), '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '30', '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-ac', '2', '-f', 'hls', '-hls_time', String(HLS_SEGMENT_SECONDS), '-hls_list_size', '0',
+        '-hls_segment_filename', join(dir, 'seg%d.ts'), join(dir, 'out.m3u8'),
+      ],
+      { stdio: 'ignore' },
+    );
+    const files = run.status === 0 ? readdirSync(dir).filter((f) => f.endsWith('.ts')).sort((a, b) => parseInt(a.slice(3), 10) - parseInt(b.slice(3), 10)) : [];
+    hlsCache = files.length > 0 ? files.map((f) => readFileSync(join(dir, f))) : Array.from({ length: HLS_SEGMENTS }, (_, i) => Buffer.alloc(20_000, i));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  return hlsCache;
+}
+
+const hlsMaster = (id, q) => `#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=320x180\nmain.m3u8?${q}\n`;
+const hlsMedia = () => [
+  '#EXTM3U', '#EXT-X-VERSION:3', `#EXT-X-TARGETDURATION:${HLS_SEGMENT_SECONDS}`, '#EXT-X-MEDIA-SEQUENCE:0', '#EXT-X-PLAYLIST-TYPE:VOD',
+  ...hlsSegments().flatMap((_, i) => [`#EXTINF:${HLS_SEGMENT_SECONDS}.000000,`, `hls1/main/${i}.ts`]),
+  '#EXT-X-ENDLIST', '',
+].join('\n');
+
 // ---------- HTTP ----------
 
 const userData = (it) => it.UserData || {};
@@ -393,8 +437,26 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
     if ((m = /^\/Items\/([^/]+)\/PlaybackInfo$/.exec(path))) {
       // Like Jellyfin: the default subtitle track is only the server's own pick when none was asked for.
       const asked = q.get('SubtitleStreamIndex');
+      if (q.get('EnableDirectPlay') === 'false') {
+        // A forced transcode (the phone's offline downloads): offer an HLS stream.
+        const tq = `DeviceId=mock-device&MediaSourceId=${m[1]}&PlaySessionId=mock-dl&VideoCodec=h264&AudioCodec=aac`;
+        return json({
+          MediaSources: [{ Id: m[1], SupportsDirectPlay: false, SupportsDirectStream: false, SupportsTranscoding: true, TranscodingSubProtocol: 'hls', TranscodingUrl: `/videos/${m[1]}/master.m3u8?${tq}`, MediaStreams: STREAMS, DefaultAudioStreamIndex: 1 }],
+          PlaySessionId: 'mock-dl',
+        });
+      }
       return json({ MediaSources: [{ Id: m[1], SupportsDirectPlay: true, SupportsTranscoding: false, MediaStreams: STREAMS, DefaultAudioStreamIndex: 1, DefaultSubtitleStreamIndex: asked === null ? 3 : Number(asked) }], PlaySessionId: 'mock-play' });
     }
+    if ((m = /^\/videos\/([^/]+)\/master\.m3u8$/i.exec(path))) return send(200, hlsMaster(m[1], url.searchParams.toString()), 'application/vnd.apple.mpegurl');
+    if (/^\/videos\/[^/]+\/main\.m3u8$/i.test(path)) return send(200, hlsMedia(), 'application/vnd.apple.mpegurl');
+    if ((m = /^\/videos\/[^/]+\/hls1\/main\/(\d+)\.ts$/i.exec(path))) {
+      const seg = hlsSegments()[Number(m[1])];
+      if (!seg) return send(404, { error: 'not found' });
+      res.writeHead(200, { ...CORS, 'Content-Type': 'video/mp2t' });
+      return res.end(seg);
+    }
+    if (/^\/Videos\/[^/]+\/[^/]+\/Subtitles\/\d+\/0\/Stream\.vtt$/.test(path)) return send(200, 'WEBVTT\n\n00:00:01.000 --> 00:00:04.000\nSample subtitle line\n', 'text/vtt');
+    if (path === '/Videos/ActiveEncodings' && req.method === 'DELETE') return empty();
     if ((m = /^\/Items\/([^/]+)\/Images\/(Primary|Backdrop|Thumb|Logo)(?:\/\d+)?$/.exec(path))) {
       const it = items.get(m[1]);
       if (!it) return send(404, { error: 'not found' });

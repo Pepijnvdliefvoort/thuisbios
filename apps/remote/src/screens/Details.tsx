@@ -1,4 +1,5 @@
 import { useRef, useState } from 'preact/hooks';
+import { DownloadButton, DownloadSeasonButton } from '../components/DownloadButton';
 import { Icon } from '../components/Icon';
 import { PullSpinner } from '../components/PullSpinner';
 import { BackdropImg, Img } from '../components/Img';
@@ -158,6 +159,7 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
           <Icon name="play" /> {(isSeries ? 'Play next episode' : 'Play') + (here ? '' : ' on TV')}
         </button>
       )}
+      {isSeries ? null : <DownloadButton item={item} />}
       {desktop && !noTv ? (
         <button type="button" class="btn secondary" disabled={disabled} onClick={() => playItem && void send(tv.play(playItem, resume))}>
           <Icon name="tv" size={20} /> {resume > 0 ? 'Resume on TV' : 'Play on TV'}
@@ -334,6 +336,7 @@ function Episodes({
           <button type="button" class="btn-small" onClick={() => void change(seasonId, seasonToggle.next, list)}>
             <Icon name={seasonToggle.next ? 'unwatched' : 'watched'} size={18} /> {seasonToggle.label}
           </button>
+          <DownloadSeasonButton episodes={list} />
         </div>
       ) : null}
       {episodes.loading && !episodes.data ? <p class="hint">Loading...</p> : null}
@@ -380,6 +383,7 @@ function Episodes({
               >
                 <Icon name={played ? 'watched' : 'unwatched'} size={22} />
               </button>
+              <DownloadButton item={ep} variant="icon" />
               <button
                 type="button"
                 class="ep-play"

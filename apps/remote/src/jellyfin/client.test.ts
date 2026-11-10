@@ -32,6 +32,15 @@ describe('client', () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 
+  it('asks the server to stop a transcode', async () => {
+    const fetchFn = vi.fn(async () => ok(undefined));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    await client.stopTranscode('dev 1', 'play-1');
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://pc/Videos/ActiveEncodings?deviceId=dev%201&playSessionId=play-1');
+    expect(init.method).toBe('DELETE');
+  });
+
   it('reads media segments and treats errors as none', async () => {
     const body = { Items: [{ Id: 'a', ItemId: 'e1', Type: 'Intro', StartTicks: 100, EndTicks: 900 }], TotalRecordCount: 1, StartIndex: 0 };
     const fetchFn = vi.fn(async () => ok(body));

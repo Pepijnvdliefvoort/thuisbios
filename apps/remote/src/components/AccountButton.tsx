@@ -1,11 +1,15 @@
 import { useState } from 'preact/hooks';
 import { useApp } from '../context';
+import { useDesktop } from '../useDesktop';
+import { Icon } from './Icon';
 import { initialOf, serverHost } from '../accountMenu';
 import { Avatar, ConfirmButton, MenuSheet } from './MenuSheet';
 
 /** Header avatar that opens the Account sheet: who is signed in, on which server, and Sign out. */
 export function AccountButton({ onSignOut }: { onSignOut: () => void }) {
-  const { session, openOfflineTest } = useApp();
+  const { session, openOfflineTest, openDownloads, downloads } = useApp();
+  const desktop = useDesktop();
+  const waiting = downloads.entries.filter((e) => e.state !== 'done').length;
   const [open, setOpen] = useState(false);
   const letter = initialOf(session.userName);
   return (
@@ -23,6 +27,19 @@ export function AccountButton({ onSignOut }: { onSignOut: () => void }) {
             </div>
           </div>
           <div class="sheet-divider" />
+          {desktop || !downloads.supported ? null : (
+            <button
+              type="button"
+              class="btn secondary"
+              onClick={() => {
+                setOpen(false);
+                openDownloads();
+              }}
+            >
+              <Icon name="download" size={20} /> Downloads
+              {waiting > 0 ? <span class="tv-sub">{waiting} in progress</span> : null}
+            </button>
+          )}
           <ConfirmButton
             label="Sign out"
             icon="signout"

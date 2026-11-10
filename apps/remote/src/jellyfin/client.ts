@@ -92,6 +92,8 @@ export interface JellyfinClient {
   playbackInfo(userId: string, itemId: string, profile: DeviceProfile, options?: PlaybackOptions): Promise<PlaybackInfoResponse>;
   /** Downloads `bytes` of filler from the server and returns how many bytes arrived (to time the link). */
   bitrateTest(bytes: number, signal?: AbortSignal): Promise<number>;
+  /** Tells the server to stop (and clean up) the transcode of a play session. Used when a download has finished. */
+  stopTranscode(deviceId: string, playSessionId: string): Promise<void>;
   reportStart(report: PlaybackReport): Promise<void>;
   reportProgress(report: PlaybackReport): Promise<void>;
   /** `keepalive` lets the request outlive a page that is being hidden or closed. */
@@ -259,6 +261,9 @@ export function createClient(options: ClientOptions): JellyfinClient {
       });
     },
     bitrateTest: (bytes, signal) => doDownload(options, `/Playback/BitrateTest?Size=${bytes}`, signal),
+    stopTranscode: async (deviceId, playSessionId) => {
+      await req<void>('DELETE', `/Videos/ActiveEncodings?deviceId=${enc(deviceId)}&playSessionId=${enc(playSessionId)}`);
+    },
     reportStart: async (r) => {
       await req<void>('POST', '/Sessions/Playing', playbackBody(r));
     },
