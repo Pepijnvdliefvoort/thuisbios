@@ -299,7 +299,7 @@ GitHub Actions in `.github/workflows`:
   phone app, server scripts, Markdown, version files; a change to `ci.yml` runs everything). CI runs on pull
   requests into `develop` and `main` and on pushes to `develop`; runs on a PR are cancelled when a newer commit is pushed.
 - `release-please.yml`: on push to `main`, opens or updates the release PR, creates the `vX.Y.Z` tag and GitHub release, and then opens a PR from `main` back into `develop`; for a new release it also builds the Docker image and pushes it to GHCR (`vX.Y.Z` and `latest`).
-- `readme-screenshots.yml`: on push to `develop` (and manually), regenerates `docs/images` with `scripts/screenshots` and opens or updates a `docs/readme-screenshots` PR into `develop` when the images changed (skipped for its own merge).
+- `readme-screenshots.yml`: when a release PR from `develop` into `main` is opened (and manually), regenerates `docs/images` with `scripts/screenshots` and opens or updates a `docs/readme-screenshots` PR into `develop` when the images changed.
 
 Dependabot updates GitHub Actions and npm weekly, targeting `develop`.
 Docker: `ci.yml` builds the image and starts both apps when the `Dockerfile`, `.dockerignore`, `server/linux` or the release workflow changed (nothing is pushed); the `docker` job in `release-please.yml` pushes `vX.Y.Z` and `latest` to GHCR for every release.

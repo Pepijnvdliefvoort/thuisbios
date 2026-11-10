@@ -1,10 +1,12 @@
 name: README screenshots
 
-# Regenerates docs/images from the mock Jellyfin (scripts/screenshots) after changes land on develop
-# and opens (or updates) a PR when the images changed. The owner merges it like any other PR.
+# Regenerates docs/images from the mock Jellyfin (scripts/screenshots) when a release PR from develop
+# into main is opened (and on demand), and opens (or updates) a PR into develop when the images changed.
+# The owner merges it like any other PR; the release PR picks it up because its head is develop.
 on:
-  push:
-    branches: [develop]
+  pull_request:
+    types: [opened, reopened]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,8 +19,11 @@ concurrency:
 
 jobs:
   screenshots:
-    # The squash merge of the screenshot PR itself is a push to develop: do not run again for it.
-    if: "!startsWith(github.event.head_commit.message, 'docs: update README screenshots')"
+    # Manual runs, or release PRs whose head is develop in this same repo (not forks).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.ref == 'develop' &&
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     env:
       BRANCH: docs/readme-screenshots
@@ -65,4 +70,4 @@ jobs:
             --title "docs: update README screenshots" \
             --body "**Merge with: Squash and merge**
 
-          Regenerated automatically from the mock Jellyfin (\`scripts/screenshots\`) after changes landed on develop."
+          Regenerated automatically from the mock Jellyfin (\`scripts/screenshots\`) for the release PR into main. Merge this first (Squash and merge); the release PR then picks it up automatically because its head is develop."
