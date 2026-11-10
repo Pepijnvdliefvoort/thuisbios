@@ -89,6 +89,7 @@ scripts/screenshots/      mock Jellyfin server and Playwright script that genera
 packages/jellyfin-client/ planned: shared typed Jellyfin API client
 apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite), served to the TV browser
 apps/remote/              phone and desktop app (PWA), phase 4 (Preact + TypeScript + Vite)
+apps/remote/sw/           service worker generator (Vite plugin) that makes the app open offline
 apps/remote/relay/        Samsung TV volume relay and title requests (Node, runs inside the remote's vite server); apps/remote/scripts/tv-setup.mjs pairs the TV and jellyfin-setup.mjs saves the Jellyfin API key for title suggestions
 server/                   Jellyfin helper scripts (PowerShell) and Pester tests; device profile planned
 server/linux/             compose file and update timer (systemd) for the Linux home server
@@ -194,6 +195,8 @@ Before playing, the app times a small download from the server and asks for a st
 the connection (at most 20 Mbit/s), so playback also starts on a slow mobile link.
 
 The Account sheet has a temporary "Offline download test" page that saves 2 minutes of a video in browser storage and plays it back offline, to check what an iPhone keeps.
+
+The app keeps a copy of itself on the phone (a service worker), so it opens with Wi-Fi and mobile data off. When it starts offline it opens the test downloads, so you can play them; this needs the https address (a secure context) and one earlier visit online.
 
 The CC button opens an "Audio, quality and subtitles" menu. Items with two or more audio tracks get an Audio
 section: picking one asks the server for that track (a remux or transcode, because a browser cannot
