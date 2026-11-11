@@ -60,3 +60,17 @@ export function ConfirmButton({ label, icon, onConfirm }: { label: string; icon:
     </div>
   );
 }
+
+/** A row of an account sheet: icon, label and an optional count on the right. */
+export function MenuButton({ label, icon, count = 0, onClick }: { label: string; icon: IconName; count?: number; onClick: () => void }) {
+  return (
+    <button type="button" class="btn secondary menu-row" onClick={onClick}>
+      <Icon name={icon} size={20} /> {label}
+      {count > 0 ? (
+        <span class="badge" aria-label={`${count} open`}>
+          {count > 99 ? '99+' : count}
+        </span>
+      ) : null}
+    </button>
+  );
+}

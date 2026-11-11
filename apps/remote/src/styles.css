@@ -75,7 +75,8 @@ html.scroll-locked .scroller { overflow-y: hidden; }
   display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%;
   background: var(--surface-2); color: var(--fg); font-weight: 800;
 }
-.account-btn { width: 36px; height: 36px; font-size: 15px; }
+.account-btn { position: relative; width: 36px; height: 36px; font-size: 15px; }
+.account-btn .badge { top: -4px; left: auto; right: -4px; }
 .account-btn:active { transform: scale(0.95); }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: #5a5a66; flex: none; }
 .dot.on { background: var(--ok); }
@@ -556,6 +557,9 @@ input:focus { outline: none; border-color: var(--accent); }
   background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
 }
 .page-title { font-size: 20px; padding: 8px var(--gutter) 4px; }
+.menu-row .badge { position: static; margin-left: 4px; }
+/* The owner's Requests screen: the Back button floats over its top-left corner, so the title starts below it */
+.requests-screen { padding-top: calc(var(--ui-top) + 56px); }
 .request-more { text-align: center; padding: 8px var(--gutter); }
 .request-list { list-style: none; margin: 0; padding: 8px var(--gutter) 0; display: flex; flex-direction: column; gap: 10px; }
 .request-handled { margin-top: 16px; }
@@ -600,6 +604,17 @@ button.rs-row:active { background: var(--surface-2); }
 .rs-footer .error { padding-bottom: 6px; }
 .rs-cancel { align-self: center; min-height: 44px; padding: 0 20px; color: var(--muted); font-weight: 600; }
 .rs-done { display: flex; flex-direction: column; gap: 12px; padding-bottom: calc(var(--safe-bottom) + 16px); }
+
+/* Search: titles that are not in the library, each with a Request button */
+.suggest-section { padding-top: 8px; }
+.suggest-section h2 { padding: 8px var(--gutter) 0; font-size: 20px; }
+.suggest-section .search-count { color: var(--muted); font-size: 14px; font-weight: 600; margin-left: 6px; }
+.suggest-hint { padding: 8px var(--gutter); text-align: center; }
+.suggest-list { list-style: none; margin: 0; padding: 8px var(--gutter) 0; display: flex; flex-direction: column; gap: 8px; }
+.suggest-row { background: var(--surface); padding: 10px 12px; }
+.suggest-row .req-btn { display: inline-flex; align-items: center; gap: 4px; }
+.req-btn.requested { background: transparent; color: var(--muted); padding: 0 8px; opacity: 1; }
+.req-btn.requested .icon { color: var(--ok); }
 
 /* "Request it" links in Search */
 .request-link { min-height: 44px; padding: 0 16px; color: var(--muted); font-size: 14px; text-decoration: underline; }
@@ -658,7 +673,6 @@ button.rs-row:active { background: var(--surface-2); }
   .topbar-tabs button:hover { color: var(--fg); }
   .topbar-tabs button.active { color: #fff; }
   .topbar-tabs button.active::after { transform: scaleX(1); }
-  .topbar .badge { position: static; margin-left: 2px; }
   .topbar .header-actions { margin-left: auto; }
   .tv-btn-name { max-width: 240px; }
   .tv-btn { background: rgba(255, 255, 255, 0.1); transition: background-color 0.16s ease; }
@@ -979,6 +993,11 @@ button.rs-row:active { background: var(--surface-2); }
   .search-section h2 { display: flex; align-items: baseline; gap: 10px; padding: 0 var(--gutter); font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
   .search-count { color: var(--muted); font-size: 14px; font-weight: 600; letter-spacing: 0; }
   .search-section .grid { padding-top: 16px; }
+  .suggest-section { padding-top: 0; }
+  .suggest-section h2 { padding: 0 var(--gutter); }
+  .suggest-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 14px; padding-top: 16px; }
+  .suggest-row { padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--hairline); }
+  .suggest-row .req-poster { width: 56px; height: 84px; border-radius: 6px; background: rgba(255, 255, 255, 0.07); }
   .grid-thumb { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
   .recent { padding: 12px var(--gutter) 0; }
   .recent-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 12px; }
@@ -989,11 +1008,9 @@ button.rs-row:active { background: var(--surface-2); }
   .recent-chips .lib-chip { min-height: 36px; padding: 0 16px; border-radius: 18px; background: rgba(255, 255, 255, 0.08); font-size: 15px; transition: background-color 0.16s ease; }
   .recent-chips .lib-chip:hover { background: var(--glass); }
 
-  /* Requests: title with the request button, cards in a grid, tinted status badges */
+  /* Requests: cards in a grid, tinted status badges */
   .requests { max-width: 1600px; }
-  .page-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-right: var(--gutter); }
-  .page-head .page-title { padding-right: 0; }
-  .page-head .btn { flex: none; width: auto; height: 44px; min-height: 44px; margin-top: 14px; padding: 0 22px 0 16px; font-size: 15px; }
+  .requests-screen { padding-top: calc(var(--desk-top) + 64px); }
   .requests .request-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 18px; padding-top: 20px; }
   .requests .request-handled .request-list { padding-left: 0; padding-right: 0; }
   .request { gap: 16px; padding: 16px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--hairline); transition: background-color 0.16s ease; }
