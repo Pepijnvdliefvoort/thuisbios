@@ -1,17 +1,19 @@
 import { useState } from 'preact/hooks';
 import { useApp } from '../context';
 import { initialOf, serverHost } from '../accountMenu';
-import { Avatar, ConfirmButton, MenuSheet } from './MenuSheet';
+import { Avatar, ConfirmButton, MenuButton, MenuSheet } from './MenuSheet';
 
 /** Header avatar that opens the Account sheet: who is signed in, on which server, and Sign out. */
 export function AccountButton({ onSignOut }: { onSignOut: () => void }) {
-  const { session } = useApp();
+  const { session, requests, openRequests } = useApp();
+  const pending = requests.isAdmin ? requests.badge : 0;
   const [open, setOpen] = useState(false);
   const letter = initialOf(session.userName);
   return (
     <>
-      <button type="button" class="account-btn" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label="Account">
+      <button type="button" class="account-btn" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={pending > 0 ? `Account, ${pending} open requests` : 'Account'}>
         {letter}
+        {pending > 0 ? <span class="badge">{pending > 99 ? '99+' : pending}</span> : null}
       </button>
       {open ? (
         <MenuSheet label="Account" onClose={() => setOpen(false)}>
@@ -23,6 +25,17 @@ export function AccountButton({ onSignOut }: { onSignOut: () => void }) {
             </div>
           </div>
           <div class="sheet-divider" />
+          {requests.isAdmin ? (
+            <MenuButton
+              label="Requests"
+              icon="request"
+              count={requests.badge}
+              onClick={() => {
+                setOpen(false);
+                openRequests();
+              }}
+            />
+          ) : null}
           <ConfirmButton
             label="Sign out"
             icon="signout"

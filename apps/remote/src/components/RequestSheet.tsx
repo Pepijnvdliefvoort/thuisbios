@@ -106,7 +106,7 @@ export function RequestSheet({ initialTitle, onClose }: { initialTitle: string; 
         {sent !== null ? (
           <div class="rs-done">
             <h2>Request sent</h2>
-            <p class="hint small">"{sent}" is on the list. You can follow it under Requests.</p>
+            <p class="hint small">"{sent}" is on the list.</p>
             <button type="button" class="btn primary" onClick={onClose}>
               Done
             </button>

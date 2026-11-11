@@ -249,6 +249,10 @@ function Shell({
       remember();
       nav.push({ kind: 'connect' });
     },
+    openRequests: () => {
+      remember();
+      nav.push({ kind: 'requests' });
+    },
     openNowPlaying: () => {
       remember();
       nav.push({ kind: 'nowPlaying' });
@@ -298,7 +302,7 @@ function Shell({
   return (
     <Ctx.Provider value={ctx}>
       <div class="shell">
-        {desktop && !(top && top.kind === 'player') ? <TopBar tab={tab === 'downloads' ? 'home' : tab} onChange={nav.setTab} badge={requests.badge} onSignOut={signOut} /> : null}
+        {desktop && !(top && top.kind === 'player') ? <TopBar tab={tab === 'downloads' ? 'home' : tab} onChange={nav.setTab} onSignOut={signOut} /> : null}
         <div class={top && top.kind === 'nowPlaying' ? 'scroller fixed' : 'scroller'} id={SCROLLER_ID}>
           <div hidden={open}>
             {desktop ? null : (
@@ -316,9 +320,6 @@ function Shell({
             <main hidden={tab !== 'library'}>
               <Library />
             </main>
-            <main hidden={tab !== 'requests'}>
-              <Requests active={tab === 'requests'} />
-            </main>
             {tab === 'downloads' ? (
               <main>
                 <Downloads />
@@ -327,6 +328,7 @@ function Shell({
           </div>
           {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
           {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
+          {top && top.kind === 'requests' ? <Requests key={`${nav.stack.length}:requests`} onBack={nav.back} /> : null}
           {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
           {top && top.kind === 'player' ? (
             <Player
@@ -351,7 +353,6 @@ function Shell({
             {top && (top.kind === 'connect' || top.kind === 'player') ? null : <TabBar
                 tab={tab}
                 onChange={nav.setTab}
-                badge={requests.badge}
                 downloads={downloads.supported ? { active: activeCount(downloads.entries) } : undefined}
                 offline={offline}
               />}

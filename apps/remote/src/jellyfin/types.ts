@@ -59,6 +59,8 @@ export interface BaseItem {
   ParentThumbImageTag?: string;
   SeriesPrimaryImageTag?: string;
   UserData?: UserData;
+  /** Only present when requested with Fields=ProviderIds (Tmdb, Imdb, ...). */
+  ProviderIds?: Record<string, string>;
   /** Only present when requested with Fields=MediaSources. */
   MediaSources?: MediaSource[];
 }

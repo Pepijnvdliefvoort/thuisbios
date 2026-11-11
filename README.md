@@ -214,7 +214,7 @@ The app also works in a desktop browser (a wide window with a mouse). The tabs m
 (see-through at the top of a page, solid once it scrolls), Home opens with a full-width spotlight of recently added
 titles, the details page is a full-width backdrop with the title and buttons on it (the spotlight and details fall back to a blurred copy of the poster
 when there is no backdrop or it fails to load), rows run edge to edge with side arrow panels, grey skeleton placeholders show while content loads, Search groups
-results into Movies, Shows and Episodes and remembers recent searches, Requests are cards in a grid with a coloured status
+results into Movies, Shows and Episodes and remembers recent searches and shows titles to request in a grid, the owner's requests are cards in a grid with a coloured status
 badge, the sign-in page is a card over a slowly drifting wall of abstract poster tiles, and Play and Resume use the app's own player on that computer even when a TV is
 connected ("Play on TV" sits next to them). The player has a full-width scrub bar (hover shows the time above it) over one row of controls (play, -10 s/+10 s, previous and next episode for episodes, volume with a slider that opens on hover, time, a cogwheel button for the quality menu with Auto or a fixed resolution such as 1080p or 720p, the CC button for the audio and subtitles menu, fullscreen), a Skip intro pill above the bar, and these keys:
 Space or K play/pause, Left/Right or J/L -10 s/+10 s, Up/Down volume, M mute, F fullscreen,
@@ -249,14 +249,16 @@ TV plays, with the current ones checked (the TV reports them in its progress). T
 Jellyfin's standard `SetAudioStreamIndex` or `SetSubtitleStreamIndex` command to the TV. The TV switches
 text subtitles at once and restarts the stream at the same position for another audio track.
 
-The same relay serves title requests under `/api/requests`: when a search finds nothing, anyone signed
-in can request a movie or show (just a title; picking a suggestion adds year, type and poster), and the Requests tab shows their
-own requests with a status (Waiting, Added, Not added), where open ones can be withdrawn. The owner
+The same relay serves title requests under `/api/requests`. When a search term is typed, the app also asks the
+relay for matching titles and lists the ones the library does not have under "Not in the library", each with a
+poster, year and a Request button (it turns into a disabled "Requested" once sent, and stays so for titles with an
+open request). Without a lookup, or when it finds nothing, "Request it by title" opens a form to type the title.
+Anyone signed in can request; the title, and for a picked match its year, type and poster, is stored. The owner
 (a Jellyfin administrator, checked by the relay through `GET /Users/Me`, never taken from the client)
-sees all requests in that tab, marks them Added or Dismiss, and gets a badge with the open count on
-the tab. Requests are stored in `~/.thuisbios/requests.json`, outside the repo; nothing is downloaded
-automatically. While typing a title, the form suggests matches with a poster and year; the relay gets
-them from Jellyfin's built-in metadata search (`GET /api/requests/lookup`) using a Jellyfin API key that
+finds all requests under Requests in the account menu (the avatar at the top right), marks them Added or
+Dismiss, and gets a badge with the open count on the avatar. Requests are stored in `~/.thuisbios/requests.json`,
+outside the repo; nothing is downloaded automatically. The relay gets the matches from Jellyfin's built-in
+metadata search (`GET /api/requests/lookup`) using a Jellyfin API key that
 `npm run jellyfin:setup -w apps/remote` saves in `~/.thuisbios/jellyfin.json`. Without the key, requests
 still work as plain text.
 
@@ -314,7 +316,7 @@ Docker: `ci.yml` builds the image and starts both apps when the `Dockerfile`, `.
 | 1. Server | Jellyfin on the Windows PC with a test library | done |
 | 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
 | 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done; later reshaped: the TV only connects and shows a screensaver, browsing moved to the phone |
-| 4. Phone app MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | done: browse, search, play on TV or on the phone, transport controls, volume slider (relay in the app's server), title requests; volume and title suggestions not yet verified on the real TV/phone |
+| 4. Phone app MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | done: browse, search, play on TV or on the phone, transport controls, volume slider (relay in the app's server), title requests from Search; volume and title suggestions not yet verified on the real TV/phone |
 | 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve and start with Windows and automatic updates from releases (autostart and update scripts, not yet run on the real PC) done; Linux home server with Docker and automatic updates from GHCR (not yet run on the real server) done; skip intro (needs the Intro Skipper plugin, on the TV and the phone; not yet verified on the real TV) done; next episode autoplay (card with countdown, on the TV and the phone; not yet verified on the real TV) done; the rest planned |
 
 ## License
