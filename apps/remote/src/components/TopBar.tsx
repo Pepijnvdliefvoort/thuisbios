@@ -46,10 +46,10 @@ function useScrollbarInset(): void {
 }
 
 /**
- * Desktop navigation: brand, the four tabs and the TV and account buttons in one bar floating over the page. It is
- * see-through over the top of a page and gets a solid background once the page scrolls. `badge` as in TabBar.
+ * Desktop navigation: brand, the three tabs and the TV and account buttons in one bar floating over the page. It is
+ * see-through over the top of a page and gets a solid background once the page scrolls.
  */
-export function TopBar({ tab, onChange, badge = 0, onSignOut }: { tab: Tab; onChange: (tab: Tab) => void; badge?: number; onSignOut: () => void }) {
+export function TopBar({ tab, onChange, onSignOut }: { tab: Tab; onChange: (tab: Tab) => void; onSignOut: () => void }) {
   const scrolled = useScrolled(tab);
   useScrollbarInset();
   return (
@@ -66,7 +66,6 @@ export function TopBar({ tab, onChange, badge = 0, onSignOut }: { tab: Tab; onCh
           >
             <Icon name={t.icon} size={20} />
             <span>{t.label}</span>
-            {t.id === 'requests' && badge > 0 ? <span class="badge" aria-label={`${badge} open`}>{badge > 99 ? '99+' : badge}</span> : null}
           </button>
         ))}
       </nav>

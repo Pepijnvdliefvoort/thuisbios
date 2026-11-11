@@ -196,7 +196,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
     },
     search: (userId, term, limit) =>
       items(
-        `${user(userId)}/Items?searchTerm=${enc(term)}&IncludeItemTypes=Movie,Series,Episode&Recursive=true&Limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+        `${user(userId)}/Items?searchTerm=${enc(term)}&IncludeItemTypes=Movie,Series,Episode&Recursive=true&Limit=${limit}&Fields=${LIST_FIELDS},ProviderIds&${IMAGE_QUERY}`,
       ),
     item: (userId, itemId) =>
       req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=${DETAIL_FIELDS}`),

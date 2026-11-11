@@ -11,7 +11,7 @@ export interface AppContext {
   client: JellyfinClient;
   session: Session;
   tv: TvApi;
-  /** Title requests ("Request a movie or show") and the admin's open count. */
+  /** Title requests (sent from Search) and the admin's open count. */
   requests: RequestsState;
   /** Offline downloads: the queue, live progress and the actions. Phone only in the UI. */
   downloads: DownloadsApi;
@@ -27,6 +27,8 @@ export interface AppContext {
   playHere(item: BaseItem, startTicks: number): void;
   /** Opens the Connect TV screen (enter the Quick Connect code shown on the TV). */
   openConnectTv(): void;
+  /** Opens the owner's list of requests (account menu). */
+  openRequests(): void;
   /** Plays a finished download in the normal player, resuming from the newest saved position. Works offline. */
   playDownload(id: string): Promise<void>;
   /** Sends watch progress made offline to Jellyfin (queued by the player), now if the device is online. */
