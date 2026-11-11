@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.19.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.18.0...v0.19.0) (2026-11-11)
+
+
+### Features
+
+* **remote:** request titles straight from search results ([#175](https://github.com/Pepijnvdliefvoort/thuisbios/issues/175)) ([c4e0d10](https://github.com/Pepijnvdliefvoort/thuisbios/commit/c4e0d10d3ba58c45cbd28c0cc07d36bffd272d15))
+
+
+### Documentation
+
+* update README screenshots ([#177](https://github.com/Pepijnvdliefvoort/thuisbios/issues/177)) ([d232ccd](https://github.com/Pepijnvdliefvoort/thuisbios/commit/d232ccd22bbb49ac91f1faf9c79f4645c361d992))
+
 ## [0.18.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.17.0...v0.18.0) (2026-11-10)
 
 
