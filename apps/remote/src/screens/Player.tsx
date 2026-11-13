@@ -88,7 +88,8 @@ interface Loaded {
  * current position. The old play session reports Stopped and the new one Started, as for any new stream.
  *
  * Subtitles: text tracks are drawn by us (WebVTT) and never need a new stream. PlaybackInfo always asks for
- * SubtitleStreamIndex=-1, or else Jellyfin burns in the item's default track. An image track (PGS, dvdsub) can only be
+ * SubtitleStreamIndex=-1, or else Jellyfin burns in the item's default track (it only honours the audio and
+ * subtitle index together with MediaSourceId, which the client always sends). An image track (PGS, dvdsub) can only be
  * burned in: choosing one restarts the stream like an audio switch, and so does leaving it for a text track or Off.
  * PlaybackInfo also always sends AllowVideoStreamCopy=false: when only the audio needs transcoding Jellyfin would
  * otherwise remux the video into HLS, and those keyframe-cut segments do not line up with the playlist times, so
@@ -105,8 +106,9 @@ interface Loaded {
  * fullscreen or lock the orientation, so when the viewport is portrait the whole stage is turned 90° with CSS
  * (only on a touch device: a narrow desktop window never rotates).
  *
- * With a mouse (`mouse`): moving the pointer shows the controls, a click plays / pauses, a double click toggles
- * fullscreen, the bottom bar gets volume and fullscreen buttons, and the keys in playerKeys.ts work.
+ * With a mouse (`mouse`): moving the pointer shows the controls (they hide 3 s later, or at once when the pointer
+ * leaves the window), a click plays / pauses, a double click toggles fullscreen, the bottom bar
+ * gets volume and fullscreen buttons, and the keys in playerKeys.ts work.
  */
 export function Player({
   item,
@@ -855,6 +857,12 @@ export function Player({
       interact();
     }
   };
+  // The pointer leaving the player (or the browser window, the stage fills it) hides the controls at once instead
+  // of after HIDE_MS, unless something keeps them up (paused, a menu or the scrub bar, still loading).
+  const onMouseLeave = () => {
+    lastMove.current = 0;
+    if (!keepUp) setShown(false);
+  };
   // A phone tap shows or hides the controls. With a mouse a click plays / pauses and a double click toggles fullscreen.
   const toggleControls = () => {
     if (shown && !busy) setShown(false);
@@ -936,6 +944,7 @@ export function Player({
         <div
           class={'player-stage' + (rotated ? ' rotated' : '') + (mouse ? (controlsUp ? ' up' : ' idle') : '')}
           onMouseMove={mouse ? onMouseMove : undefined}
+          onMouseLeave={mouse ? onMouseLeave : undefined}
         >
           <video
             ref={video}
