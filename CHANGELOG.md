@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.19.0...v0.19.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* **remote:** hide desktop player controls when the mouse leaves ([#180](https://github.com/Pepijnvdliefvoort/thuisbios/issues/180)) ([ca78919](https://github.com/Pepijnvdliefvoort/thuisbios/commit/ca7891908b953eaac48441963b0596ad51d05a63))
+* **remote:** send the media source id so the subtitle choice is honoured ([#181](https://github.com/Pepijnvdliefvoort/thuisbios/issues/181)) ([fa8f1d5](https://github.com/Pepijnvdliefvoort/thuisbios/commit/fa8f1d53d7a722601b1ecaeb1a24cbe1f3faf360))
+
 ## [0.19.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.18.0...v0.19.0) (2026-11-11)
 
 
