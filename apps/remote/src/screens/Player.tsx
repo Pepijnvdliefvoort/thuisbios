@@ -88,7 +88,8 @@ interface Loaded {
  * current position. The old play session reports Stopped and the new one Started, as for any new stream.
  *
  * Subtitles: text tracks are drawn by us (WebVTT) and never need a new stream. PlaybackInfo always asks for
- * SubtitleStreamIndex=-1, or else Jellyfin burns in the item's default track. An image track (PGS, dvdsub) can only be
+ * SubtitleStreamIndex=-1, or else Jellyfin burns in the item's default track (it only honours the audio and
+ * subtitle index together with MediaSourceId, which the client always sends). An image track (PGS, dvdsub) can only be
  * burned in: choosing one restarts the stream like an audio switch, and so does leaving it for a text track or Off.
  * PlaybackInfo also always sends AllowVideoStreamCopy=false: when only the audio needs transcoding Jellyfin would
  * otherwise remux the video into HLS, and those keyframe-cut segments do not line up with the playlist times, so

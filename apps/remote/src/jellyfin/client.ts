@@ -41,6 +41,11 @@ const enc = encodeURIComponent;
 
 /** Optional extras for {@link JellyfinClient.playbackInfo}. */
 export interface PlaybackOptions {
+  /**
+   * Jellyfin only honours the audio and subtitle stream index together with the media source Id.
+   * Left out: the item id, which is the media source Id of a single-version item.
+   */
+  mediaSourceId?: string;
   /** Start the transcode at this position (ticks). */
   startTicks?: number;
   /** Play this audio stream (Jellyfin stream index) instead of the default one. */
@@ -248,12 +253,14 @@ export function createClient(options: ClientOptions): JellyfinClient {
     },
     playbackInfo: (userId, itemId, profile, options = {}) => {
       const { startTicks, audioStreamIndex } = options;
+      const mediaSourceId = options.mediaSourceId || itemId;
       // -1 stops the server from burning in the item's default subtitle track (our own overlay draws text subtitles).
       const subtitleStreamIndex = options.subtitleStreamIndex === undefined ? -1 : options.subtitleStreamIndex;
       const directPlay = options.directPlay !== false;
       const directStream = options.directStream !== false;
       const query = [
         `UserId=${enc(userId)}`,
+        `MediaSourceId=${enc(mediaSourceId)}`,
         `MaxStreamingBitrate=${profile.MaxStreamingBitrate}`,
         `EnableDirectPlay=${directPlay}`,
         `EnableDirectStream=${directStream}`,
@@ -266,6 +273,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
       ].join('&');
       return req<PlaybackInfoResponse>('POST', `/Items/${enc(itemId)}/PlaybackInfo?${query}`, {
         UserId: userId,
+        MediaSourceId: mediaSourceId,
         MaxStreamingBitrate: profile.MaxStreamingBitrate,
         EnableDirectPlay: directPlay,
         EnableDirectStream: directStream,
