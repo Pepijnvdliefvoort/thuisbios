@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.19.1...v0.20.0) (2026-11-17)
+
+
+### Features
+
+* **remote:** withdraw search requests and make the brand go Home ([9a2cca3](https://github.com/Pepijnvdliefvoort/thuisbios/commit/9a2cca3869ab660f7b147a56641b1c6a2f05c87e))
+* **remote:** withdraw search requests and make the brand go Home ([8578ac4](https://github.com/Pepijnvdliefvoort/thuisbios/commit/8578ac42a049ce440d338a2a0a585af86008b0f2))
+
 ## [0.19.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.19.0...v0.19.1) (2026-11-13)
 
 
