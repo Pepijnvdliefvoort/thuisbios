@@ -1236,3 +1236,126 @@ button.rs-row:active { background: var(--surface-2); }
   .dl-icon { width: 38px; height: 38px; }
   .dl-row { gap: 6px; padding: 6px; }
 }
+
+/* ==========================================================================
+   iOS glass look. Only with <html class="ios-glass"> (iPhone, iPod and iPad in Safari or as a Home Screen app,
+   set in iosGlass.ts), so Android and desktop browsers never match and keep the plain look above.
+   The whole block sits outside the desktop layout (the complement of DESKTOP_QUERY in useDesktop.ts): an iPad with a
+   trackpad in a wide window keeps the desktop look.
+   Rules:
+   - The header and the status-bar scrim (.shell::before) are NOT touched: iOS standalone blurs the top edge unless the
+     full-width box up there is one solid opaque colour. Only controls below --ui-top get glass.
+   - backdrop-filter makes its element the containing block of position:fixed descendants, so it goes only on elements
+     with no fixed child (bars, pills, sheets; the TV and Account sheets are siblings of their buttons, never children).
+   - The bottom bars float over the page; the page scrolls behind them (padding from --bottom-h, see useBottomInset.ts).
+   - prefers-reduced-transparency swaps every blur and translucent fill for a solid colour.
+   ========================================================================== */
+@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  html.ios-glass {
+    --glass-fill: rgba(40, 40, 52, 0.5);        /* bars, pills, buttons */
+    --glass-fill-dense: rgba(30, 30, 42, 0.78); /* sheets and menus: text must stay readable */
+    --glass-row: rgba(255, 255, 255, 0.1);      /* rows and secondary buttons inside a glass sheet */
+    --glass-active: rgba(255, 255, 255, 0.16);  /* the selected tab */
+    --glass-filter: blur(20px) saturate(180%);
+    --glass-filter-sheet: blur(28px) saturate(180%);
+    --glass-edge: 1px solid rgba(255, 255, 255, 0.14);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    --glass-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+    --glass-muted: #b6b6c4;
+    --float-inset: 16px;
+  }
+
+  /* Bottom bars: float over the page instead of taking space under it */
+  html.ios-glass .bottom {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 10; background: transparent; padding-bottom: 0; pointer-events: none;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  html.ios-glass .bottom:not(:empty) { padding-bottom: max(10px, calc(var(--safe-bottom) - 12px)); }
+  html.ios-glass .bottom > * { pointer-events: auto; }
+  html.ios-glass .scroller { padding-bottom: calc(var(--bottom-h, 120px) + 16px); }
+
+  html.ios-glass .tabbar,
+  html.ios-glass .mini {
+    margin: 0 calc(var(--float-inset) + var(--safe-right)) 0 calc(var(--float-inset) + var(--safe-left));
+    background: var(--glass-fill); border: var(--glass-edge);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
+  }
+  html.ios-glass .tabbar { height: 62px; padding: 4px; border-radius: 999px; gap: 2px; }
+  html.ios-glass .tabbar button { position: relative; isolation: isolate; color: var(--glass-muted); gap: 2px; }
+  html.ios-glass .tabbar button.active { color: var(--fg); }
+  html.ios-glass .tabbar button.active::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; border-radius: 999px;
+    background: var(--glass-active); box-shadow: var(--glass-highlight);
+  }
+  html.ios-glass .tabbar button:active:not(:disabled) { transform: scale(0.96); }
+
+  html.ios-glass .mini { height: var(--mini-h); border-radius: 32px; }
+  html.ios-glass .mini-open { padding-left: 10px; }
+  html.ios-glass .mini-art { width: 32px; height: 48px; border-radius: 6px; }
+  html.ios-glass .mini-sub { color: var(--glass-muted); }
+  html.ios-glass .mini-play { width: 60px; }
+  html.ios-glass .mini-progress { left: 24px; right: 24px; bottom: 5px; height: 3px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, 0.2); }
+
+  /* Header controls (below the status bar; the header itself stays solid) */
+  html.ios-glass .tv-btn:not(.is-connect),
+  html.ios-glass .account-btn {
+    background: var(--glass-fill); border: var(--glass-edge); box-shadow: var(--glass-highlight);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  }
+
+  /* Details: back button */
+  html.ios-glass .back {
+    background: var(--glass-fill); border: var(--glass-edge); box-shadow: var(--glass-highlight), var(--glass-shadow);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  }
+
+  /* Toast: light text on glass */
+  html.ios-glass .toast {
+    background: var(--glass-fill-dense); color: var(--fg); border: var(--glass-edge);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  }
+
+  /* Sheets: floating glass cards, inset from the screen edges. The dim behind them is unchanged. */
+  html.ios-glass .sheet-backdrop {
+    padding: 0 calc(8px + var(--safe-right)) max(8px, calc(var(--safe-bottom) - 10px)) calc(8px + var(--safe-left));
+  }
+  html.ios-glass .sheet {
+    background: var(--glass-fill-dense); border: var(--glass-edge); border-radius: 28px;
+    padding: 22px 18px 18px; gap: 12px;
+    -webkit-backdrop-filter: var(--glass-filter-sheet); backdrop-filter: var(--glass-filter-sheet);
+    box-shadow: var(--glass-highlight), 0 16px 48px rgba(0, 0, 0, 0.45);
+  }
+  html.ios-glass .request-sheet { padding-bottom: 0; }
+  html.ios-glass .sheet .tv-item { background: var(--glass-row); border-radius: 16px; }
+  html.ios-glass .sheet .tv-item.selected { border-color: var(--accent); }
+  html.ios-glass .sheet .btn { border-radius: 16px; }
+  html.ios-glass .sheet .btn.secondary,
+  html.ios-glass .sheet .btn.danger:not(.solid),
+  html.ios-glass .sheet .vol-step { background: var(--glass-row); }
+  html.ios-glass .sheet .vol-step { border-radius: 16px; }
+  html.ios-glass .sheet-divider { background: rgba(255, 255, 255, 0.12); }
+  html.ios-glass .sheet .avatar { background: var(--glass-active); }
+
+  /* Player overlays */
+  html.ios-glass .pc-panel,
+  html.ios-glass .next-card.overlay {
+    background: var(--glass-fill-dense); border: var(--glass-edge);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
+  }
+  html.ios-glass .pc-panel { border-radius: 20px; }
+
+  @media (prefers-reduced-transparency: reduce) {
+    html.ios-glass {
+      --glass-fill: rgb(36, 36, 48);
+      --glass-fill-dense: rgb(30, 30, 40);
+      --glass-row: rgb(52, 52, 66);
+      --glass-active: rgb(66, 66, 82);
+      --glass-filter: none;
+      --glass-filter-sheet: none;
+      --glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+  }
+}
