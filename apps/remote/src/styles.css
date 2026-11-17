@@ -57,7 +57,7 @@ html.scroll-locked .scroller { overflow-y: hidden; }
   padding: var(--ui-top) var(--gutter) 4px;
   background: var(--bg);
 }
-.brand { flex: none; font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
+.brand { flex: none; text-align: left; line-height: inherit; font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
 /* Header controls: TV button (pill) and account avatar */
 .header-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .tv-btn {
@@ -615,6 +615,7 @@ button.rs-row:active { background: var(--surface-2); }
 .suggest-row .req-btn { display: inline-flex; align-items: center; gap: 4px; }
 .req-btn.requested { background: transparent; color: var(--muted); padding: 0 8px; opacity: 1; }
 .req-btn.requested .icon { color: var(--ok); }
+.req-label-hover { display: none; }
 
 /* "Request it" links in Search */
 .request-link { min-height: 44px; padding: 0 16px; color: var(--muted); font-size: 14px; text-decoration: underline; }
@@ -727,6 +728,8 @@ button.rs-row:active { background: var(--surface-2); }
   .segmented button:hover:not(.active) { color: var(--fg); }
   .req-btn:hover:not(:disabled) { background: #2f2f3d; }
   .req-btn.primary:hover:not(:disabled) { background: #fff; }
+  .req-btn.requested:hover:not(:disabled) .req-label-on { display: none; }
+  .req-btn.requested:hover:not(:disabled) .req-label-hover { display: inline; }
   .tv-item:hover { background: #2a2a37; }
   .request-link:hover, .rs-link:hover, .rs-change:hover, .rs-cancel:hover { color: var(--fg); }
   .rating-badge { display: inline-block; padding: 0 6px; border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 4px; font-size: 0.85em; line-height: 1.45; color: inherit; }

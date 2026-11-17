@@ -24,7 +24,7 @@ import { SignIn } from './screens/SignIn';
 import { enterLandscapeFullscreen } from './fullscreen';
 import { parseConnectParam } from './jellyfin/quickConnect';
 import { clearSession, getDeviceId, loadAudioLang, loadPendingConnect, loadProgressQueue, loadSession, saveProgressQueue, saveSession, savePendingConnect } from './storage';
-import { SCROLLER_ID, scrollOffset, scrollToOffset } from './scroller';
+import { SCROLLER_ID, getScroller, scrollOffset, scrollToOffset } from './scroller';
 import { DownloadEngine } from './offline/downloadEngine';
 import { itemJsonKey } from './offline/downloadKeys';
 import { preferLocal } from './offline/localPlayback';
@@ -294,6 +294,16 @@ function Shell({
     ...(preferLocal(downloads.entries, item.Id) ? { local: true } : {}),
   });
 
+  /** The brand: to Home, or back to the top when already there. */
+  const goHome = () => {
+    if (tab === 'home' && !open) {
+      const el = getScroller();
+      if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      nav.setTab('home');
+    }
+  };
+
   const signOut = () => {
     void client.logout().catch(() => undefined);
     onSignOut();
@@ -302,12 +312,14 @@ function Shell({
   return (
     <Ctx.Provider value={ctx}>
       <div class="shell">
-        {desktop && !(top && top.kind === 'player') ? <TopBar tab={tab === 'downloads' ? 'home' : tab} onChange={nav.setTab} onSignOut={signOut} /> : null}
+        {desktop && !(top && top.kind === 'player') ? <TopBar tab={tab === 'downloads' ? 'home' : tab} onChange={nav.setTab} onHome={goHome} onSignOut={signOut} /> : null}
         <div class={top && top.kind === 'nowPlaying' ? 'scroller fixed' : 'scroller'} id={SCROLLER_ID}>
           <div hidden={open}>
             {desktop ? null : (
               <header class="header">
-                <span class="brand">Thuisbios</span>
+                <button type="button" class="brand" aria-label="Thuisbios, go to Home" onClick={goHome}>
+                  Thuisbios
+                </button>
                 <HeaderActions onSignOut={signOut} />
               </header>
             )}
