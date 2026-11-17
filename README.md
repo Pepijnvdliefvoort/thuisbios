@@ -72,7 +72,7 @@ Regenerate them with `node scripts/screenshots/capture.mjs`, see [scripts/screen
       └──── same-origin relay in the app's server (Docker, same machine) ──▶ Samsung TV remote API (volume) ┘
 ```
 
-Jellyfin and the Thuisbios app (TV page and phone app) run on a Linux home server with Docker.
+Jellyfin runs natively on a Linux home server; the Thuisbios app runs next to it in Docker.
 
 Jellyfin handles users, library, metadata, progress, search, image resizing, transcoding and the
 sessions (remote control) API. The phone sends commands to the TV session through Jellyfin.
@@ -100,8 +100,8 @@ Dockerfile                one image with the TV page and phone app, for the Linu
 
 ## Server (phase 1)
 
-Jellyfin and the Thuisbios app (TV page and phone app, one Docker image) run on a Linux home server
-with Docker compose. Jellyfin uses VAAPI hardware transcoding on the AMD integrated GPU. Every release builds
+Jellyfin runs natively on a Linux home server, and the Thuisbios app (TV page and phone app, one Docker image)
+runs next to it with Docker compose. Jellyfin uses VAAPI hardware transcoding on the AMD integrated GPU. Every release builds
 and pushes the image (`ghcr.io/pepijnvdliefvoort/thuisbios`), and a systemd timer on the server pulls it
 every 15 minutes, so the server follows the releases without building anything itself. Follow
 [docs/server/linux-docker.md](docs/server/linux-docker.md); the compose file and the timer are in `server/linux`.
