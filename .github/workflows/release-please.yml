@@ -14,31 +14,57 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+    # RELEASE_TOKEN is an optional fine-grained PAT of the owner. Secrets cannot be tested in `if:`,
+    # so it is exposed as a flag. Without it everything below behaves as before (manual merges).
+    env:
+      HAS_RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN != '' }}
     steps:
+      # A PR opened with GITHUB_TOKEN does not trigger other workflows (no CI on the release PR),
+      # so the owner's token is used when it exists.
       - id: release
         uses: googleapis/release-please-action@v5
         with:
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           target-branch: main
 
+      # Squash merge the release PR once its checks pass. The merge must be made with RELEASE_TOKEN:
+      # a merge by GITHUB_TOKEN would not trigger this workflow again on main, so no tag or release.
+      - name: Auto-merge release PR (squash)
+        if: ${{ env.HAS_RELEASE_TOKEN == 'true' && steps.release.outputs.pr != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ fromJSON(steps.release.outputs.pr).number }}
+        run: |
+          # --auto fails with a "clean status" error when the PR can be merged right away.
+          gh pr merge "$PR" --auto --squash || gh pr merge "$PR" --squash
+
       # Releases created with GITHUB_TOKEN do not trigger other workflows, so the
       # back-merge runs here instead of on `release: published`.
+      # With RELEASE_TOKEN the PR gets CI, and it merges itself with a merge commit (never squash,
+      # never --delete-branch: the head branch is main).
       - name: Open PR from main into develop
         if: ${{ steps.release.outputs.release_created }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.release.outputs.tag_name }}
         run: |
-          existing=$(gh pr list --base develop --head main --state open --json number --jq 'length')
-          if [ "$existing" -gt 0 ]; then
-            echo "PR from main to develop already exists; skipping."
-            exit 0
+          pr=$(gh pr list --base develop --head main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            echo "PR #$pr from main to develop already exists."
+          else
+            url=$(gh pr create --base develop --head main \
+              --title "chore: sync main into develop after $TAG" \
+              --body "Automated back-merge of release $TAG from main into develop. Merge with a merge commit.")
+            pr=${url##*/}
           fi
-          gh pr create --base develop --head main \
-            --title "chore: sync main into develop after $TAG" \
-            --body "Automated back-merge of release $TAG from main into develop. Merge with a merge commit."
+          if [ "$HAS_RELEASE_TOKEN" = "true" ]; then
+            # --auto fails with a "clean status" error when the PR can be merged right away.
+            gh pr merge "$pr" --auto --merge || gh pr merge "$pr" --merge
+          fi
 
   # Builds the Docker image for the Linux home server (docs/server/linux-docker.md) and pushes it
   # to GHCR as vX.Y.Z and latest. The server pulls `latest` every 15 minutes.
