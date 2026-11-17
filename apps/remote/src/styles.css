@@ -615,6 +615,9 @@ button.rs-row:active { background: var(--surface-2); }
 .suggest-row .req-btn { display: inline-flex; align-items: center; gap: 4px; }
 .req-btn.requested { background: transparent; color: var(--muted); padding: 0 8px; opacity: 1; }
 .req-btn.requested .icon { color: var(--ok); }
+.req-btn.requested.withdrawable { background: var(--surface-2); color: var(--fg); padding: 0 16px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); }
+.req-btn.requested.withdrawable .req-x { display: inline-flex; margin-left: 2px; }
+.req-btn.requested.withdrawable .req-x .icon { color: var(--muted); }
 .req-label-hover { display: none; }
 
 /* "Request it" links in Search */
@@ -730,6 +733,8 @@ button.rs-row:active { background: var(--surface-2); }
   .req-btn.primary:hover:not(:disabled) { background: #fff; }
   .req-btn.requested:hover:not(:disabled) .req-label-on { display: none; }
   .req-btn.requested:hover:not(:disabled) .req-label-hover { display: inline; }
+  .req-btn.requested.withdrawable:hover:not(:disabled) { color: #ff6b6b; }
+  .req-btn.requested.withdrawable:hover:not(:disabled) .req-x { display: none; }
   .tv-item:hover { background: #2a2a37; }
   .request-link:hover, .rs-link:hover, .rs-change:hover, .rs-cancel:hover { color: var(--fg); }
   .rating-badge { display: inline-block; padding: 0 6px; border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 4px; font-size: 0.85em; line-height: 1.45; color: inherit; }
@@ -1029,6 +1034,8 @@ button.rs-row:active { background: var(--surface-2); }
   .request-actions { margin-top: auto; padding-top: 12px; gap: 8px; }
   .req-btn { min-height: 32px; padding: 0 14px; border-radius: 8px; font-size: 13px; background: rgba(255, 255, 255, 0.1); transition: background-color 0.16s ease; }
   .req-btn:hover:not(:disabled) { background: var(--glass-hover); }
+  .req-btn.requested.withdrawable { padding: 0 14px; background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); }
+  .req-btn.requested.withdrawable:hover:not(:disabled) { background: var(--glass-hover); }
   .request-skel { min-height: 148px; pointer-events: none; }
   .request-skel:hover { background: rgba(255, 255, 255, 0.05); }
   .skel-req-poster { flex: none; width: 76px; height: 114px; border-radius: 8px; }
