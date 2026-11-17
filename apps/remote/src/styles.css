@@ -1367,3 +1367,46 @@ button.rs-row:active { background: var(--surface-2); }
     }
   }
 }
+
+/* Cast & crew (Details) and the Person screen */
+.cast { padding: 20px 0 0; }
+.cast h2 { font-size: 18px; padding: 0 var(--gutter); margin-bottom: 10px; }
+.cast-scroll { gap: 12px; }
+.cast-card { flex: none; width: 92px; display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; touch-action: pan-x pan-y; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.cast-card:active .person-photo { transform: scale(0.96); }
+.cast-name, .cast-role { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cast-name { margin-top: 8px; font-size: 13px; font-weight: 600; }
+.cast-role { font-size: 12px; color: var(--muted); }
+.person-photo { position: relative; display: flex; align-items: center; justify-content: center; flex: none; border-radius: 50%; overflow: hidden; background: var(--surface-2); color: var(--muted); font-weight: 700; letter-spacing: 0.02em; transition: transform 0.15s ease; }
+.person-initials { position: relative; }
+.person-photo .person-img { position: absolute; inset: 0; border-radius: 50%; }
+.crew { padding: 12px var(--gutter) 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.crew-label { color: var(--fg); font-weight: 600; }
+.crew-link { display: inline; padding: 0; color: var(--muted); text-decoration: underline; text-decoration-color: rgba(255, 255, 255, 0.25); text-underline-offset: 3px; }
+.crew-link:active { color: var(--fg); }
+.person-screen { padding-top: calc(var(--ui-top) + 56px); }
+.person-head { display: flex; align-items: center; gap: 16px; padding: 8px var(--gutter) 0; }
+.person-text { min-width: 0; }
+.person-text h1 { font-size: 22px; line-height: 1.2; overflow-wrap: anywhere; }
+.person-born { margin-top: 4px; color: var(--muted); font-size: 14px; }
+.person-bio { padding: 14px var(--gutter) 0; color: #d6d6de; font-size: 15px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 8; line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; }
+.person-titles-head { font-size: 18px; padding: 22px var(--gutter) 0; }
+
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .cast h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 6px; }
+  .cast-scroll { gap: 20px; padding: 12px var(--gutter); margin: 0; }
+  .cast-card { width: 124px; }
+  .cast-name { margin-top: 10px; font-size: 14px; }
+  .cast-role { font-size: 13px; }
+  .cast-card:hover .person-photo { transform: scale(1.05); }
+  .cast-wrap .row-arrow { top: 12px; height: 150px; }
+  .crew { padding: 8px var(--gutter) 0; font-size: 15px; }
+  .crew-link { transition: color 0.16s ease; }
+  .crew-link:hover { color: var(--fg); }
+  .person-screen { max-width: 1600px; padding-top: calc(var(--desk-top) + 64px); }
+  .person-head { gap: 28px; padding-top: 16px; }
+  .person-text h1 { font-size: clamp(32px, 3.5vw, 48px); font-weight: 800; letter-spacing: -0.02em; }
+  .person-born { font-size: 16px; }
+  .person-bio { max-width: 720px; font-size: 16px; line-height: 1.55; -webkit-line-clamp: 6; line-clamp: 6; }
+  .person-titles-head { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; padding-top: 32px; }
+}
