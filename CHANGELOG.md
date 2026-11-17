@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.0.0...v1.1.0) (2026-11-17)
+
+
+### Features
+
+* **remote:** add a Trailer button to movie and series pages ([#205](https://github.com/Pepijnvdliefvoort/thuisbios/issues/205)) ([78f3e2e](https://github.com/Pepijnvdliefvoort/thuisbios/commit/78f3e2e267191f87243da0b25bf488a112422b0d))
+* **remote:** add More like this and collections ([#204](https://github.com/Pepijnvdliefvoort/thuisbios/issues/204)) ([b36525b](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b36525b742e9c5fa902337032a8c6d36da843f1d))
+* **remote:** cast and crew on details with a person screen ([#203](https://github.com/Pepijnvdliefvoort/thuisbios/issues/203)) ([03e99f4](https://github.com/Pepijnvdliefvoort/thuisbios/commit/03e99f4d587146c9062d6c9c4690a0d96812a288))
+* **remote:** preview frames while scrubbing (trickplay) ([#206](https://github.com/Pepijnvdliefvoort/thuisbios/issues/206)) ([c1dbc1a](https://github.com/Pepijnvdliefvoort/thuisbios/commit/c1dbc1a76e9e4a102122d28bf31ffce033e3ccdd))
+
+
+### Documentation
+
+* mark trickplay preview done in the roadmap ([#207](https://github.com/Pepijnvdliefvoort/thuisbios/issues/207)) ([b82c945](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b82c9451054b5656da5036bfd376e4d47794092f))
+
 ## [1.0.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.20.0...v1.0.0) (2026-11-17)
 
 
