@@ -18,20 +18,17 @@
 
 <p align="center">
   <a href="#screenshots">Screenshots</a> ·
-  <a href="#architecture">Architecture</a> ·
-  <a href="#server-phase-1">Server</a> ·
-  <a href="#tv-app">TV app</a> ·
-  <a href="#phone-app-phase-4">Phone app</a> ·
-  <a href="#roadmap">Roadmap</a>
+  <a href="#features">Features</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#setup">Setup</a> ·
+  <a href="#development">Development</a> ·
+  <a href="#contributing">Contributing</a>
 </p>
 
 Thuisbios ("home cinema") is a personal streaming service for my own media at home.
-[Jellyfin](https://jellyfin.org) is the backend. Two custom clients are built on top of its API:
-a phone app (PWA) and a Samsung Tizen TV app. The phone app is the main app: you browse, search and
-play with it, on the TV or on the phone itself. The TV app only connects (Quick Connect code and QR),
-shows a screensaver and plays what the phone sends.
-
-Full plan: [docs/plan.md](docs/plan.md).
+[Jellyfin](https://jellyfin.org) is the backend, with two custom clients on its API: a phone and
+desktop app (PWA) where you browse, search and play, and a Samsung Tizen TV page that connects with a
+Quick Connect code or QR, shows a screensaver and plays what the phone sends. Plan: [docs/plan.md](docs/plan.md).
 
 ## Screenshots
 
@@ -63,7 +60,22 @@ All screenshots use a mocked Jellyfin server with placeholder titles and artwork
 
 Regenerate them with `node scripts/screenshots/capture.mjs`, see [scripts/screenshots/README.md](scripts/screenshots/README.md).
 
-## Architecture
+## Features
+
+Phone and desktop app (`apps/remote`):
+
+- Home, search, library with sort and filter, collections, "More like this" and trailers.
+- Details with cast and crew, seasons and episodes, watched marks, and title requests.
+- Own player: resume, audio tracks, subtitles with timing, quality, skip intro, next episode, scrub previews.
+- Offline downloads that play without a network and sync progress back.
+- Play on the TV, Now Playing remote (transport, tracks, subtitle timing) and TV volume.
+
+TV page (`apps/tv`, Tizen 4.0):
+
+- Connects with a Quick Connect code and QR, shows a screensaver, and plays on command of the phone.
+- Full-screen HTML5 player with subtitles, skip intro and next episode.
+
+## How it works
 
 ```text
  Phone app ─────HTTP(S) + WebSocket──▶ Jellyfin (Linux home server) ◀──HTTP + WebSocket── TV app
@@ -72,260 +84,51 @@ Regenerate them with `node scripts/screenshots/capture.mjs`, see [scripts/screen
       └──── same-origin relay in the app's server (Docker, same machine) ──▶ Samsung TV remote API (volume) ┘
 ```
 
-Jellyfin runs natively on a Linux home server; the Thuisbios app runs next to it in Docker.
+Jellyfin handles users, library, metadata, progress, search, images, transcoding and the sessions
+(remote control) API; the phone sends commands to the TV session through it. The Thuisbios app (TV page
+and phone app, one Docker image) runs next to Jellyfin, including the relay for TV volume and title requests.
 
-Jellyfin handles users, library, metadata, progress, search, image resizing, transcoding and the
-sessions (remote control) API. The phone sends commands to the TV session through Jellyfin.
+## Setup
 
-## Repository layout
+1. Run Jellyfin and the app on a Linux home server: [docs/server/linux-docker.md](docs/server/linux-docker.md).
+   Releases publish the image to GHCR and a systemd timer keeps the server up to date.
+2. Away from home: [docs/remote/tailscale.md](docs/remote/tailscale.md).
+3. Optional, skip intro: [docs/server/intro-skipper.md](docs/server/intro-skipper.md). Scrub previews: [docs/server/trickplay.md](docs/server/trickplay.md).
+4. Phone app, TV pairing and title requests: [docs/remote/setup.md](docs/remote/setup.md).
+5. TV page (the TV's built-in browser): [docs/tv/dev-setup.md](docs/tv/dev-setup.md).
+
+Older alternative on a Windows PC: [docs/server/windows-setup.md](docs/server/windows-setup.md).
+
+## Development
+
+```bash
+npm ci
+npm run dev -w apps/remote        # phone app at http://localhost:5174
+npm run dev -w apps/tv            # TV page at http://localhost:5173
+npm test                          # unit tests of all workspaces
+npm run typecheck                 # tsc --noEmit in all workspaces
+npm run build                     # production builds
+node scripts/screenshots/capture.mjs   # regenerate the screenshots
+```
 
 ```text
-.github/                  CI, release and dependency automation, PR template
-docs/plan.md              project plan
-docs/images/              README banner and screenshots
-docs/server/              Jellyfin setup guide for Windows (windows-setup.md), autostart guide (autostart.md), Linux home server with Docker (linux-docker.md) and Intro Skipper guide (intro-skipper.md)
-docs/tv/                  TV app: Tizen setup, install and test guide (dev-setup.md)
-docs/remote/              phone app: setup guide (setup.md), away from home via Tailscale (tailscale.md)
-scripts/                  repo tooling (version checks)
-scripts/screenshots/      mock Jellyfin server (also serves a tiny HLS stream for downloads) and Playwright script that generates the README screenshots
-apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite), served to the TV browser
-apps/remote/              phone and desktop app (PWA), phase 4 (Preact + TypeScript + Vite)
-apps/remote/sw/           service worker generator (Vite plugin) that makes the app open offline
-apps/remote/src/offline/  offline downloads: download queue and engine, storage keys, HLS playlist helpers, playing a download in the normal player, offline progress queue and sync, offline mode (Downloads as the only screen)
-apps/remote/relay/        Samsung TV volume relay and title requests (Node, runs inside the remote's vite server); apps/remote/scripts/tv-setup.mjs pairs the TV and jellyfin-setup.mjs saves the Jellyfin API key for title suggestions
-server/                   Jellyfin helper scripts (PowerShell) and Pester tests
-server/linux/             compose file and update timer (systemd) for the Linux home server
-Dockerfile                one image with the TV page and phone app, for the Linux home server
+apps/tv/       Samsung Tizen 4.0 TV page (Preact + TypeScript + Vite)
+apps/remote/   phone and desktop PWA, plus the relay (TV volume, title requests)
+docs/          plan and setup guides (server, remote, tv), images
+scripts/       repo tooling, mock Jellyfin and screenshots
+server/        Windows helper scripts (Pester tests), Linux compose file and update timer
+Dockerfile     one image with the TV page and phone app
 ```
 
-## Server (phase 1)
+## Contributing
 
-Jellyfin runs natively on a Linux home server, and the Thuisbios app (TV page and phone app, one Docker image)
-runs next to it with Docker compose. Jellyfin uses VAAPI hardware transcoding on the AMD integrated GPU. Every release builds
-and pushes the image (`ghcr.io/pepijnvdliefvoort/thuisbios`), and a systemd timer on the server pulls it
-every 15 minutes, so the server follows the releases without building anything itself. Follow
-[docs/server/linux-docker.md](docs/server/linux-docker.md); the compose file and the timer are in `server/linux`.
+Branch off `develop` (`feat/...`, `fix/...`, `docs/...`), use
+[Conventional Commits](https://www.conventionalcommits.org) and open a PR into `develop`; PRs are
+squashed. `main` holds releases only, cut by [release-please](https://github.com/googleapis/release-please)
+(tag `vX.Y.Z`). See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Optional: the Intro Skipper plugin lets Jellyfin find the intro of each episode, which makes the apps
-show a "Skip intro" button. See [docs/server/intro-skipper.md](docs/server/intro-skipper.md).
-
-### Windows PC (older setup)
-
-This was the first setup and still works as an alternative. Follow
-[docs/server/windows-setup.md](docs/server/windows-setup.md) to install Jellyfin natively
-on Windows, enable NVENC, and set up the network. Helper scripts live in `server/scripts`
-(Windows PowerShell 5.1 or PowerShell 7):
-
-- `New-MediaLibrary.ps1`: create the Movies/Shows folders.
-- `Get-TestMedia.ps1`: download Blender open movies and build a Jellyfin test library (needs ffmpeg).
-- `Set-JellyfinFirewall.ps1`: allow TCP 8096 and UDP 7359 on the private network (administrator).
-- `Test-JellyfinServer.ps1`: check that the server answers.
-- `Install-ThuisbiosAutostart.ps1`: build the TV page and phone app and start them automatically
-  with Windows (administrator; also adds the update task (every 30 minutes), `-NoAutoUpdate` skips it).
-  `Uninstall-ThuisbiosAutostart.ps1` turns it off again, and `Start-ThuisbiosServer.ps1` is what
-  the scheduled tasks run. See [docs/server/autostart.md](docs/server/autostart.md).
-- `Update-Thuisbios.ps1`: move the project folder to the newest GitHub release (tag `vX.Y.Z`),
-  build it and restart the TV page and phone app; goes back to the previous version if the build
-  fails. Run by the Update task every 30 minutes (administrator; `-Force` rebuilds the current release).
-
-Run the tests with `Invoke-Pester -Path server/tests` (Pester 5).
-
-## TV app
-
-`apps/tv` is an npm workspace package: Preact + TypeScript + Vite, transpiled for Chromium 56
-(Tizen 4.0) with `@vitejs/plugin-legacy`. The TV is no longer where you browse: it only connects
-the account and shows a screensaver. It does not ask for a server address. It immediately shows a
-Jellyfin Quick Connect code (6 digits) and a QR code; once the phone approves the code, the TV signs
-in and shows a slideshow of the library. You pick and play things on the phone, and the TV plays them
-through the Jellyfin sessions API. The old TV home rows, Movies, Shows and sidebar are removed. The
-player is a full-screen HTML5 player (Jellyfin device profile, `?debug` overlay) with text
-subtitles. In the TV browser, Return while in full screen only leaves full screen, so the app asks
-for full screen again, and the "Press OK to continue in full screen" modal is handled with OK. Installing
-(sideloading) a packaged app is refused by this TV's firmware, so the app runs in the TV's built-in
-web browser, served from the Linux home server (port 4173; `npm run preview -w apps/tv` is what runs in the container).
-[docs/tv/dev-setup.md](docs/tv/dev-setup.md) explains this and has the test checklist;
-[docs/server/linux-docker.md](docs/server/linux-docker.md) runs it on the server (on a Windows PC, [docs/server/autostart.md](docs/server/autostart.md) starts it with Windows).
-
-```bash
-npm install
-npm run dev -w apps/tv        # desktop browser at http://localhost:5173 (any window size: the page scales to fit)
-npm test                      # unit tests of all workspaces
-npm run typecheck             # tsc --noEmit in all workspaces
-npm run build -w apps/tv      # apps/tv/dist, ready to package for Tizen
-npm run check:dist -w apps/tv # build output must be ES2017 only
-```
-
-Signing and packaging (`npm run package -w apps/tv`) are kept for TVs that allow sideloading. They need the Tizen CLI and a Samsung
-certificate, so they run on the owner's PC, never in CI. Certificates and `.wgt` files are never
-committed.
-
-## Phone app (phase 4)
-
-`apps/remote` is the Thuisbios phone app: a PWA (Preact + TypeScript + Vite) for modern
-phone browsers (iOS Safari 15+, Android Chrome), so there is no legacy build. The phone is the main
-screen. It connects the TV: scan the QR code on the TV (the link is
-`http://<server>:4174/?connect=<code>`) or tap "Connect TV" at the top right and type the 6-digit Quick Connect code
-(the phone approves it with `POST /QuickConnect/Authorize`). The Connect a TV screen can also scan the
-TV's QR code with the camera (over plain HTTP it takes a photo; a live viewfinder needs HTTPS). It signs in to
-Jellyfin with just username and password (the server address is derived from the page host; "Change server" reveals it), browses the library (Home rows, Search, Library with
-Movies and Shows, which you can sort (name, date added, release year, rating, runtime) and filter (unwatched, genre, decade), remembered per type) and shows a details page with Play on TV, Resume on TV, Play from start and Show
-on TV; series and episode pages have a season selector and an episode list that marks watched episodes and the next or current one, and an episode page links back to its show. Movie, series and episode pages show a Cast & crew row (photo or initials, name and character, with the director and writers below). Tapping a person opens their page with birth date, biography and the titles from your library they appear in; it is hidden offline. Movies, episodes, seasons and whole series can be marked watched or unwatched from the details page. Movie and series pages end with a "More like this" row, a movie in a Jellyfin collection (movie set) also shows the collection's films in release order (tap the title to open the collection), and the Library gets a Collections tab when you have any. Movies and series with a trailer show a Trailer button (only when tapped, never automatically, and not offline): a trailer stored in Jellyfin plays in the app's own player without a resume point, skip intro or next episode and without touching the watched state of the title, and a YouTube link from the metadata plays in a sheet on the page (youtube-nocookie.com) that you close with the X, Esc or a tap outside it; other links open in a new tab. While the TV plays, a mini player bar and a
-Now Playing screen offer play/pause, a scrub slider, -10 s / +10 s, previous and next episode,
-Skip intro and the next-episode card (in their own area above the controls), a volume pill and Audio & subs, Sub timing and Stop tiles. The remote finds the TV through the Jellyfin sessions API (the TV app registers as
-remote-controllable) and polls `/Sessions` every 2 seconds while the page is visible.
-
-On iPhone and iPad (Safari and the Home Screen app) the tab bar, mini player, sheets and header buttons get a translucent "glass" look; Android and desktop keep the plain look. With the iOS setting Reduce Transparency on, they stay solid.
-
-The TV sheet in the header has "Disconnect from TV", which signs the TV out so it shows a new Quick
-Connect code and QR again (the choice survives a reload). Reconnecting needs the code or the QR again.
-If the TV is switched off, the phone shows it as gone after a few minutes (the TV page sends a sign of
-life every minute) and picks it up again by itself when the TV is on again.
-
-Without a TV connected, the play buttons play the video on the phone itself: direct play when the
-phone supports the file, otherwise the server converts it (HLS, through hls.js where the browser has
-no native HLS). The phone plays in the app's own player, which fills the screen: tap the picture to
-show or hide the controls (play/pause, -10 s / +10 s, previous and next episode for episodes, a scrub bar, a menu for audio and subtitles and a cogwheel button for the video quality), double-tap
-the left or right side to skip 10 s back or forward (keep tapping to skip more). Text
-subtitles are drawn by the app itself and the app remembers the subtitle language you picked.
-While you drag the scrub bar (or hover it with a mouse), a preview frame with the time shows above it, also on the Now Playing screen. The frames are Jellyfin's trickplay images, so they need the server (not shown for a download played offline) and need trickplay to be turned on, see [docs/server/trickplay.md](docs/server/trickplay.md).
-Without a choice yet, the player starts with the track Jellyfin would pick for you (from your
-Jellyfin subtitle settings), as before. Subtitles are never burned into the picture unless you pick
-one that has to be: image subtitles (the kind stored as pictures on some discs) are listed with
-"(burned in)" and picking one restarts the video at the same spot with that track in the picture,
-which makes the server convert the video. Picking a text track or Off again restarts it once more
-without burned-in subtitles. The subtitle timing only applies to text subtitles. On Android the app
-goes fullscreen and locks landscape. An iPhone cannot do that, so when the phone is held upright the
-player turns the picture sideways by itself. This works with rotation lock on. iOS still shows the
-status bar and home indicator in their upright places, and swipe gestures such as Control Center
-stay upright. The phone reports its progress to Jellyfin, so it counts toward Resume watching.
-The app times a few downloads from the server in the background when a title's page opens and asks for a
-stream bitrate that fits the connection (up to 120 Mbit/s, so the original can usually be sent as-is),
-so playback also starts on a slow or far-away mobile link.
-
-Downloads (phone only): movies and episodes have a Download button, and a season has "Download season". You choose High (1080p), Medium (720p, the default) or Small (480p) and see an estimated size first. The server converts the video into a stream that fits the phone, and the app saves it in the browser's storage (the Cache API) together with the picture, the text subtitles and the intro markers. Downloads run one at a time in the order you queued them, keep the screen on, and carry on after a restart or when the connection is back. The app has to stay open while it downloads, because a phone pauses a page that is in the background. The phone's Downloads tab (with a badge while something downloads) shows the space used, progress with "x of y MB", pause, cancel and retry, and the finished downloads (series grouped with their episodes in order, movies A to Z); downloaded movies and episodes carry a small green mark, and the quality sheet remembers your last choice. A finished download plays in the normal player, without a network and always from the phone when a copy exists (it saves data): with seeking, double-tap skips, the saved text subtitles and intro and credits buttons, and the next episode when that one is downloaded too (no audio or quality menu, those need the server). Playback resumes from the newest position, this phone's or Jellyfin's. What you watch offline is kept on the phone and sent to Jellyfin when the connection is back (the latest position per item, and watched marks), so Resume watching stays right. An episode you have watched to the end is removed from the downloads when the player closes, with a short message; movies are never removed automatically. The app keeps a copy of itself on the phone (a service worker), so it opens with Wi-Fi and mobile data off, and while the phone is offline, Downloads is the only main screen: the app opens on it, switches to it when the connection drops (a video that is playing is not interrupted), dims the other tabs, hides the TV button and shows "You're offline. Your downloads still play." Nothing else changes when the connection returns: you stay on Downloads and the tabs work again. This needs the https address (a secure context) and one earlier visit online.
-
-The CC button opens an "Audio and subtitles" menu. Items with two or more audio tracks get an Audio
-section: picking one asks the server for that track (a remux or transcode, because a browser cannot
-switch audio inside a file) and continues from the same spot. The app remembers the audio language
-you picked and uses it the next time when the item has that language.
-
-A separate cogwheel button next to it opens the Quality menu, named in plain resolution terms: Auto (the connection-based choice
-above, shown as for example "Auto (720p)" once it knows what plays) or a fixed 4K, 1440p, 1080p, 720p,
-480p or 360p, never in Mbit/s. Only levels up to the film's own resolution are offered (a wide 1920x800
-film counts as 1080p) and the top one is the original, which can still direct play. A lower level makes
-the server scale the picture down and restarts the video at the same spot. The choice holds for the
-rest of the app session, so the next episode keeps it, and a fresh start goes back to Auto.
-
-The app also works in a desktop browser (a wide window with a mouse). The tabs move to a floating top bar
-(see-through at the top of a page, solid once it scrolls), Home opens with a full-width spotlight of recently added
-titles, the details page is a full-width backdrop with the title and buttons on it (the spotlight and details fall back to a blurred copy of the poster
-when there is no backdrop or it fails to load), rows run edge to edge with side arrow panels, grey skeleton placeholders show while content loads, Search groups
-results into Movies, Shows and Episodes and remembers recent searches and shows titles to request in a grid, the owner's requests are cards in a grid with a coloured status
-badge, the sign-in page is a card over a slowly drifting wall of abstract poster tiles, and Play and Resume use the app's own player on that computer even when a TV is
-connected ("Play on TV" sits next to them). The player has a full-width scrub bar (hover shows the time above it) over one row of controls (play, -10 s/+10 s, previous and next episode for episodes, volume with a slider that opens on hover, time, a cogwheel button for the quality menu with Auto or a fixed resolution such as 1080p or 720p, the CC button for the audio and subtitles menu, fullscreen), a Skip intro pill above the bar, and these keys:
-Space or K play/pause, Left/Right or J/L -10 s/+10 s, Up/Down volume, M mute, F fullscreen,
-C subtitles on/off and Esc to leave. A click on the picture plays or pauses, a double click toggles
-fullscreen. Hovering a poster shows a play button that starts playback directly (a click elsewhere on the
-card opens the details). Phones keep their own layout.
-
-The TV app now accepts remote-control commands through Jellyfin: the TV page registers as
-remote-controllable and handles Play, Pause/Resume, Seek, Stop, Next/Previous episode, "Show on
-TV", audio and subtitle track choice and Disconnect (sign out).
-
-Every request uses the configured absolute server URL, so the app can
-be wrapped with Capacitor later. A volume pill on Now Playing (−, the level, +; the level opens the sheet) and a button in the TV sheet open a bottom sheet
-with a slider, a mute toggle and −/+ buttons (one step per tap) that control the Samsung TV through a small relay that runs inside
-the remote's own `vite preview` (and `vite dev`) server on the Linux home server, under `/api/tv/`. The phone calls it on the same origin with its
-Jellyfin token, which the relay checks against Jellyfin; it only ever sends `KEY_VOLUP`,
-`KEY_VOLDOWN` and `KEY_MUTE` over the remote API, and reads and sets the exact level through the TV's
-UPnP RenderingControl service (port 9197). When UPnP is not available (for instance sound going to a
-soundbar), or `"volumeMode": "relative"` is set, the slider presses the volume keys toward a remembered
-level instead. The TV address and pairing token live in
-`~/.thuisbios/samsung-tv.json`, outside the repo; `npm run tv:setup -w apps/remote -- <tv-ip>` pairs
-the TV once. Follow [docs/server/linux-docker.md](docs/server/linux-docker.md) to run it on the server (or [docs/remote/setup.md](docs/remote/setup.md) to run it on a PC) and add it to
-the phone's home screen.
-
-Now Playing also has a "Sub timing" tile that opens a sheet to shift the subtitle timing in steps of
-0.1 s or 0.5 s (positive is later). The phone sends the absolute offset for the playing item as a private
-Jellyfin display message (`thuisbios:subtitle-offset:<itemId>:<ms>`), the TV shifts the WebVTT cues and
-remembers the offset per item. It only works for text subtitles.
-
-Now Playing also has an "Audio & subs" button (next to "Sub timing") that lists the audio and subtitle tracks of what the
-TV plays, with the current ones checked (the TV reports them in its progress). Tapping a track sends
-Jellyfin's standard `SetAudioStreamIndex` or `SetSubtitleStreamIndex` command to the TV. The TV switches
-text subtitles at once and restarts the stream at the same position for another audio track.
-
-The same relay serves title requests under `/api/requests`. When a search term is typed, the app also asks the
-relay for matching titles and lists the ones the library does not have under "Not in the library", each with a
-poster, year and a Request button (it turns into "Requested" once sent; pressing it again withdraws your own open
-request). Without a lookup, or when it finds nothing, "Request it by title" opens a form to type the title.
-Anyone signed in can request; the title, and for a picked match its year, type and poster, is stored. The owner
-(a Jellyfin administrator, checked by the relay through `GET /Users/Me`, never taken from the client)
-finds all requests under Requests in the account menu (the avatar at the top right), marks them Added or
-Dismiss, and gets a badge with the open count on the avatar. Requests are stored in `~/.thuisbios/requests.json`,
-outside the repo; nothing is downloaded automatically. The relay gets the matches from Jellyfin's built-in
-metadata search (`GET /api/requests/lookup`) using a Jellyfin API key that
-`npm run jellyfin:setup -w apps/remote` saves in `~/.thuisbios/jellyfin.json`. Without the key, requests
-still work as plain text.
-
-Away from home the phone reaches the Linux home server through Tailscale Serve (private, tailnet only, nothing opened
-to the internet): `https://<server>.<tailnet>.ts.net` for the app (port 443) and `:8920` for Jellyfin, both
-over HTTPS so the home-screen install works. Tailscale runs on the server. Follow [docs/remote/tailscale.md](docs/remote/tailscale.md) (written for the older Windows PC setup).
-
-```bash
-npm install
-npm run dev -w apps/remote       # desktop browser at http://localhost:5174
-npm test -w apps/remote          # Vitest
-npm run build -w apps/remote     # apps/remote/dist
-npm run preview -w apps/remote   # serves dist on the network, port 4174
-npm run icons -w apps/remote     # regenerate the PWA icons (public/*.png)
-npm run tv:setup -w apps/remote -- 192.168.1.156   # pair the Samsung TV once (volume button)
-```
-
-## Branching and releases
-
-- `develop` is the continuously evolving integration branch.
-- Work happens on feature branches off `develop`: `feat/...`, `fix/...`, `chore/...`, `docs/...`, `ci/...`, `refactor/...`, `perf/...`, `test/...`.
-- Pull requests go into `develop`. The owner approves every PR.
-- `main` holds stable releases only. It is updated by a release PR from `develop`, tagged `vX.Y.Z` (semver).
-- [release-please](https://github.com/googleapis/release-please) maintains the changelog and version bump.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the details.
-
-## Commit convention
-
-[Conventional Commits](https://www.conventionalcommits.org), enforced by commitlint:
-`feat: ...`, `fix: ...`, `docs: ...`, `chore: ...`, `ci: ...`, `refactor: ...`, `perf: ...`, `test: ...`.
-
-## CI overview
-
-GitHub Actions in `.github/workflows`:
-
-- `ci.yml`: commitlint (commits and PR title), branch-name check (PR branches must start with `feat/`, `fix/`,
-  `chore/`, `docs/`, `ci/`, `refactor/`, `perf/` or `test/`), markdownlint, version consistency check (root,
-  `apps/tv/package.json`, `apps/remote/package.json` and the Tizen `config.xml` must agree), TV app
-  (typecheck, Vitest, build, ES2017 syntax check, `dist` uploaded as artifact), phone app
-  (typecheck, Vitest, build, `dist` uploaded as the `remote-dist` artifact), PowerShell (PSScriptAnalyzer and Pester tests
-  for `server/` on Windows). The build and test jobs only run when their part of the repo changed (TV app,
-  phone app, server scripts, Markdown, version files; a change to `ci.yml` runs everything). CI runs on pull
-  requests into `develop` and `main` and on pushes to `develop`; runs on a PR are cancelled when a newer commit is pushed.
-- `release-please.yml`: on push to `main`, opens or updates the release PR, creates the `vX.Y.Z` tag and GitHub release, and then opens a PR from `main` back into `develop`; for a new release it also builds the Docker image and pushes it to GHCR (`vX.Y.Z` and `latest`).
-  With a `RELEASE_TOKEN` secret, the release PR and the back-merge PR merge themselves once their checks pass
-  (squash and merge commit respectively); without it they stay manual. See
-  [CONTRIBUTING.md](CONTRIBUTING.md#automatic-merge-of-release-prs).
-
-Dependabot updates GitHub Actions and npm weekly, targeting `develop`.
-Docker: `ci.yml` builds the image and starts both apps when the `Dockerfile`, `.dockerignore`, `server/linux` or the release workflow changed (nothing is pushed); the `docker` job in `release-please.yml` pushes `vX.Y.Z` and `latest` to GHCR for every release.
-
-## Roadmap
-
-| Phase | Goal | Status |
-|---|---|---|
-| 1. Server | Jellyfin on the Linux home server (originally the Windows PC) with a test library | done |
-| 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
-| 3. TV MVP | Quick Connect login, home rows, detail page, playback with resume | done; later reshaped: the TV only connects and shows a screensaver, browsing moved to the phone |
-| 4. Phone app MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | done: browse, search, play on TV or on the phone, transport controls, volume slider (relay in the app's server), title requests from Search; volume and title suggestions not yet verified on the real TV/phone |
-| 5. Polish | Series flow, subtitles, trickplay, remote access | in progress: remote access via Tailscale Serve done; Linux home server with Docker and automatic updates from GHCR, running on the real server, done (the earlier Windows PC setup had autostart and update scripts); skip intro (needs the Intro Skipper plugin, on the TV and the phone; not yet verified on the real TV) done; next episode autoplay (card with countdown, on the TV and the phone; not yet verified on the real TV) done; trickplay preview frames while scrubbing in the phone and desktop app (needs trickplay images enabled in Jellyfin; not yet verified on the real server) done; the rest planned |
+CI (`.github/workflows/ci.yml`) checks commit and branch names, Markdown, version consistency, and
+typecheck, test and build of the changed parts. `release-please.yml` handles releases and pushes the Docker image to GHCR.
 
 ## License
 
