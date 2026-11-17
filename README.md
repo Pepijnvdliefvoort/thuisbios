@@ -270,7 +270,7 @@ still work as plain text.
 
 Away from home the phone reaches the Linux home server through Tailscale Serve (private, tailnet only, nothing opened
 to the internet): `https://<server>.<tailnet>.ts.net` for the app (port 443) and `:8920` for Jellyfin, both
-over HTTPS so the home-screen install works. Tailscale runs on the server. Follow [docs/remote/tailscale.md](docs/remote/tailscale.md) (written for the older Windows PC setup).
+over HTTPS so the home-screen install works. Tailscale runs on the server. Follow [docs/remote/tailscale.md](docs/remote/tailscale.md).
 
 ```bash
 npm install
