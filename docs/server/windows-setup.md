@@ -256,3 +256,7 @@ When the browser and the phone both play, phase 1 is complete.
 | DTS test file has no sound in a browser | Expected: browsers cannot play DTS, so Jellyfin transcodes audio. If it fails, check ffmpeg in Dashboard > Logs. |
 | Script blocked by execution policy | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or run `powershell -ExecutionPolicy Bypass -File .\script.ps1`. |
 | PC is unreachable after a while | It went to sleep. Fix the power settings in section 8. |
+
+## Tests for the helper scripts
+
+The PowerShell helper scripts in `server/scripts` have Pester 5 tests: `Invoke-Pester -Path server/tests`.

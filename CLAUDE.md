@@ -21,7 +21,7 @@ Thuisbios: personal streaming service on top of Jellyfin. Read [README.md](READM
 
 ## Every change
 
-- Check that README.md is still accurate (layout, roadmap status, CI overview) and update it in the same PR.
+- Check that README.md is still accurate (features, setup links, layout, CI summary) and update it in the same PR.
 - Keep versions consistent (`node scripts/check-versions.mjs`) and run `npx markdownlint-cli2` for docs changes.
 - CI must be green before asking for review.
 
