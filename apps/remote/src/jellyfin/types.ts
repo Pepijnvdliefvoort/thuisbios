@@ -63,6 +63,10 @@ export interface BaseItem {
   ProviderIds?: Record<string, string>;
   /** Only present when requested with Fields=MediaSources. */
   MediaSources?: MediaSource[];
+  /** Trailer files stored next to the item in the library. */
+  LocalTrailerCount?: number;
+  /** Only present when requested with Fields=RemoteTrailers (usually YouTube links). */
+  RemoteTrailers?: { Url?: string; Name?: string }[];
 }
 
 export interface ItemsResult {

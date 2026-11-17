@@ -35,7 +35,7 @@ export interface ClientOptions {
 const LIST_FIELDS = 'ProductionYear,RunTimeTicks,ChildCount';
 /** The recently added lists also feed the desktop spotlight, which shows a synopsis, rating and genres. */
 const LATEST_FIELDS = `${LIST_FIELDS},Overview,OfficialRating,CommunityRating,Genres`;
-const DETAIL_FIELDS = 'Overview,Genres,OfficialRating,CommunityRating,RunTimeTicks,ChildCount,ProductionYear';
+const DETAIL_FIELDS = 'Overview,Genres,OfficialRating,CommunityRating,RunTimeTicks,ChildCount,ProductionYear,RemoteTrailers';
 const IMAGE_QUERY = 'EnableImageTypes=Primary,Backdrop,Thumb&ImageTypeLimit=1&EnableUserData=true';
 const enc = encodeURIComponent;
 
@@ -76,6 +76,8 @@ export interface JellyfinClient {
   genres(userId: string, type: MediaType): Promise<string[]>;
   search(userId: string, term: string, limit: number): Promise<BaseItem[]>;
   item(userId: string, itemId: string): Promise<BaseItem>;
+  /** The trailer files stored next to an item in the library. */
+  localTrailers(userId: string, itemId: string): Promise<BaseItem[]>;
   seasons(userId: string, seriesId: string): Promise<BaseItem[]>;
   episodes(userId: string, seriesId: string, seasonId: string): Promise<BaseItem[]>;
   sessions(userId: string): Promise<RemoteSession[]>;
@@ -205,6 +207,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
       ),
     item: (userId, itemId) =>
       req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=${DETAIL_FIELDS}`),
+    localTrailers: (userId, itemId) => req<BaseItem[]>('GET', `${user(userId)}/Items/${enc(itemId)}/LocalTrailers`),
     mediaStreams: async (userId, itemId) => {
       const item = await req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=MediaSources,MediaStreams`);
       const source = item.MediaSources && item.MediaSources[0];

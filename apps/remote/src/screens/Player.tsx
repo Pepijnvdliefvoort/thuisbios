@@ -57,6 +57,12 @@ const TAP_SKIP_S = 10;
 const MOVE_MS = 250;
 /** Esc right after leaving fullscreen is the browser's own exit, not a request to leave the player. */
 const FS_ESC_GRACE_MS = 400;
+/** Stands in for the client while a trailer plays: nothing is reported, so the trailer leaves no watch state anywhere. */
+const silentReports = {
+  reportStart: () => Promise.resolve(),
+  reportProgress: () => Promise.resolve(),
+  reportStopped: () => Promise.resolve(),
+};
 
 interface Loaded {
   selection: PlaySelection;
@@ -127,6 +133,8 @@ export function Player({
 }) {
   const { client, session, downloads, toast, progress } = useApp();
   const isLocal = local;
+  // A trailer is its own item: it is never resumed, reports nothing to Jellyfin (the movie keeps its state) and has no intro markers.
+  const isTrailer = item.Type === 'Trailer';
   const assets = useLocalAssets(isLocal ? item.Id : null);
   const online = useOnline();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -207,6 +215,7 @@ export function Player({
   useEffect(() => {
     let alive = true;
     setSegments([]);
+    if (isTrailer) return;
     if (isLocal) {
       setSegments(assets.segments);
       return;
@@ -218,7 +227,7 @@ export function Player({
     return () => {
       alive = false;
     };
-  }, [client, item.Id, isLocal, assets]);
+  }, [client, item.Id, isLocal, isTrailer, assets]);
 
   // Leaving the player (Back, Android back, end of video) also leaves fullscreen and frees the rotation.
   // Not when the next episode takes over: it stays fullscreen (autoplay has no tap to enter it again).
@@ -700,6 +709,7 @@ export function Player({
     if (!loaded || !el) return;
     let started = false;
     let stopped = false;
+    const reporter = isTrailer ? silentReports : client;
     const report = (): PlaybackReport => ({
       itemId: item.Id,
       mediaSourceId: loaded.mediaSourceId,
@@ -722,7 +732,7 @@ export function Player({
     const send = () => {
       if (!started || stopped) return;
       if (isLocal) saveLocal(false);
-      if (!isLocal || reachable()) client.reportProgress(report()).catch(() => undefined);
+      if (!isLocal || reachable()) reporter.reportProgress(report()).catch(() => undefined);
     };
     const throttle = createThrottle(send, EVENT_REPORT_MS);
     const stop = (): Promise<void> => {
@@ -730,7 +740,7 @@ export function Player({
       stopped = true;
       if (!isLocal) {
         // keepalive: the page may be closing.
-        return client.reportStopped(report(), true).catch(() => undefined);
+        return reporter.reportStopped(report(), true).catch(() => undefined);
       }
       const p = planRef.current;
       const finished = isFinished({
@@ -742,14 +752,14 @@ export function Player({
       saveLocal(finished);
       // Removed once the player has closed, not while it is still playing.
       if (shouldAutoDelete(item.Type, finished)) autoDelete.current = true;
-      const told = reachable() ? client.reportStopped(report(), true).catch(() => undefined) : Promise.resolve();
+      const told = reachable() ? reporter.reportStopped(report(), true).catch(() => undefined) : Promise.resolve();
       return told.then(() => progress.flush());
     };
     stopRef.current = stop;
     const onPlaying = () => {
       if (started) return;
       started = true;
-      if (!isLocal || reachable()) client.reportStart(report()).catch(() => undefined);
+      if (!isLocal || reachable()) reporter.reportStart(report()).catch(() => undefined);
     };
     const onEnded = () => {
       endedRef.current = true;
@@ -776,7 +786,7 @@ export function Player({
       stopRef.current = () => Promise.resolve();
       void stop();
     };
-  }, [client, loaded, item.Id, isLocal]);
+  }, [client, loaded, item.Id, isLocal, isTrailer]);
 
   // A watched episode leaves the downloads once the player has closed (this cleanup runs after the one that stops
   // the video and saves the position). Movies stay.

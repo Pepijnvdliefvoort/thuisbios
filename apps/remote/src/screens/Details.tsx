@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DownloadButton, DownloadSeasonButton } from '../components/DownloadButton';
 import { Icon } from '../components/Icon';
+import { TrailerButton } from '../components/TrailerButton';
 import { PullSpinner } from '../components/PullSpinner';
 import { BackdropImg, Img } from '../components/Img';
 import { Skeleton } from '../components/Skeleton';
@@ -168,6 +169,7 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
         </button>
       )}
       {isSeries ? null : <DownloadButton item={item} />}
+      {isEpisode ? null : <TrailerButton item={item} />}
       {desktop && !noTv ? (
         <button type="button" class="btn secondary" disabled={disabled} onClick={() => playItem && void send(tv.play(playItem, serverResume))}>
           <Icon name="tv" size={20} /> {serverResume > 0 ? 'Resume on TV' : 'Play on TV'}
