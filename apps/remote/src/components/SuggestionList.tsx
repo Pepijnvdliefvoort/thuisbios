@@ -11,11 +11,16 @@ export function SuggestionList({
   isRequested,
   busyKey,
   onRequest,
+  canWithdraw,
+  onWithdraw,
 }: {
   items: Suggestion[];
   isRequested: (s: Suggestion) => boolean;
   busyKey: string | null;
   onRequest: (s: Suggestion) => void;
+  /** Whether the current user's open request for this suggestion can be withdrawn. */
+  canWithdraw?: (s: Suggestion) => boolean;
+  onWithdraw?: (s: Suggestion) => void;
 }) {
   return (
     <ul class="suggest-list">
@@ -30,7 +35,25 @@ export function SuggestionList({
               <span class="rs-name">{s.title}</span>
               <span class="rs-sub">{sub}</span>
             </span>
-            {done ? (
+            {done && onWithdraw && canWithdraw && canWithdraw(s) ? (
+              <button
+                type="button"
+                class="req-btn requested"
+                disabled={busyKey === key}
+                aria-label="Requested. Press to withdraw"
+                title="Withdraw request"
+                onClick={() => onWithdraw(s)}
+              >
+                {busyKey === key ? (
+                  'Withdrawing...'
+                ) : (
+                  <>
+                    <Icon name="check" size={16} /> <span class="req-label-on">Requested</span>
+                    <span class="req-label-hover">Withdraw</span>
+                  </>
+                )}
+              </button>
+            ) : done ? (
               <button type="button" class="req-btn requested" disabled>
                 <Icon name="check" size={16} /> Requested
               </button>

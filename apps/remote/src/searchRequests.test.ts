@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BaseItem } from './jellyfin/types';
 import type { Suggestion, TitleRequest } from './requests';
-import { isRequested, normalizeTitle, notInLibrary } from './searchRequests';
+import { isRequested, normalizeTitle, notInLibrary, ownOpenRequest } from './searchRequests';
 
 const movie = (title: string, extra: Partial<Suggestion> = {}): Suggestion => ({ title, type: 'movie', ...extra });
 const show = (title: string, extra: Partial<Suggestion> = {}): Suggestion => ({ title, type: 'show', ...extra });
@@ -71,5 +71,20 @@ describe('isRequested', () => {
     expect(isRequested(movie('Heat', { year: 2023 }), [request('Heat', { year: 1995 })])).toBe(false);
     expect(isRequested(movie('Heat'), [request('Ronin')])).toBe(false);
     expect(isRequested(movie('Heat'), [request('Heat', { status: 'added' })])).toBe(false);
+  });
+});
+
+describe('ownOpenRequest', () => {
+  it('finds the user\'s own open request by TMDB id, IMDb id or title and year', () => {
+    const mine = request('The Matrix', { id: 'a', tmdbId: '603', imdbId: 'tt0133093', year: 1999 });
+    expect(ownOpenRequest(movie('Other', { tmdbId: '603' }), [mine], 'u')?.id).toBe('a');
+    expect(ownOpenRequest(movie('Other', { imdbId: 'tt0133093' }), [mine], 'u')?.id).toBe('a');
+    expect(ownOpenRequest(movie('the matrix', { year: 1999 }), [mine], 'u')?.id).toBe('a');
+  });
+
+  it('ignores other users\' requests and handled ones', () => {
+    expect(ownOpenRequest(movie('Heat'), [request('Heat', { userId: 'x' })], 'u')).toBeUndefined();
+    expect(ownOpenRequest(movie('Heat'), [request('Heat', { status: 'added' })], 'u')).toBeUndefined();
+    expect(ownOpenRequest(movie('Heat', { year: 1995 }), [request('Heat', { year: 2000 })], 'u')).toBeUndefined();
   });
 });

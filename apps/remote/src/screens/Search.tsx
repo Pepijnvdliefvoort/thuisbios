@@ -8,7 +8,7 @@ import { SuggestionList, suggestionKey } from '../components/SuggestionList';
 import { useApp } from '../context';
 import type { BaseItem } from '../jellyfin/types';
 import { describeRequestsError, type Suggestion } from '../requests';
-import { isRequested, notInLibrary } from '../searchRequests';
+import { isRequested, notInLibrary, ownOpenRequest } from '../searchRequests';
 import { addRecentSearch, groupSearchResults } from '../searchGroups';
 import { loadRecentSearches, saveRecentSearches } from '../storage';
 import { useDesktop } from '../useDesktop';
@@ -57,7 +57,8 @@ export function Search() {
     const result = await requests.api.list();
     return result.ok ? result.value.requests : [];
   }, [requests.api]);
-  const [sent, setSent] = useState<string[]>([]);
+  // Requests made here, by suggestion key, so they can be withdrawn before the list reloads.
+  const [sent, setSent] = useState<Record<string, string>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
   // Desktop: a term is remembered once its results have settled.
   useEffect(() => {
@@ -106,17 +107,40 @@ export function Search() {
       toast(describeRequestsError(result.error));
       return;
     }
-    setSent((list) => [...list, key]);
+    // A duplicate has no id here; the reload of `mine` provides it.
+    setSent((map) => ({ ...map, [key]: result.ok ? result.value.id : '' }));
     void mine.reload();
     void requests.refresh();
   };
-  const requested = (s: Suggestion) => sent.includes(suggestionKey(s)) || isRequested(s, mine.data || []);
+  const requested = (s: Suggestion) => suggestionKey(s) in sent || isRequested(s, mine.data || []);
+  const withdrawId = (s: Suggestion): string | undefined => sent[suggestionKey(s)] || ownOpenRequest(s, mine.data || [], session.userId)?.id;
+  const canWithdraw = (s: Suggestion) => !!withdrawId(s);
+  const withdraw = async (s: Suggestion) => {
+    const id = withdrawId(s);
+    if (!id) return;
+    const key = suggestionKey(s);
+    setBusyKey(key);
+    const result = await requests.api.remove(id);
+    setBusyKey(null);
+    if (!result.ok) {
+      toast(describeRequestsError(result.error));
+      return;
+    }
+    toast('Request withdrawn');
+    setSent((map) => {
+      const next = { ...map };
+      delete next[key];
+      return next;
+    });
+    void mine.reload();
+    void requests.refresh();
+  };
   const notInLibrarySection = found.length > 0 ? (
     <section class="search-section suggest-section">
       <h2>
         Not in the library <span class="search-count">{found.length}</span>
       </h2>
-      <SuggestionList items={found} isRequested={requested} busyKey={busyKey} onRequest={request} />
+      <SuggestionList items={found} isRequested={requested} busyKey={busyKey} onRequest={request} canWithdraw={canWithdraw} onWithdraw={withdraw} />
     </section>
   ) : null;
   return (
@@ -181,7 +205,7 @@ export function Search() {
       ) : null}
       {looking ? <p class="hint small suggest-hint">Looking for more titles...</p> : null}
       {notInLibrarySection}
-      {term && !(libraryEmpty && lookupEmpty) ? (
+      {term && lookupEmpty && !libraryEmpty ? (
         <p class="request-more">
           <button type="button" class="request-link" onClick={() => setRequesting(true)}>
             Can't find it? Request it by title

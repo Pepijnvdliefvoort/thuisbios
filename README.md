@@ -251,8 +251,8 @@ text subtitles at once and restarts the stream at the same position for another 
 
 The same relay serves title requests under `/api/requests`. When a search term is typed, the app also asks the
 relay for matching titles and lists the ones the library does not have under "Not in the library", each with a
-poster, year and a Request button (it turns into a disabled "Requested" once sent, and stays so for titles with an
-open request). Without a lookup, or when it finds nothing, "Request it by title" opens a form to type the title.
+poster, year and a Request button (it turns into "Requested" once sent; pressing it again withdraws your own open
+request). Without a lookup, or when it finds nothing, "Request it by title" opens a form to type the title.
 Anyone signed in can request; the title, and for a picked match its year, type and poster, is stored. The owner
 (a Jellyfin administrator, checked by the relay through `GET /Users/Me`, never taken from the client)
 finds all requests under Requests in the account menu (the avatar at the top right), marks them Added or
