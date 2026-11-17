@@ -38,7 +38,7 @@ export function SuggestionList({
             {done && onWithdraw && canWithdraw && canWithdraw(s) ? (
               <button
                 type="button"
-                class="req-btn requested"
+                class="req-btn requested withdrawable"
                 disabled={busyKey === key}
                 aria-label="Requested. Press to withdraw"
                 title="Withdraw request"
@@ -50,6 +50,9 @@ export function SuggestionList({
                   <>
                     <Icon name="check" size={16} /> <span class="req-label-on">Requested</span>
                     <span class="req-label-hover">Withdraw</span>
+                    <span class="req-x">
+                      <Icon name="close" size={14} />
+                    </span>
                   </>
                 )}
               </button>
