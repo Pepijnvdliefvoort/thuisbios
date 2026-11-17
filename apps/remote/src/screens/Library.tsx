@@ -13,9 +13,18 @@ import { useAsync } from '../useAsync';
 import { useDesktop } from '../useDesktop';
 import { usePullToRefresh } from '../usePullToRefresh';
 
+/** The library tabs: Movies and Shows, plus Collections (BoxSets) when the user has any. */
+type Tab = MediaType | 'BoxSet';
+const TAB_LABELS: Record<Tab, string> = { Movie: 'Movies', Series: 'Shows', BoxSet: 'Collections' };
+
 export function Library() {
-  const { client, session } = useApp();
-  const [type, setType] = useState<MediaType>('Movie');
+  const { client, session, offline } = useApp();
+  const [tab, setTab] = useState<Tab>('Movie');
+  const collectionsTab = tab === 'BoxSet';
+  // Sort and filters belong to Movies and Shows; the Collections tab keeps the Movies state out of the way.
+  const type: MediaType = collectionsTab ? 'Movie' : tab;
+  const boxSets = useAsync(() => (offline ? Promise.resolve([]) : client.boxSets(session.userId)), [client, session.userId, offline]);
+  const hasCollections = !!boxSets.data && boxSets.data.length > 0;
   // Sort and filters are remembered per type, so Movies and Shows keep their own.
   const [views, setViews] = useState<Record<MediaType, LibraryView>>(() => ({
     Movie: loadLibraryView('Movie'),
@@ -30,31 +39,32 @@ export function Library() {
   };
   const clear = () => change(clearFilters(view));
   const viewKey = JSON.stringify(view);
-  const items = useAsync(
-    () => client.library(session.userId, type, undefined, view),
-    [client, session.userId, type, viewKey],
+  const library = useAsync(
+    () => (collectionsTab ? Promise.resolve([]) : client.library(session.userId, type, undefined, view)),
+    [client, session.userId, type, viewKey, collectionsTab],
   );
+  const items = collectionsTab ? boxSets : library;
   const genres = useAsync(() => client.genres(session.userId, type).catch(() => [] as string[]), [client, session.userId, type]);
   const desktop = useDesktop();
   const pageRef = useRef<HTMLDivElement>(null);
-  const pull = usePullToRefresh(pageRef, () => items.reload());
+  const pull = usePullToRefresh(pageRef, () => Promise.all([library.reload(), boxSets.reload()]));
   const segmented = (
     <div class="segmented" role="tablist">
-      {(['Movie', 'Series'] as const).map((t) => (
+      {(hasCollections ? (['Movie', 'Series', 'BoxSet'] as const) : (['Movie', 'Series'] as const)).map((t) => (
         <button
           key={t}
           type="button"
           role="tab"
-          aria-selected={t === type}
-          class={t === type ? 'active' : ''}
-          onClick={() => setType(t)}
+          aria-selected={t === tab}
+          class={t === tab ? 'active' : ''}
+          onClick={() => setTab(t)}
         >
-          {t === 'Movie' ? 'Movies' : 'Shows'}
+          {TAB_LABELS[t]}
         </button>
       ))}
     </div>
   );
-  const bar = (
+  const bar = collectionsTab ? null : (
     <div class="lib-bar">
       <button type="button" class="lib-btn" aria-haspopup="dialog" onClick={() => setSheet('sort')}>
         Sort: {SORTS[view.sort].label.replace(/ \(.*\)$/, '')}
@@ -83,7 +93,7 @@ export function Library() {
           {bar}
         </>
       )}
-      {filterCount ? (
+      {filterCount && !collectionsTab ? (
         <div class="lib-chips">
           {view.unwatched ? (
             <button type="button" class="lib-chip" aria-label="Remove filter Unwatched only" onClick={() => change({ ...view, unwatched: false })}>
@@ -107,7 +117,7 @@ export function Library() {
       ) : null}
       {items.loading && !items.data ? desktop ? <GridSkeleton /> : <p class="hint">Loading...</p> : null}
       {items.error ? <p class="empty">Couldn't load the library. Check the connection.</p> : null}
-      {items.data && items.data.length === 0 && filterCount ? (
+      {items.data && items.data.length === 0 && filterCount && !collectionsTab ? (
         <div class="empty lib-empty">
           <p>Nothing matches these filters.</p>
           <button type="button" class="btn secondary" onClick={clear}>
