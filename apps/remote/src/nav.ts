@@ -6,6 +6,8 @@ export type Screen = { kind: 'details'; id: string } | { kind: 'nowPlaying' }
   | { kind: 'connect'; code?: string }
   /** The owner's list of requests (opened from the account menu). */
   | { kind: 'requests' }
+  /** An actor or crew member: photo, details and the titles from the library they appear in. */
+  | { kind: 'person'; id: string; name: string }
   /** `local`: play the finished download of this item (saved playlist, subtitles and markers) instead of asking Jellyfin. */
   | { kind: 'player'; item: BaseItem; startTicks: number; local?: boolean };
 

@@ -22,6 +22,8 @@ export interface AppContext {
   /** Tells Home that watched state changed. */
   refreshLibrary(): void;
   openItem(id: string): void;
+  /** Opens a person's screen (from the cast row on Details). */
+  openPerson(id: string, name: string): void;
   openNowPlaying(): void;
   /** Plays an item in the app's own player on this device (the phone, or the desktop browser). A finished download of it plays from the device. */
   playHere(item: BaseItem, startTicks: number): void;

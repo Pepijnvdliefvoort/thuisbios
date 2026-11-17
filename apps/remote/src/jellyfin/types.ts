@@ -33,6 +33,18 @@ export interface ImageTags {
   Logo?: string;
 }
 
+/** One entry of an item's `People` (only present when requested with Fields=People). */
+export interface Person {
+  /** Id of the person item, which has its own image and filmography. */
+  Id: string;
+  Name: string;
+  /** The character for an actor. */
+  Role?: string;
+  /** Actor, Director, Writer, Producer, ... */
+  Type?: string;
+  PrimaryImageTag?: string;
+}
+
 /** A movie, series, season or episode. */
 export interface BaseItem {
   Id: string;
@@ -59,6 +71,10 @@ export interface BaseItem {
   ParentThumbImageTag?: string;
   SeriesPrimaryImageTag?: string;
   UserData?: UserData;
+  /** Only present when requested with Fields=People. */
+  People?: Person[];
+  /** Only present when requested with Fields=PremiereDate (a person's birth date). */
+  PremiereDate?: string;
   /** Only present when requested with Fields=ProviderIds (Tmdb, Imdb, ...). */
   ProviderIds?: Record<string, string>;
   /** Only present when requested with Fields=MediaSources. */

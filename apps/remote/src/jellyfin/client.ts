@@ -35,7 +35,7 @@ export interface ClientOptions {
 const LIST_FIELDS = 'ProductionYear,RunTimeTicks,ChildCount';
 /** The recently added lists also feed the desktop spotlight, which shows a synopsis, rating and genres. */
 const LATEST_FIELDS = `${LIST_FIELDS},Overview,OfficialRating,CommunityRating,Genres`;
-const DETAIL_FIELDS = 'Overview,Genres,OfficialRating,CommunityRating,RunTimeTicks,ChildCount,ProductionYear,RemoteTrailers';
+const DETAIL_FIELDS = 'Overview,Genres,OfficialRating,CommunityRating,RunTimeTicks,ChildCount,ProductionYear,People,PremiereDate,RemoteTrailers';
 const IMAGE_QUERY = 'EnableImageTypes=Primary,Backdrop,Thumb&ImageTypeLimit=1&EnableUserData=true';
 const enc = encodeURIComponent;
 
@@ -76,6 +76,8 @@ export interface JellyfinClient {
   genres(userId: string, type: MediaType): Promise<string[]>;
   search(userId: string, term: string, limit: number): Promise<BaseItem[]>;
   item(userId: string, itemId: string): Promise<BaseItem>;
+  /** The movies and shows from the library that a person (actor, director, ...) appears in, newest first. */
+  personTitles(userId: string, personId: string): Promise<BaseItem[]>;
   /** The trailer files stored next to an item in the library. */
   localTrailers(userId: string, itemId: string): Promise<BaseItem[]>;
   seasons(userId: string, seriesId: string): Promise<BaseItem[]>;
@@ -207,6 +209,10 @@ export function createClient(options: ClientOptions): JellyfinClient {
       ),
     item: (userId, itemId) =>
       req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=${DETAIL_FIELDS}`),
+    personTitles: (userId, personId) =>
+      items(
+        `${user(userId)}/Items?PersonIds=${enc(personId)}&IncludeItemTypes=Movie,Series&Recursive=true&SortBy=PremiereDate,ProductionYear,SortName&SortOrder=Descending&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+      ),
     localTrailers: (userId, itemId) => req<BaseItem[]>('GET', `${user(userId)}/Items/${enc(itemId)}/LocalTrailers`),
     mediaStreams: async (userId, itemId) => {
       const item = await req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=MediaSources,MediaStreams`);
