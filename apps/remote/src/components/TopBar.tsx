@@ -49,12 +49,25 @@ function useScrollbarInset(): void {
  * Desktop navigation: brand, the three tabs and the TV and account buttons in one bar floating over the page. It is
  * see-through over the top of a page and gets a solid background once the page scrolls.
  */
-export function TopBar({ tab, onChange, onSignOut }: { tab: Tab; onChange: (tab: Tab) => void; onSignOut: () => void }) {
+export function TopBar({
+  tab,
+  onChange,
+  onHome,
+  onSignOut,
+}: {
+  tab: Tab;
+  onChange: (tab: Tab) => void;
+  /** The brand: to Home, or back to the top when already there. */
+  onHome: () => void;
+  onSignOut: () => void;
+}) {
   const scrolled = useScrolled(tab);
   useScrollbarInset();
   return (
     <header class={scrolled ? 'topbar solid' : 'topbar'}>
-      <span class="brand">Thuisbios</span>
+      <button type="button" class="brand" aria-label="Thuisbios, go to Home" onClick={onHome}>
+        Thuisbios
+      </button>
       <nav class="topbar-tabs" aria-label="Main">
         {TABS.map((t) => (
           <button

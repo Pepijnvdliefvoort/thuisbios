@@ -31,6 +31,18 @@ export function notInLibrary(suggestions: Suggestion[], library: BaseItem[]): Su
   );
 }
 
+/** The suggestion's open request that this user made (the one they may withdraw), matched like isRequested. */
+export function ownOpenRequest(suggestion: Suggestion, requests: TitleRequest[], userId: string): TitleRequest | undefined {
+  return requests.find(
+    (r) =>
+      r.status === 'open' &&
+      r.userId === userId &&
+      ((!!suggestion.tmdbId && r.tmdbId === suggestion.tmdbId) ||
+        (!!suggestion.imdbId && r.imdbId === suggestion.imdbId) ||
+        sameTitleAndYear(suggestion.title, suggestion.year, r.title, r.year)),
+  );
+}
+
 /** Whether there is an open request for this suggestion (same TMDB id, IMDb id, or title and year). */
 export function isRequested(suggestion: Suggestion, requests: TitleRequest[]): boolean {
   return requests.some(
