@@ -66,11 +66,13 @@ Regenerate them with `node scripts/screenshots/capture.mjs`, see [scripts/screen
 ## Architecture
 
 ```text
- Phone app ─────HTTP(S) + WebSocket──▶ Jellyfin (Windows PC) ◀──HTTP + WebSocket── TV app
- (PWA)                              NVIDIA RTX 4060 Ti                          (Samsung Tizen 4.0)
-      │                             NVENC transcoding                                  ▲
-      └──── same-origin relay in the remote's server (PC) ──▶ Samsung TV remote API (volume) ┘
+ Phone app ─────HTTP(S) + WebSocket──▶ Jellyfin (Linux home server) ◀──HTTP + WebSocket── TV app
+ (PWA)                              VAAPI transcoding (AMD iGPU)                    (Samsung Tizen 4.0)
+      │                                                                                    ▲
+      └──── same-origin relay in the app's server (Docker, same machine) ──▶ Samsung TV remote API (volume) ┘
 ```
+
+Jellyfin and the Thuisbios app (TV page and phone app) run on a Linux home server with Docker.
 
 Jellyfin handles users, library, metadata, progress, search, image resizing, transcoding and the
 sessions (remote control) API. The phone sends commands to the TV session through Jellyfin.
@@ -86,20 +88,31 @@ docs/tv/                  TV app: Tizen setup, install and test guide (dev-setup
 docs/remote/              phone app: setup guide (setup.md), away from home via Tailscale (tailscale.md)
 scripts/                  repo tooling (version checks)
 scripts/screenshots/      mock Jellyfin server (also serves a tiny HLS stream for downloads) and Playwright script that generates the README screenshots
-packages/jellyfin-client/ planned: shared typed Jellyfin API client
 apps/tv/                  Samsung Tizen 4.0 TV app (Preact + TypeScript + Vite), served to the TV browser
 apps/remote/              phone and desktop app (PWA), phase 4 (Preact + TypeScript + Vite)
 apps/remote/sw/           service worker generator (Vite plugin) that makes the app open offline
 apps/remote/src/offline/  offline downloads: download queue and engine, storage keys, HLS playlist helpers, playing a download in the normal player, offline progress queue and sync, offline mode (Downloads as the only screen)
 apps/remote/relay/        Samsung TV volume relay and title requests (Node, runs inside the remote's vite server); apps/remote/scripts/tv-setup.mjs pairs the TV and jellyfin-setup.mjs saves the Jellyfin API key for title suggestions
-server/                   Jellyfin helper scripts (PowerShell) and Pester tests; device profile planned
+server/                   Jellyfin helper scripts (PowerShell) and Pester tests
 server/linux/             compose file and update timer (systemd) for the Linux home server
 Dockerfile                one image with the TV page and phone app, for the Linux home server
 ```
 
 ## Server (phase 1)
 
-Follow [docs/server/windows-setup.md](docs/server/windows-setup.md) to install Jellyfin natively
+Jellyfin and the Thuisbios app (TV page and phone app, one Docker image) run on a Linux home server
+with Docker compose. Jellyfin uses VAAPI hardware transcoding on the AMD integrated GPU. Every release builds
+and pushes the image (`ghcr.io/pepijnvdliefvoort/thuisbios`), and a systemd timer on the server pulls it
+every 15 minutes, so the server follows the releases without building anything itself. Follow
+[docs/server/linux-docker.md](docs/server/linux-docker.md); the compose file and the timer are in `server/linux`.
+
+Optional: the Intro Skipper plugin lets Jellyfin find the intro of each episode, which makes the apps
+show a "Skip intro" button. See [docs/server/intro-skipper.md](docs/server/intro-skipper.md).
+
+### Windows PC (older setup)
+
+This was the first setup and still works as an alternative. Follow
+[docs/server/windows-setup.md](docs/server/windows-setup.md) to install Jellyfin natively
 on Windows, enable NVENC, and set up the network. Helper scripts live in `server/scripts`
 (Windows PowerShell 5.1 or PowerShell 7):
 
@@ -115,17 +128,7 @@ on Windows, enable NVENC, and set up the network. Helper scripts live in `server
   build it and restart the TV page and phone app; goes back to the previous version if the build
   fails. Run by the Update task every 30 minutes (administrator; `-Force` rebuilds the current release).
 
-Optional: the Intro Skipper plugin lets Jellyfin find the intro of each episode, which makes the apps
-show a "Skip intro" button. See [docs/server/intro-skipper.md](docs/server/intro-skipper.md).
-
 Run the tests with `Invoke-Pester -Path server/tests` (Pester 5).
-
-### Linux home server (Docker)
-
-Thuisbios can also run on a Linux server next to a native Jellyfin, as two containers from one image
-(`ghcr.io/pepijnvdliefvoort/thuisbios`). Every release builds and pushes that image, and a systemd timer on the
-server pulls it every 15 minutes, so the server follows the releases without building anything itself.
-See [docs/server/linux-docker.md](docs/server/linux-docker.md).
 
 ## TV app
 
@@ -139,9 +142,9 @@ player is a full-screen HTML5 player (Jellyfin device profile, `?debug` overlay)
 subtitles. In the TV browser, Return while in full screen only leaves full screen, so the app asks
 for full screen again, and the "Press OK to continue in full screen" modal is handled with OK. Installing
 (sideloading) a packaged app is refused by this TV's firmware, so the app runs in the TV's built-in
-web browser, served from the PC (`npm run preview -w apps/tv`, port 4173).
+web browser, served from the Linux home server (port 4173; `npm run preview -w apps/tv` is what runs in the container).
 [docs/tv/dev-setup.md](docs/tv/dev-setup.md) explains this and has the test checklist;
-[docs/server/autostart.md](docs/server/autostart.md) starts it with Windows.
+[docs/server/linux-docker.md](docs/server/linux-docker.md) runs it on the server (on a Windows PC, [docs/server/autostart.md](docs/server/autostart.md) starts it with Windows).
 
 ```bash
 npm install
@@ -161,7 +164,7 @@ committed.
 `apps/remote` is the Thuisbios phone app: a PWA (Preact + TypeScript + Vite) for modern
 phone browsers (iOS Safari 15+, Android Chrome), so there is no legacy build. The phone is the main
 screen. It connects the TV: scan the QR code on the TV (the link is
-`http://<pc>:4174/?connect=<code>`) or tap "Connect TV" at the top right and type the 6-digit Quick Connect code
+`http://<server>:4174/?connect=<code>`) or tap "Connect TV" at the top right and type the 6-digit Quick Connect code
 (the phone approves it with `POST /QuickConnect/Authorize`). The Connect a TV screen can also scan the
 TV's QR code with the camera (over plain HTTP it takes a photo; a live viewfinder needs HTTPS). It signs in to
 Jellyfin with just username and password (the server address is derived from the page host; "Change server" reveals it), browses the library (Home rows, Search, Library with
@@ -232,14 +235,14 @@ TV", audio and subtitle track choice and Disconnect (sign out).
 Every request uses the configured absolute server URL, so the app can
 be wrapped with Capacitor later. A volume pill on Now Playing (−, the level, +; the level opens the sheet) and a button in the TV sheet open a bottom sheet
 with a slider, a mute toggle and −/+ buttons (one step per tap) that control the Samsung TV through a small relay that runs inside
-the remote's own `vite preview` (and `vite dev`) server on the PC, under `/api/tv/`. The phone calls it on the same origin with its
+the remote's own `vite preview` (and `vite dev`) server on the Linux home server, under `/api/tv/`. The phone calls it on the same origin with its
 Jellyfin token, which the relay checks against Jellyfin; it only ever sends `KEY_VOLUP`,
 `KEY_VOLDOWN` and `KEY_MUTE` over the remote API, and reads and sets the exact level through the TV's
 UPnP RenderingControl service (port 9197). When UPnP is not available (for instance sound going to a
 soundbar), or `"volumeMode": "relative"` is set, the slider presses the volume keys toward a remembered
 level instead. The TV address and pairing token live in
 `~/.thuisbios/samsung-tv.json`, outside the repo; `npm run tv:setup -w apps/remote -- <tv-ip>` pairs
-the TV once. Follow [docs/remote/setup.md](docs/remote/setup.md) to run it on the PC and add it to
+the TV once. Follow [docs/server/linux-docker.md](docs/server/linux-docker.md) to run it on the server (or [docs/remote/setup.md](docs/remote/setup.md) to run it on a PC) and add it to
 the phone's home screen.
 
 Now Playing also has a "Sub timing" tile that opens a sheet to shift the subtitle timing in steps of
@@ -265,9 +268,9 @@ metadata search (`GET /api/requests/lookup`) using a Jellyfin API key that
 `npm run jellyfin:setup -w apps/remote` saves in `~/.thuisbios/jellyfin.json`. Without the key, requests
 still work as plain text.
 
-Away from home the phone reaches the PC through Tailscale Serve (private, tailnet only, nothing opened
-to the internet): `https://<pc>.<tailnet>.ts.net` for the app (port 443) and `:8920` for Jellyfin, both
-over HTTPS so the home-screen install works. Follow [docs/remote/tailscale.md](docs/remote/tailscale.md).
+Away from home the phone reaches the Linux home server through Tailscale Serve (private, tailnet only, nothing opened
+to the internet): `https://<server>.<tailnet>.ts.net` for the app (port 443) and `:8920` for Jellyfin, both
+over HTTPS so the home-screen install works. Tailscale runs on the server. Follow [docs/remote/tailscale.md](docs/remote/tailscale.md) (written for the older Windows PC setup).
 
 ```bash
 npm install
@@ -318,11 +321,11 @@ Docker: `ci.yml` builds the image and starts both apps when the `Dockerfile`, `.
 
 | Phase | Goal | Status |
 |---|---|---|
-| 1. Server | Jellyfin on the Windows PC with a test library | done |
+| 1. Server | Jellyfin on the Linux home server (originally the Windows PC) with a test library | done |
 | 2. TV spike | Hello-world Tizen app, D-pad focus, direct play and transcode playback | done |
-| 3. TV MVP | Quick Connect login, profiles, home rows, detail page, playback with resume | done; later reshaped: the TV only connects and shows a screensaver, browsing moved to the phone |
+| 3. TV MVP | Quick Connect login, home rows, detail page, playback with resume | done; later reshaped: the TV only connects and shows a screensaver, browsing moved to the phone |
 | 4. Phone app MVP | Search, browse, play on TV, transport controls, volume slider (TV or soundbar) | done: browse, search, play on TV or on the phone, transport controls, volume slider (relay in the app's server), title requests from Search; volume and title suggestions not yet verified on the real TV/phone |
-| 5. Polish | Series flow, subtitles, trickplay, Samsung power-on/launch, remote access | in progress: remote access via Tailscale Serve and start with Windows and automatic updates from releases (autostart and update scripts, not yet run on the real PC) done; Linux home server with Docker and automatic updates from GHCR (not yet run on the real server) done; skip intro (needs the Intro Skipper plugin, on the TV and the phone; not yet verified on the real TV) done; next episode autoplay (card with countdown, on the TV and the phone; not yet verified on the real TV) done; trickplay preview frames while scrubbing in the phone and desktop app (needs trickplay images enabled in Jellyfin; not yet verified on the real server) done; the rest planned |
+| 5. Polish | Series flow, subtitles, trickplay, remote access | in progress: remote access via Tailscale Serve done; Linux home server with Docker and automatic updates from GHCR, running on the real server, done (the earlier Windows PC setup had autostart and update scripts); skip intro (needs the Intro Skipper plugin, on the TV and the phone; not yet verified on the real TV) done; next episode autoplay (card with countdown, on the TV and the phone; not yet verified on the real TV) done; trickplay preview frames while scrubbing in the phone and desktop app (needs trickplay images enabled in Jellyfin; not yet verified on the real server) done; the rest planned |
 
 ## License
 
