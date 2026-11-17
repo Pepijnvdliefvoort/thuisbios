@@ -5,6 +5,8 @@ import { Icon } from '../components/Icon';
 import { TrailerButton } from '../components/TrailerButton';
 import { PullSpinner } from '../components/PullSpinner';
 import { BackdropImg, Img } from '../components/Img';
+import { CollectionDetails } from './CollectionDetails';
+import { DetailsExtras } from '../components/DetailsExtras';
 import { Skeleton } from '../components/Skeleton';
 import { useApp } from '../context';
 import { artUrl, artUrls } from '../jellyfin/art';
@@ -55,7 +57,8 @@ export function Details({ id, onBack }: { id: string; onBack: () => void }) {
       <button type="button" class="back" onClick={onBack} aria-label="Back">
         <Icon name="back" />
       </button>
-      {item.data ? <DetailsBody item={item.data} reloaders={reloaders} refresh={refresh} /> : null}
+      {item.data && item.data.Type === 'BoxSet' ? <CollectionDetails item={item.data} reloaders={reloaders} /> : null}
+      {item.data && item.data.Type !== 'BoxSet' ? <DetailsBody item={item.data} reloaders={reloaders} refresh={refresh} /> : null}
       {item.loading && !item.data ? desktop ? <DetailsSkeleton /> : <p class="hint pad-top">Loading...</p> : null}
       {item.error ? <p class="empty pad-top">Couldn't load this item.</p> : null}
     </div>
@@ -252,6 +255,7 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
         <div class="details-content">
           {episodes}
           <CastSection item={item} />
+          <DetailsExtras item={item} />
         </div>
       </>
     );
@@ -279,6 +283,7 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
         {genres}
         {episodes}
         <CastSection item={item} />
+        <DetailsExtras item={item} />
       </div>
     </>
   );

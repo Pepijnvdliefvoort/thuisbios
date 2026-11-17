@@ -16,6 +16,19 @@ describe('client', () => {
     expect((init.headers as Record<string, string>).Authorization).toContain('Token="tok"');
   });
 
+  it('asks for similar items and collections with the user and image fields', async () => {
+    const fetchFn = vi.fn(async () => ok({ Items: [{ Id: 'x', Name: 'X' }], TotalRecordCount: 1 }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    expect(await client.similar('u1', 'm 1', 12)).toEqual([{ Id: 'x', Name: 'X' }]);
+    await client.boxSets('u1');
+    await client.boxSetItems('u1', 'b1');
+    const urls = fetchFn.mock.calls.map((c) => (c as unknown as [string])[0]);
+    expect(urls[0].startsWith('http://pc/Items/m%201/Similar?userId=u1&limit=12&Fields=')).toBe(true);
+    expect(urls[1].startsWith('http://pc/Users/u1/Items?IncludeItemTypes=BoxSet&Recursive=true&SortBy=SortName')).toBe(true);
+    expect(urls[2].startsWith('http://pc/Users/u1/Items?ParentId=b1&SortBy=PremiereDate,ProductionYear,SortName')).toBe(true);
+    expect(urls[2]).toContain('PremiereDate&');
+  });
+
   it('downloads bitrate test bytes with the auth header and counts them', async () => {
     const fetchFn = vi.fn(async () => ({ ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(1234) }) as unknown as Response);
     const onUnauthorized = vi.fn();
