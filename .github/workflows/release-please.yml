@@ -32,12 +32,17 @@ jobs:
       # Squash merge the release PR once its checks pass. The merge must be made with RELEASE_TOKEN:
       # a merge by GITHUB_TOKEN would not trigger this workflow again on main, so no tag or release.
       - name: Auto-merge release PR (squash)
-        if: ${{ env.HAS_RELEASE_TOKEN == 'true' && steps.release.outputs.pr != '' }}
+        if: ${{ env.HAS_RELEASE_TOKEN == 'true' && steps.release.outputs.pr }}
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          PR: ${{ fromJSON(steps.release.outputs.pr).number }}
+          PR_JSON: ${{ steps.release.outputs.pr }}
         run: |
+          PR=$(jq -r '.number' <<<"$PR_JSON")
+          if [ -z "$PR" ] || [ "$PR" = "null" ]; then
+            echo "No release PR this run; nothing to merge."
+            exit 0
+          fi
           # --auto fails with a "clean status" error when the PR can be merged right away.
           gh pr merge "$PR" --auto --squash || gh pr merge "$PR" --squash
 
