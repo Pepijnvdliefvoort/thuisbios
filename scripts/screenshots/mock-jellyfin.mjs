@@ -115,7 +115,74 @@ for (let i = 1; i <= 12; i++) {
   }
 });
 
-const strip = ({ hue, created, ...rest }) => rest; // drop internal fields from API output
+// Collections (BoxSets): three and two films of the library, released in a different order than their names sort.
+const boxChildren = new Map();
+[
+  ['box-1', 'Sample Collection', ['film-02', 'film-06', 'film-09'], 3],
+  ['box-2', 'Sample Saga', ['film-04', 'film-10'], 5],
+].forEach(([id, name, films, hue]) => {
+  boxChildren.set(id, films);
+  items.set(id, ready({
+    Id: id, Name: name, Type: 'BoxSet', ChildCount: films.length, Overview: LOREM[(hue + 1) % LOREM.length],
+    hue: HUES[hue], created: 3, UserData: { Played: false },
+  }));
+  for (const f of films) items.get(f).parent = id;
+});
+for (const i of items.values()) if (i.Type === 'Movie') i.PremiereDate = `${i.ProductionYear}-06-15T00:00:00.0000000Z`;
+
+/** Like Jellyfin's similar items: the same kind of title, the most shared genres first. */
+function similarTo(id, limit) {
+  const it = items.get(id);
+  if (!it) return [];
+  const score = (o) => (o.Genres || []).filter((g) => (it.Genres || []).includes(g)).length;
+  const list = [...items.values()].filter((o) => o.Type === it.Type && o.Id !== id);
+  list.sort((a, b) => score(b) - score(a) || a.Name.localeCompare(b.Name));
+  return limit > 0 ? list.slice(0, limit) : list;
+}
+
+// Trailers: Sample Film 02 has a trailer file in the library (it reuses the tiny stream below), Sample Film 04 and
+// Sample Series B have a YouTube link.
+const YT = [{ Url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ', Name: 'Trailer' }];
+items.get('film-02').LocalTrailerCount = 1;
+items.set('film-02-trailer', { Id: 'film-02-trailer', Name: 'Sample Film 02 - Trailer', Type: 'Trailer', RunTimeTicks: 12 * TICKS, hue: items.get('film-02').hue, UserData: { PlaybackPositionTicks: 0, Played: false } });
+items.get('film-04').RemoteTrailers = YT;
+items.get('series-b').RemoteTrailers = YT;
+
+
+// Generic cast and crew. Some people have a photo (a generated portrait), some do not, so the placeholder shows too.
+const FIRST = ['Alex', 'Sam', 'Robin', 'Jamie', 'Morgan', 'Casey', 'Riley', 'Quinn', 'Avery', 'Drew', 'Taylor', 'Jordan', 'Skyler', 'Reese', 'Devon', 'Kendall'];
+const LAST = ['Rivera', 'Lindqvist', 'Okafor', 'Marchetti', 'Haddad', 'Novak', 'Brandt', 'Castellan', 'Yilmaz', 'Duval', 'Petrov', 'Laurent', 'Mbeki', 'Sorensen', 'Takeda', 'Whitlock'];
+const ROLES = ['Detective Hale', 'Dr. Voss', 'The Captain', 'Mara', 'Old Tom', 'Inspector Lund', 'Nina', 'Elias', 'The Stranger', 'Professor Ray', 'Captain Adler', 'Juno'];
+const PEOPLE = FIRST.map((first, i) => {
+  const id = `person-${pad(i + 1)}`;
+  const person = {
+    Id: id,
+    Name: `${first} ${LAST[(i * 5 + 3) % LAST.length]}`,
+    Type: 'Person',
+    Overview: i % 4 === 3 ? undefined : `${LOREM[i % LOREM.length]} ${LOREM[(i + 2) % LOREM.length]}`,
+    PremiereDate: i % 5 === 4 ? undefined : `${1950 + ((i * 7) % 45)}-${pad(1 + ((i * 5) % 12))}-${pad(1 + ((i * 11) % 28))}T00:00:00.0000000Z`,
+    hue: HUES[(i * 7 + 2) % HUES.length],
+    UserData: { Played: false },
+  };
+  if (i % 3 !== 2) person.ImageTags = { Primary: 'x' }; // every third person has no photo
+  items.set(id, person);
+  return person;
+});
+/** Billing-ordered cast, a director and a writer for the item with this index (a few items have none). */
+function crewFor(index, withPeople = true) {
+  if (!withPeople) return [];
+  const pick = (offset) => PEOPLE[(index * 3 + offset) % PEOPLE.length];
+  const entry = (person, Type, Role) => ({ Id: person.Id, Name: person.Name, Type, ...(Role ? { Role } : {}), ...(person.ImageTags ? { PrimaryImageTag: 'x' } : {}) });
+  const actors = [0, 1, 2, 4, 5, 7, 8, 9].map((o, n) => entry(pick(o), 'Actor', ROLES[(index + n * 2) % ROLES.length]));
+  return [...actors, entry(pick(10), 'Director'), entry(pick(11), 'Writer'), entry(pick(13), 'Writer')];
+}
+for (const [index, id] of order.movies.entries()) items.get(id).people = crewFor(index, id !== 'film-12');
+for (const [index, id] of order.series.entries()) items.get(id).people = crewFor(index + 5);
+for (const i of items.values()) {
+  if (i.Type === 'Episode') i.people = items.get(i.SeriesId).people.slice(0, 6);
+}
+
+const strip = ({ hue, created, parent, people, ...rest }) => rest; // drop internal fields from API output
 const episodesOf = (seriesId) => [...items.values()].filter((i) => i.Type === 'Episode' && i.SeriesId === seriesId);
 
 /** The first unwatched episode of a series that the user started, like Jellyfin's Next Up. */
@@ -223,6 +290,21 @@ function shapes(id, hue, w, h) {
   return out;
 }
 
+/** A square portrait: gradient with a head and shoulders, the photo of a person. */
+function portrait(item, size) {
+  const hue = item.hue ?? 210;
+  const r = rng(item.Id);
+  const skin = hsl(25 + r() * 15, 40 + r() * 20, 45 + r() * 25);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${hsl(hue, 45, 22)}"/><stop offset="1" stop-color="${hsl(hue + 30, 50, 40)}"/></linearGradient></defs>
+<rect width="200" height="200" fill="url(#bg)"/>
+<path d="M30 200 C30 150 70 135 100 135 C130 135 170 150 170 200Z" fill="${hsl(hue + 180, 30, 25)}"/>
+<rect x="88" y="108" width="24" height="32" fill="${skin}"/>
+<ellipse cx="100" cy="82" rx="30" ry="36" fill="${skin}"/>
+<path d="M68 76 C68 40 132 40 132 76 C122 58 78 58 68 76Z" fill="${hsl(20 + r() * 20, 30, 15 + r() * 25)}"/>
+</svg>`;
+}
+
 /** The whole SVG. kind: 'poster' (2:3), 'wide' (16:9, with text), 'backdrop' (16:9, no text), 'logo'. */
 function art(item, kind, reqW, reqH) {
   const hue = item.hue ?? 210;
@@ -310,7 +392,11 @@ const userData = (it) => it.UserData || {};
 /** Applies the query filters the apps use to the full item list. */
 function queryItems(q) {
   const types = (q.get('IncludeItemTypes') || '').split(',').filter(Boolean);
-  let list = [...items.values()].filter((i) => (types.length ? types.includes(i.Type) : i.Type === 'Movie' || i.Type === 'Series'));
+  const parent = q.get('ParentId');
+  // A collection's items, or the library types asked for (movies and series when none is named).
+  let list = [...items.values()].filter((i) =>
+    parent ? i.parent === parent : types.length ? types.includes(i.Type) : i.Type === 'Movie' || i.Type === 'Series',
+  );
   const term = (q.get('searchTerm') || '').toLowerCase();
   if (term) list = list.filter((i) => i.Name.toLowerCase().includes(term) || (i.SeriesName || '').toLowerCase().includes(term));
   if ((q.get('Filters') || '').includes('IsResumable')) {
@@ -326,6 +412,8 @@ function queryItems(q) {
     if (key) list.sort((a, b) => (desc ? -1 : 1) * ((a[key] ?? 0) - (b[key] ?? 0)));
   }
   if ((q.get('Filters') || '').includes('IsUnplayed')) list = list.filter((i) => !userData(i).Played);
+  const personIds = (q.get('PersonIds') || '').split(',').filter(Boolean);
+  if (personIds.length) list = list.filter((i) => (i.people || []).some((p) => personIds.includes(p.Id)));
   const genre = q.get('Genres');
   if (genre) list = list.filter((i) => (i.Genres || []).includes(genre));
   const years = (q.get('Years') || '').split(',').filter(Boolean).map(Number);
@@ -357,6 +445,45 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Emby-Authorization, X-Emby-Token, X-Emby-Client, X-Emby-Device-Name, X-Emby-Device-Id, X-Emby-Client-Version',
   'Access-Control-Max-Age': '600',
 };
+
+// ---------- scrub previews (trickplay) ----------
+
+const TRICKPLAY_WIDTHS = [160, 320];
+const TRICKPLAY_TILES = 10;
+const TRICKPLAY_INTERVAL_MS = 10000;
+
+/** The item's Trickplay field: tile sheet sizes per media source (the mock's source id is the item id) and width. */
+function trickplayOf(it) {
+  const count = Math.ceil((it.RunTimeTicks || 0) / TICKS / (TRICKPLAY_INTERVAL_MS / 1000));
+  if (!count) return undefined;
+  const widths = {};
+  for (const w of TRICKPLAY_WIDTHS) {
+    widths[w] = { Width: w, Height: Math.round((w * 9) / 16), TileWidth: TRICKPLAY_TILES, TileHeight: TRICKPLAY_TILES, ThumbnailCount: count, Interval: TRICKPLAY_INTERVAL_MS, Bandwidth: 100000 };
+  }
+  return { [it.Id]: widths };
+}
+
+/** One generated tile sheet (SVG): every cell is a coloured frame with its timestamp, so the right cell is easy to see. */
+function trickplaySheet(it, width, sheet) {
+  const h = Math.round((width * 9) / 16);
+  const hue = Math.floor(rng(it.Id)() * 360);
+  const perSheet = TRICKPLAY_TILES * TRICKPLAY_TILES;
+  const cells = [];
+  for (let i = 0; i < perSheet; i++) {
+    const n = sheet * perSheet + i;
+    const sec = (n * TRICKPLAY_INTERVAL_MS) / 1000;
+    const x = (i % TRICKPLAY_TILES) * width;
+    const y = Math.floor(i / TRICKPLAY_TILES) * h;
+    const hours = Math.floor(sec / 3600);
+    const label = `${hours ? hours + ':' : ''}${String(Math.floor((sec % 3600) / 60)).padStart(hours ? 2 : 1, '0')}:${String(sec % 60).padStart(2, '0')}`;
+    cells.push(
+      `<rect x="${x}" y="${y}" width="${width}" height="${h}" fill="${hsl(hue + n * 7, 55, 28 + (n % 5) * 5)}"/>` +
+        `<circle cx="${x + width * (0.2 + (0.6 * ((n * 37) % 100)) / 100)}" cy="${y + h * 0.4}" r="${h * 0.22}" fill="${hsl(hue + n * 7 + 40, 60, 60, 0.55)}"/>` +
+        `<text x="${x + width / 2}" y="${y + h * 0.88}" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" font-size="${Math.round(h * 0.2)}" font-weight="700" fill="#fff">${label}</text>`,
+    );
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * TRICKPLAY_TILES}" height="${h * TRICKPLAY_TILES}" viewBox="0 0 ${width * TRICKPLAY_TILES} ${h * TRICKPLAY_TILES}">${cells.join('')}</svg>`;
+}
 
 export function startMock({ port = 8097, quickConnectAuthenticated = process.env.MOCK_QC_AUTHENTICATED === '1', quiet = false } = {}) {
   const secrets = new Set();
@@ -429,12 +556,25 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       const names = [...new Set([...items.values()].filter((i) => i.Type === type).flatMap((i) => i.Genres || []))].sort();
       return json({ Items: names.map((Name) => ({ Id: `genre-${Name}`, Name })), TotalRecordCount: names.length });
     }
+    if ((m = /^\/Items\/([^/]+)\/Similar$/.exec(path))) {
+      const list = similarTo(m[1], parseInt(q.get('limit') || q.get('Limit') || '', 10));
+      return json({ Items: list.map(strip), TotalRecordCount: list.length });
+    }
     if ((m = /^\/Users\/[^/]+\/Items$/.exec(path))) return json(queryItems(q));
+    if ((m = /^\/Users\/[^/]+\/Items\/([^/]+)\/LocalTrailers$/.exec(path))) {
+      const t = items.get(`${m[1]}-trailer`);
+      return json(t ? [strip(t)] : []);
+    }
     if ((m = /^\/Users\/[^/]+\/Items\/([^/]+)$/.exec(path)) || (m = /^\/Items\/([^/]+)$/.exec(path))) {
       const it = items.get(m[1]);
       if (!it) return send(404, { error: 'not found' });
-      const withSources = (q.get('Fields') || '').includes('MediaSources');
-      return json(withSources ? { ...strip(it), MediaSources: [{ Id: it.Id, MediaStreams: STREAMS }] } : strip(it));
+      const fields = q.get('Fields') || '';
+      const withSources = fields.includes('MediaSources');
+      // Like Jellyfin, People only come with Fields=People.
+      const withPeople = fields.split(',').includes('People') && it.people;
+      const out = { ...strip(it), ...(withPeople ? { People: it.people } : {}), ...(withSources ? { MediaSources: [{ Id: it.Id, MediaStreams: STREAMS }] } : {}) };
+      if (fields.includes('Trickplay')) out.Trickplay = trickplayOf(it);
+      return json(out);
     }
     if ((m = /^\/Users\/[^/]+\/PlayedItems\/([^/]+)$/.exec(path))) {
       // Marks the item and, for a season or series, its episodes (like Jellyfin).
@@ -457,7 +597,7 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
     if ((m = /^\/Items\/([^/]+)\/PlaybackInfo$/.exec(path))) {
       // Like Jellyfin: the default subtitle track is only the server's own pick when none was asked for.
       const asked = q.get('SubtitleStreamIndex');
-      if (q.get('EnableDirectPlay') === 'false') {
+      if (q.get('EnableDirectPlay') === 'false' || m[1].endsWith('-trailer')) {
         // A forced transcode (the phone's offline downloads): offer an HLS stream.
         const tq = `DeviceId=mock-device&MediaSourceId=${m[1]}&PlaySessionId=mock-dl&VideoCodec=h264&AudioCodec=aac`;
         return json({
@@ -477,10 +617,16 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
     }
     if (/^\/Videos\/[^/]+\/[^/]+\/Subtitles\/\d+\/0\/Stream\.vtt$/.test(path)) return send(200, 'WEBVTT\n\n00:00:01.000 --> 00:00:04.000\nSample subtitle line\n', 'text/vtt');
     if (path === '/Videos/ActiveEncodings' && req.method === 'DELETE') return empty();
+    if ((m = /^\/Videos\/([^/]+)\/Trickplay\/(\d+)\/(\d+)\.jpg$/.exec(path))) {
+      const it = items.get(m[1]);
+      if (!it || !TRICKPLAY_WIDTHS.includes(Number(m[2]))) return send(404, { error: 'not found' });
+      return send(200, trickplaySheet(it, Number(m[2]), Number(m[3])), 'image/svg+xml');
+    }
     if ((m = /^\/Items\/([^/]+)\/Images\/(Primary|Backdrop|Thumb|Logo)(?:\/\d+)?$/.exec(path))) {
       const it = items.get(m[1]);
       if (!it) return send(404, { error: 'not found' });
       const type = m[2];
+      if (it.Type === 'Person') return send(200, portrait(it, parseInt(q.get('fillWidth') || '', 10) || 200), 'image/svg+xml');
       const reqW = parseInt(q.get('fillWidth') || q.get('maxWidth') || q.get('width') || '', 10) || 0;
       const reqH = parseInt(q.get('fillHeight') || q.get('maxHeight') || q.get('height') || '', 10) || 0;
       // Primary is a 2:3 poster, except an episode's Primary, which is its 16:9 still.

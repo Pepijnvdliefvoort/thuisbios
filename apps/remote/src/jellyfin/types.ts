@@ -33,12 +33,26 @@ export interface ImageTags {
   Logo?: string;
 }
 
+/** One entry of an item's `People` (only present when requested with Fields=People). */
+export interface Person {
+  /** Id of the person item, which has its own image and filmography. */
+  Id: string;
+  Name: string;
+  /** The character for an actor. */
+  Role?: string;
+  /** Actor, Director, Writer, Producer, ... */
+  Type?: string;
+  PrimaryImageTag?: string;
+}
+
 /** A movie, series, season or episode. */
 export interface BaseItem {
   Id: string;
   Name: string;
   Type?: 'Movie' | 'Series' | 'Season' | 'Episode' | string;
   ProductionYear?: number;
+  /** ISO date (release date; a person's birth date); only present when requested with Fields=PremiereDate. */
+  PremiereDate?: string;
   SeriesName?: string;
   SeriesId?: string;
   SeasonId?: string;
@@ -59,10 +73,30 @@ export interface BaseItem {
   ParentThumbImageTag?: string;
   SeriesPrimaryImageTag?: string;
   UserData?: UserData;
+  /** Only present when requested with Fields=People. */
+  People?: Person[];
   /** Only present when requested with Fields=ProviderIds (Tmdb, Imdb, ...). */
   ProviderIds?: Record<string, string>;
   /** Only present when requested with Fields=MediaSources. */
   MediaSources?: MediaSource[];
+  /** Trailer files stored next to the item in the library. */
+  LocalTrailerCount?: number;
+  /** Only present when requested with Fields=RemoteTrailers (usually YouTube links). */
+  RemoteTrailers?: { Url?: string; Name?: string }[];
+  /** Only present when requested with Fields=Trickplay: scrub preview tile sheets per media source and width. */
+  Trickplay?: Record<string, Record<string, TrickplayInfo>>;
+}
+
+/** One width of scrub preview tile sheets (see jellyfin/trickplay.ts). */
+export interface TrickplayInfo {
+  Width: number;
+  Height: number;
+  TileWidth: number;
+  TileHeight: number;
+  ThumbnailCount: number;
+  /** Milliseconds between two thumbnails. */
+  Interval: number;
+  Bandwidth?: number;
 }
 
 export interface ItemsResult {

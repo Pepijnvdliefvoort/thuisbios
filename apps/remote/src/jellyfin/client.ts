@@ -35,7 +35,7 @@ export interface ClientOptions {
 const LIST_FIELDS = 'ProductionYear,RunTimeTicks,ChildCount';
 /** The recently added lists also feed the desktop spotlight, which shows a synopsis, rating and genres. */
 const LATEST_FIELDS = `${LIST_FIELDS},Overview,OfficialRating,CommunityRating,Genres`;
-const DETAIL_FIELDS = 'Overview,Genres,OfficialRating,CommunityRating,RunTimeTicks,ChildCount,ProductionYear';
+const DETAIL_FIELDS = 'Overview,Genres,OfficialRating,CommunityRating,RunTimeTicks,ChildCount,ProductionYear,People,PremiereDate,RemoteTrailers';
 const IMAGE_QUERY = 'EnableImageTypes=Primary,Backdrop,Thumb&ImageTypeLimit=1&EnableUserData=true';
 const enc = encodeURIComponent;
 
@@ -75,7 +75,17 @@ export interface JellyfinClient {
   /** Genre names used by the items of one type. */
   genres(userId: string, type: MediaType): Promise<string[]>;
   search(userId: string, term: string, limit: number): Promise<BaseItem[]>;
+  /** Titles like `itemId` (Jellyfin's "similar items"). */
+  similar(userId: string, itemId: string, limit: number): Promise<BaseItem[]>;
+  /** All collections (BoxSets) of the user, by name. */
+  boxSets(userId: string): Promise<BaseItem[]>;
+  /** The items of one collection in release order. */
+  boxSetItems(userId: string, boxSetId: string): Promise<BaseItem[]>;
   item(userId: string, itemId: string): Promise<BaseItem>;
+  /** The movies and shows from the library that a person (actor, director, ...) appears in, newest first. */
+  personTitles(userId: string, personId: string): Promise<BaseItem[]>;
+  /** The trailer files stored next to an item in the library. */
+  localTrailers(userId: string, itemId: string): Promise<BaseItem[]>;
   seasons(userId: string, seriesId: string): Promise<BaseItem[]>;
   episodes(userId: string, seriesId: string, seasonId: string): Promise<BaseItem[]>;
   sessions(userId: string): Promise<RemoteSession[]>;
@@ -95,6 +105,8 @@ export interface JellyfinClient {
   logout(): Promise<void>;
   /** The audio and subtitle streams of an item's first media source (empty when the server lists none). */
   mediaStreams(userId: string, itemId: string): Promise<MediaStream[]>;
+  /** The item with its scrub preview data (Fields=Trickplay). */
+  scrubInfo(userId: string, itemId: string): Promise<BaseItem>;
   /** Asks the server how this phone can play an item; see {@link PlaybackOptions}. */
   playbackInfo(userId: string, itemId: string, profile: DeviceProfile, options?: PlaybackOptions): Promise<PlaybackInfoResponse>;
   /**
@@ -203,8 +215,25 @@ export function createClient(options: ClientOptions): JellyfinClient {
       items(
         `${user(userId)}/Items?searchTerm=${enc(term)}&IncludeItemTypes=Movie,Series,Episode&Recursive=true&Limit=${limit}&Fields=${LIST_FIELDS},ProviderIds&${IMAGE_QUERY}`,
       ),
+    similar: (userId, itemId, limit) =>
+      items(`/Items/${enc(itemId)}/Similar?userId=${enc(userId)}&limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`),
+    boxSets: (userId) =>
+      items(
+        `${user(userId)}/Items?IncludeItemTypes=BoxSet&Recursive=true&SortBy=SortName&SortOrder=Ascending&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+      ),
+    boxSetItems: (userId, boxSetId) =>
+      items(
+        `${user(userId)}/Items?ParentId=${enc(boxSetId)}&SortBy=PremiereDate,ProductionYear,SortName&SortOrder=Ascending&Fields=${LIST_FIELDS},PremiereDate&${IMAGE_QUERY}`,
+      ),
     item: (userId, itemId) =>
       req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=${DETAIL_FIELDS}`),
+    personTitles: (userId, personId) =>
+      items(
+        `${user(userId)}/Items?PersonIds=${enc(personId)}&IncludeItemTypes=Movie,Series&Recursive=true&SortBy=PremiereDate,ProductionYear,SortName&SortOrder=Descending&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+      ),
+    localTrailers: (userId, itemId) => req<BaseItem[]>('GET', `${user(userId)}/Items/${enc(itemId)}/LocalTrailers`),
+    scrubInfo: (userId, itemId) =>
+      req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=Trickplay`),
     mediaStreams: async (userId, itemId) => {
       const item = await req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=MediaSources,MediaStreams`);
       const source = item.MediaSources && item.MediaSources[0];
