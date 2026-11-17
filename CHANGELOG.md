@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.20.0...v1.0.0) (2026-11-17)
+
+
+### Features
+
+* **remote:** add liquid glass look on iOS ([#200](https://github.com/Pepijnvdliefvoort/thuisbios/issues/200)) ([7a258c0](https://github.com/Pepijnvdliefvoort/thuisbios/commit/7a258c05336b9a7def8a34d5820b32e764cbb8fd))
+
+
+### Bug Fixes
+
+* **ci:** skip release PR auto-merge when there is no release PR ([#197](https://github.com/Pepijnvdliefvoort/thuisbios/issues/197)) ([3c67198](https://github.com/Pepijnvdliefvoort/thuisbios/commit/3c671982f4a56d1f782245b06424d521ab0f1038))
+* **remote:** make the Requested button look tappable ([#199](https://github.com/Pepijnvdliefvoort/thuisbios/issues/199)) ([e478792](https://github.com/Pepijnvdliefvoort/thuisbios/commit/e4787920615803148f98794fb45fd880737965f9))
+
 ## [0.20.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v0.19.1...v0.20.0) (2026-11-17)
 
 
