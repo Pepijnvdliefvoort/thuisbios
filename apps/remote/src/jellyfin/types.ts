@@ -51,6 +51,8 @@ export interface BaseItem {
   Name: string;
   Type?: 'Movie' | 'Series' | 'Season' | 'Episode' | string;
   ProductionYear?: number;
+  /** ISO date (release date; a person's birth date); only present when requested with Fields=PremiereDate. */
+  PremiereDate?: string;
   SeriesName?: string;
   SeriesId?: string;
   SeasonId?: string;
@@ -73,8 +75,6 @@ export interface BaseItem {
   UserData?: UserData;
   /** Only present when requested with Fields=People. */
   People?: Person[];
-  /** Only present when requested with Fields=PremiereDate (a person's birth date). */
-  PremiereDate?: string;
   /** Only present when requested with Fields=ProviderIds (Tmdb, Imdb, ...). */
   ProviderIds?: Record<string, string>;
   /** Only present when requested with Fields=MediaSources. */

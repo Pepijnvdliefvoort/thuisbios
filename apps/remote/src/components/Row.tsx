@@ -9,7 +9,23 @@ import { MediaCard, type CardShape } from './MediaCard';
 const PAGE = 0.9;
 
 /** Titled horizontal scroll row; renders nothing when empty. On a desktop it gets arrow buttons. */
-export function Row({ title, items, shape }: { title: string; items: BaseItem[]; shape: CardShape }) {
+export function Row({
+  title,
+  items,
+  shape,
+  heading,
+  currentId,
+  showWatched,
+}: {
+  title: string;
+  items: BaseItem[];
+  shape: CardShape;
+  /** Replaces the plain title in the heading (a link, say); `title` still names the scroll buttons. */
+  heading?: ComponentChildren;
+  /** The card of this item is marked as the one being viewed. */
+  currentId?: string;
+  showWatched?: boolean;
+}) {
   const desktop = useDesktop();
   const scroller = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ start: true, end: true });
@@ -32,10 +48,10 @@ export function Row({ title, items, shape }: { title: string; items: BaseItem[];
     if (el) el.scrollBy({ left: direction * el.clientWidth * PAGE, behavior: 'smooth' });
   };
   if (items.length === 0) return null;
-  const cards = items.map((item) => <MediaCard key={item.Id} item={item} shape={shape} />);
+  const cards = items.map((item) => <MediaCard key={item.Id} item={item} shape={shape} current={item.Id === currentId} showWatched={showWatched} />);
   return (
     <section class="row">
-      <h2>{title}</h2>
+      <h2>{heading || title}</h2>
       {desktop ? (
         <div class={'row-wrap row-' + shape}>
           <div class="row-scroll" ref={scroller} onScroll={sync}>
