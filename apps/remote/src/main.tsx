@@ -1,8 +1,10 @@
 import { render } from 'preact';
 import { App } from './app';
+import { applyIosGlass } from './iosGlass';
 import { trackViewportHeight } from './viewport';
 import './styles.css';
 
+applyIosGlass();
 trackViewportHeight();
 
 // Keeps a copy of the app on the phone so it opens without a network. Failure is silent: the app works without it.

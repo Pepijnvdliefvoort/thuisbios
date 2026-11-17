@@ -171,6 +171,8 @@ Now Playing screen offer play/pause, a scrub slider, -10 s / +10 s, previous and
 Skip intro and the next-episode card (in their own area above the controls), a volume pill and Audio & subs, Sub timing and Stop tiles. The remote finds the TV through the Jellyfin sessions API (the TV app registers as
 remote-controllable) and polls `/Sessions` every 2 seconds while the page is visible.
 
+On iPhone and iPad (Safari and the Home Screen app) the tab bar, mini player, sheets and header buttons get a translucent "glass" look; Android and desktop keep the plain look. With the iOS setting Reduce Transparency on, they stay solid.
+
 The TV sheet in the header has "Disconnect from TV", which signs the TV out so it shows a new Quick
 Connect code and QR again (the choice survives a reload). Reconnecting needs the code or the QR again.
 If the TV is switched off, the phone shows it as gone after a few minutes (the TV page sends a sign of

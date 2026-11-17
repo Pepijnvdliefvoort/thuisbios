@@ -39,6 +39,7 @@ import { useDownloadsApi } from './offline/useDownloads';
 import { createWakeLock } from './offline/wakeLock';
 import { useRequests } from './useRequests';
 import { isDesktop, useDesktop } from './useDesktop';
+import { useBottomInset } from './useBottomInset';
 import { useScrollerRefresh } from './useScrollerRefresh';
 import { useTv } from './useTv';
 
@@ -230,6 +231,9 @@ function Shell({
     nav.setTab('downloads');
   }, [offline, nav.tab, nav.stack.length, top ? top.kind : '']);
 
+  const shellRef = useRef<HTMLDivElement>(null);
+  useBottomInset(shellRef, !desktop);
+
   const ctx: AppContext = {
     client,
     session,
@@ -311,7 +315,7 @@ function Shell({
 
   return (
     <Ctx.Provider value={ctx}>
-      <div class="shell">
+      <div class="shell" ref={shellRef}>
         {desktop && !(top && top.kind === 'player') ? <TopBar tab={tab === 'downloads' ? 'home' : tab} onChange={nav.setTab} onHome={goHome} onSignOut={signOut} /> : null}
         <div class={top && top.kind === 'nowPlaying' ? 'scroller fixed' : 'scroller'} id={SCROLLER_ID}>
           <div hidden={open}>
