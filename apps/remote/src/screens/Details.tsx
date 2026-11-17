@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { CastSection } from '../components/CastSection';
 import { DownloadButton, DownloadSeasonButton } from '../components/DownloadButton';
 import { Icon } from '../components/Icon';
 import { PullSpinner } from '../components/PullSpinner';
@@ -251,6 +252,7 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
         </div>
         <div class="details-content">
           {episodes}
+          <CastSection item={item} />
           <DetailsExtras item={item} />
         </div>
       </>
@@ -278,6 +280,7 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
         {overview}
         {genres}
         {episodes}
+        <CastSection item={item} />
         <DetailsExtras item={item} />
       </div>
     </>

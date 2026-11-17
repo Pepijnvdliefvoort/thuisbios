@@ -13,6 +13,7 @@ import { useNav, type Screen } from './nav';
 import { playbackJustEnded, type PlaybackState } from './playbackEnd';
 import { ConnectTv } from './screens/ConnectTv';
 import { Details } from './screens/Details';
+import { PersonScreen } from './screens/Person';
 import { Downloads } from './screens/Downloads';
 import { Home } from './screens/Home';
 import { Library } from './screens/Library';
@@ -249,6 +250,10 @@ function Shell({
       remember();
       nav.push({ kind: 'details', id });
     },
+    openPerson: (id, name) => {
+      remember();
+      nav.push({ kind: 'person', id, name });
+    },
     openConnectTv: () => {
       remember();
       nav.push({ kind: 'connect' });
@@ -343,6 +348,7 @@ function Shell({
             ) : null}
           </div>
           {top && top.kind === 'details' ? <Details key={`${nav.stack.length}:${top.id}`} id={top.id} onBack={nav.back} /> : null}
+          {top && top.kind === 'person' ? <PersonScreen key={`${nav.stack.length}:${top.id}`} id={top.id} name={top.name} onBack={nav.back} /> : null}
           {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
           {top && top.kind === 'requests' ? <Requests key={`${nav.stack.length}:requests`} onBack={nav.back} /> : null}
           {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}

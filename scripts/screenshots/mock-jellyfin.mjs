@@ -140,7 +140,41 @@ function similarTo(id, limit) {
   return limit > 0 ? list.slice(0, limit) : list;
 }
 
-const strip = ({ hue, created, parent, ...rest }) => rest; // drop internal fields from API output
+
+// Generic cast and crew. Some people have a photo (a generated portrait), some do not, so the placeholder shows too.
+const FIRST = ['Alex', 'Sam', 'Robin', 'Jamie', 'Morgan', 'Casey', 'Riley', 'Quinn', 'Avery', 'Drew', 'Taylor', 'Jordan', 'Skyler', 'Reese', 'Devon', 'Kendall'];
+const LAST = ['Rivera', 'Lindqvist', 'Okafor', 'Marchetti', 'Haddad', 'Novak', 'Brandt', 'Castellan', 'Yilmaz', 'Duval', 'Petrov', 'Laurent', 'Mbeki', 'Sorensen', 'Takeda', 'Whitlock'];
+const ROLES = ['Detective Hale', 'Dr. Voss', 'The Captain', 'Mara', 'Old Tom', 'Inspector Lund', 'Nina', 'Elias', 'The Stranger', 'Professor Ray', 'Captain Adler', 'Juno'];
+const PEOPLE = FIRST.map((first, i) => {
+  const id = `person-${pad(i + 1)}`;
+  const person = {
+    Id: id,
+    Name: `${first} ${LAST[(i * 5 + 3) % LAST.length]}`,
+    Type: 'Person',
+    Overview: i % 4 === 3 ? undefined : `${LOREM[i % LOREM.length]} ${LOREM[(i + 2) % LOREM.length]}`,
+    PremiereDate: i % 5 === 4 ? undefined : `${1950 + ((i * 7) % 45)}-${pad(1 + ((i * 5) % 12))}-${pad(1 + ((i * 11) % 28))}T00:00:00.0000000Z`,
+    hue: HUES[(i * 7 + 2) % HUES.length],
+    UserData: { Played: false },
+  };
+  if (i % 3 !== 2) person.ImageTags = { Primary: 'x' }; // every third person has no photo
+  items.set(id, person);
+  return person;
+});
+/** Billing-ordered cast, a director and a writer for the item with this index (a few items have none). */
+function crewFor(index, withPeople = true) {
+  if (!withPeople) return [];
+  const pick = (offset) => PEOPLE[(index * 3 + offset) % PEOPLE.length];
+  const entry = (person, Type, Role) => ({ Id: person.Id, Name: person.Name, Type, ...(Role ? { Role } : {}), ...(person.ImageTags ? { PrimaryImageTag: 'x' } : {}) });
+  const actors = [0, 1, 2, 4, 5, 7, 8, 9].map((o, n) => entry(pick(o), 'Actor', ROLES[(index + n * 2) % ROLES.length]));
+  return [...actors, entry(pick(10), 'Director'), entry(pick(11), 'Writer'), entry(pick(13), 'Writer')];
+}
+for (const [index, id] of order.movies.entries()) items.get(id).people = crewFor(index, id !== 'film-12');
+for (const [index, id] of order.series.entries()) items.get(id).people = crewFor(index + 5);
+for (const i of items.values()) {
+  if (i.Type === 'Episode') i.people = items.get(i.SeriesId).people.slice(0, 6);
+}
+
+const strip = ({ hue, created, parent, people, ...rest }) => rest; // drop internal fields from API output
 const episodesOf = (seriesId) => [...items.values()].filter((i) => i.Type === 'Episode' && i.SeriesId === seriesId);
 
 /** The first unwatched episode of a series that the user started, like Jellyfin's Next Up. */
@@ -246,6 +280,21 @@ function shapes(id, hue, w, h) {
     }
   }
   return out;
+}
+
+/** A square portrait: gradient with a head and shoulders, the photo of a person. */
+function portrait(item, size) {
+  const hue = item.hue ?? 210;
+  const r = rng(item.Id);
+  const skin = hsl(25 + r() * 15, 40 + r() * 20, 45 + r() * 25);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${hsl(hue, 45, 22)}"/><stop offset="1" stop-color="${hsl(hue + 30, 50, 40)}"/></linearGradient></defs>
+<rect width="200" height="200" fill="url(#bg)"/>
+<path d="M30 200 C30 150 70 135 100 135 C130 135 170 150 170 200Z" fill="${hsl(hue + 180, 30, 25)}"/>
+<rect x="88" y="108" width="24" height="32" fill="${skin}"/>
+<ellipse cx="100" cy="82" rx="30" ry="36" fill="${skin}"/>
+<path d="M68 76 C68 40 132 40 132 76 C122 58 78 58 68 76Z" fill="${hsl(20 + r() * 20, 30, 15 + r() * 25)}"/>
+</svg>`;
 }
 
 /** The whole SVG. kind: 'poster' (2:3), 'wide' (16:9, with text), 'backdrop' (16:9, no text), 'logo'. */
@@ -355,6 +404,8 @@ function queryItems(q) {
     if (key) list.sort((a, b) => (desc ? -1 : 1) * ((a[key] ?? 0) - (b[key] ?? 0)));
   }
   if ((q.get('Filters') || '').includes('IsUnplayed')) list = list.filter((i) => !userData(i).Played);
+  const personIds = (q.get('PersonIds') || '').split(',').filter(Boolean);
+  if (personIds.length) list = list.filter((i) => (i.people || []).some((p) => personIds.includes(p.Id)));
   const genre = q.get('Genres');
   if (genre) list = list.filter((i) => (i.Genres || []).includes(genre));
   const years = (q.get('Years') || '').split(',').filter(Boolean).map(Number);
@@ -467,7 +518,9 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       const it = items.get(m[1]);
       if (!it) return send(404, { error: 'not found' });
       const withSources = (q.get('Fields') || '').includes('MediaSources');
-      return json(withSources ? { ...strip(it), MediaSources: [{ Id: it.Id, MediaStreams: STREAMS }] } : strip(it));
+      // Like Jellyfin, People only come with Fields=People.
+      const withPeople = (q.get('Fields') || '').split(',').includes('People') && it.people;
+      return json({ ...strip(it), ...(withPeople ? { People: it.people } : {}), ...(withSources ? { MediaSources: [{ Id: it.Id, MediaStreams: STREAMS }] } : {}) });
     }
     if ((m = /^\/Users\/[^/]+\/PlayedItems\/([^/]+)$/.exec(path))) {
       // Marks the item and, for a season or series, its episodes (like Jellyfin).
@@ -514,6 +567,7 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       const it = items.get(m[1]);
       if (!it) return send(404, { error: 'not found' });
       const type = m[2];
+      if (it.Type === 'Person') return send(200, portrait(it, parseInt(q.get('fillWidth') || '', 10) || 200), 'image/svg+xml');
       const reqW = parseInt(q.get('fillWidth') || q.get('maxWidth') || q.get('width') || '', 10) || 0;
       const reqH = parseInt(q.get('fillHeight') || q.get('maxHeight') || q.get('height') || '', 10) || 0;
       // Primary is a 2:3 poster, except an episode's Primary, which is its 16:9 still.
