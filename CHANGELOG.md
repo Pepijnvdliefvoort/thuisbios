@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.1.0...v1.1.1) (2026-11-17)
+
+
+### Documentation
+
+* describe the Linux home server as the main setup in the README ([#212](https://github.com/Pepijnvdliefvoort/thuisbios/issues/212)) ([55bb018](https://github.com/Pepijnvdliefvoort/thuisbios/commit/55bb018374c1875f98f242a938b4d21d8e694b1f))
+* drop the Windows note from the Tailscale link ([#214](https://github.com/Pepijnvdliefvoort/thuisbios/issues/214)) ([59a9380](https://github.com/Pepijnvdliefvoort/thuisbios/commit/59a938088c76fb2f6b87bb759b731b7edc40dac3))
+* make the README compact ([#215](https://github.com/Pepijnvdliefvoort/thuisbios/issues/215)) ([ca95891](https://github.com/Pepijnvdliefvoort/thuisbios/commit/ca95891e59ac05378ba692a2b8111a4bd89abd64))
+* rewrite the Tailscale guide for the Linux home server ([#213](https://github.com/Pepijnvdliefvoort/thuisbios/issues/213)) ([654383d](https://github.com/Pepijnvdliefvoort/thuisbios/commit/654383d2d356d3ec2d1d92079662c9f2d7dd5b96))
+
 ## [1.1.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.0.0...v1.1.0) (2026-11-17)
 
 
