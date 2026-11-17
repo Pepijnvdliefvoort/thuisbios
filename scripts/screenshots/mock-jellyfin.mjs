@@ -140,6 +140,14 @@ function similarTo(id, limit) {
   return limit > 0 ? list.slice(0, limit) : list;
 }
 
+// Trailers: Sample Film 02 has a trailer file in the library (it reuses the tiny stream below), Sample Film 04 and
+// Sample Series B have a YouTube link.
+const YT = [{ Url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ', Name: 'Trailer' }];
+items.get('film-02').LocalTrailerCount = 1;
+items.set('film-02-trailer', { Id: 'film-02-trailer', Name: 'Sample Film 02 - Trailer', Type: 'Trailer', RunTimeTicks: 12 * TICKS, hue: items.get('film-02').hue, UserData: { PlaybackPositionTicks: 0, Played: false } });
+items.get('film-04').RemoteTrailers = YT;
+items.get('series-b').RemoteTrailers = YT;
+
 
 // Generic cast and crew. Some people have a photo (a generated portrait), some do not, so the placeholder shows too.
 const FIRST = ['Alex', 'Sam', 'Robin', 'Jamie', 'Morgan', 'Casey', 'Riley', 'Quinn', 'Avery', 'Drew', 'Taylor', 'Jordan', 'Skyler', 'Reese', 'Devon', 'Kendall'];
@@ -553,6 +561,10 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       return json({ Items: list.map(strip), TotalRecordCount: list.length });
     }
     if ((m = /^\/Users\/[^/]+\/Items$/.exec(path))) return json(queryItems(q));
+    if ((m = /^\/Users\/[^/]+\/Items\/([^/]+)\/LocalTrailers$/.exec(path))) {
+      const t = items.get(`${m[1]}-trailer`);
+      return json(t ? [strip(t)] : []);
+    }
     if ((m = /^\/Users\/[^/]+\/Items\/([^/]+)$/.exec(path)) || (m = /^\/Items\/([^/]+)$/.exec(path))) {
       const it = items.get(m[1]);
       if (!it) return send(404, { error: 'not found' });
@@ -585,7 +597,7 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
     if ((m = /^\/Items\/([^/]+)\/PlaybackInfo$/.exec(path))) {
       // Like Jellyfin: the default subtitle track is only the server's own pick when none was asked for.
       const asked = q.get('SubtitleStreamIndex');
-      if (q.get('EnableDirectPlay') === 'false') {
+      if (q.get('EnableDirectPlay') === 'false' || m[1].endsWith('-trailer')) {
         // A forced transcode (the phone's offline downloads): offer an HLS stream.
         const tq = `DeviceId=mock-device&MediaSourceId=${m[1]}&PlaySessionId=mock-dl&VideoCodec=h264&AudioCodec=aac`;
         return json({

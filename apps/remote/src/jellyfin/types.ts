@@ -79,6 +79,10 @@ export interface BaseItem {
   ProviderIds?: Record<string, string>;
   /** Only present when requested with Fields=MediaSources. */
   MediaSources?: MediaSource[];
+  /** Trailer files stored next to the item in the library. */
+  LocalTrailerCount?: number;
+  /** Only present when requested with Fields=RemoteTrailers (usually YouTube links). */
+  RemoteTrailers?: { Url?: string; Name?: string }[];
   /** Only present when requested with Fields=Trickplay: scrub preview tile sheets per media source and width. */
   Trickplay?: Record<string, Record<string, TrickplayInfo>>;
 }

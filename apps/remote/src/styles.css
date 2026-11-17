@@ -1417,3 +1417,22 @@ button.rs-row:active { background: var(--surface-2); }
   .person-bio { max-width: 720px; font-size: 16px; line-height: 1.55; -webkit-line-clamp: 6; line-clamp: 6; }
   .person-titles-head { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; padding-top: 32px; }
 }
+
+/* Trailer sheet (YouTube embed on a movie or series page) */
+.trailer-backdrop {
+  position: fixed; inset: 0; z-index: 45; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+.trailer-sheet { width: min(100%, 960px); display: flex; flex-direction: column; gap: 10px; padding: 0 12px; }
+.trailer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.trailer-head strong { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trailer-close {
+  flex: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--surface-2); color: #fff;
+}
+/* 16:9, and never taller than the window (phone landscape): the width follows the available height. */
+.trailer-frame {
+  position: relative; align-self: center; width: min(100%, calc((100vh - 90px) * 16 / 9)); aspect-ratio: 16 / 9;
+  background: #000; border-radius: 12px; overflow: hidden;
+}
+.trailer-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
