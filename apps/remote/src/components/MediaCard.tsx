@@ -4,6 +4,7 @@ import { artUrl } from '../jellyfin/art';
 import { episodeLabel, progressFraction } from '../jellyfin/format';
 import { findPlayTarget, isPlayable, resumeTicks } from '../jellyfin/playTarget';
 import type { BaseItem } from '../jellyfin/types';
+import { isWatched } from '../jellyfin/watched';
 import { useDesktop } from '../useDesktop';
 import { Icon } from './Icon';
 import { Img } from './Img';
@@ -18,7 +19,19 @@ const DESKTOP_SIZES = { poster: [352, 528], thumb: [608, 342] } as const;
  * Tile with art, optional progress bar and a one- or two-line caption. On a desktop the card sits in a wrapper with
  * a play button over the art (a button cannot hold another button); a phone renders the plain card.
  */
-export function MediaCard({ item, shape }: { item: BaseItem; shape: CardShape }) {
+export function MediaCard({
+  item,
+  shape,
+  current = false,
+  showWatched = false,
+}: {
+  item: BaseItem;
+  shape: CardShape;
+  /** Marks the card as the item being viewed (a film in its own collection row). */
+  current?: boolean;
+  /** Draws a check on a watched item. */
+  showWatched?: boolean;
+}) {
   const { client, session, openItem, playHere, toast, downloads } = useApp();
   const desktop = useDesktop();
   const looking = useRef(false);
@@ -47,13 +60,18 @@ export function MediaCard({ item, shape }: { item: BaseItem; shape: CardShape })
     }
   };
   const card = (
-    <button type="button" class={`card card-${shape}`} onClick={() => openItem(item.Id)}>
+    <button type="button" class={`card card-${shape}${current ? ' is-current' : ''}`} aria-current={current ? 'true' : undefined} onClick={() => openItem(item.Id)}>
       <span class="card-art">
         <Img src={artUrl(client.serverUrl, item, shape === 'poster' ? 'poster' : 'thumb', w, h)} />
         {desktop ? <span class="card-shade" /> : null}
         {saved ? (
           <span class="dl-mark" role="img" aria-label="Downloaded">
             <Icon name="downloadDone" size={14} />
+          </span>
+        ) : null}
+        {showWatched && isWatched(item) ? (
+          <span class="ep-check" role="img" aria-label="Watched">
+            <Icon name="check" size={14} />
           </span>
         ) : null}
         {progress > 0 ? (

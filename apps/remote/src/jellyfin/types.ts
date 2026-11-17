@@ -39,6 +39,8 @@ export interface BaseItem {
   Name: string;
   Type?: 'Movie' | 'Series' | 'Season' | 'Episode' | string;
   ProductionYear?: number;
+  /** ISO date; only present when requested with Fields=PremiereDate. */
+  PremiereDate?: string;
   SeriesName?: string;
   SeriesId?: string;
   SeasonId?: string;

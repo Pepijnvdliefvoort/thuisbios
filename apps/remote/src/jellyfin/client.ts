@@ -75,6 +75,12 @@ export interface JellyfinClient {
   /** Genre names used by the items of one type. */
   genres(userId: string, type: MediaType): Promise<string[]>;
   search(userId: string, term: string, limit: number): Promise<BaseItem[]>;
+  /** Titles like `itemId` (Jellyfin's "similar items"). */
+  similar(userId: string, itemId: string, limit: number): Promise<BaseItem[]>;
+  /** All collections (BoxSets) of the user, by name. */
+  boxSets(userId: string): Promise<BaseItem[]>;
+  /** The items of one collection in release order. */
+  boxSetItems(userId: string, boxSetId: string): Promise<BaseItem[]>;
   item(userId: string, itemId: string): Promise<BaseItem>;
   seasons(userId: string, seriesId: string): Promise<BaseItem[]>;
   episodes(userId: string, seriesId: string, seasonId: string): Promise<BaseItem[]>;
@@ -202,6 +208,16 @@ export function createClient(options: ClientOptions): JellyfinClient {
     search: (userId, term, limit) =>
       items(
         `${user(userId)}/Items?searchTerm=${enc(term)}&IncludeItemTypes=Movie,Series,Episode&Recursive=true&Limit=${limit}&Fields=${LIST_FIELDS},ProviderIds&${IMAGE_QUERY}`,
+      ),
+    similar: (userId, itemId, limit) =>
+      items(`/Items/${enc(itemId)}/Similar?userId=${enc(userId)}&limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`),
+    boxSets: (userId) =>
+      items(
+        `${user(userId)}/Items?IncludeItemTypes=BoxSet&Recursive=true&SortBy=SortName&SortOrder=Ascending&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+      ),
+    boxSetItems: (userId, boxSetId) =>
+      items(
+        `${user(userId)}/Items?ParentId=${enc(boxSetId)}&SortBy=PremiereDate,ProductionYear,SortName&SortOrder=Ascending&Fields=${LIST_FIELDS},PremiereDate&${IMAGE_QUERY}`,
       ),
     item: (userId, itemId) =>
       req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=${DETAIL_FIELDS}`),

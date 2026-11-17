@@ -115,7 +115,32 @@ for (let i = 1; i <= 12; i++) {
   }
 });
 
-const strip = ({ hue, created, ...rest }) => rest; // drop internal fields from API output
+// Collections (BoxSets): three and two films of the library, released in a different order than their names sort.
+const boxChildren = new Map();
+[
+  ['box-1', 'Sample Collection', ['film-02', 'film-06', 'film-09'], 3],
+  ['box-2', 'Sample Saga', ['film-04', 'film-10'], 5],
+].forEach(([id, name, films, hue]) => {
+  boxChildren.set(id, films);
+  items.set(id, ready({
+    Id: id, Name: name, Type: 'BoxSet', ChildCount: films.length, Overview: LOREM[(hue + 1) % LOREM.length],
+    hue: HUES[hue], created: 3, UserData: { Played: false },
+  }));
+  for (const f of films) items.get(f).parent = id;
+});
+for (const i of items.values()) if (i.Type === 'Movie') i.PremiereDate = `${i.ProductionYear}-06-15T00:00:00.0000000Z`;
+
+/** Like Jellyfin's similar items: the same kind of title, the most shared genres first. */
+function similarTo(id, limit) {
+  const it = items.get(id);
+  if (!it) return [];
+  const score = (o) => (o.Genres || []).filter((g) => (it.Genres || []).includes(g)).length;
+  const list = [...items.values()].filter((o) => o.Type === it.Type && o.Id !== id);
+  list.sort((a, b) => score(b) - score(a) || a.Name.localeCompare(b.Name));
+  return limit > 0 ? list.slice(0, limit) : list;
+}
+
+const strip = ({ hue, created, parent, ...rest }) => rest; // drop internal fields from API output
 const episodesOf = (seriesId) => [...items.values()].filter((i) => i.Type === 'Episode' && i.SeriesId === seriesId);
 
 /** The first unwatched episode of a series that the user started, like Jellyfin's Next Up. */
@@ -310,7 +335,11 @@ const userData = (it) => it.UserData || {};
 /** Applies the query filters the apps use to the full item list. */
 function queryItems(q) {
   const types = (q.get('IncludeItemTypes') || '').split(',').filter(Boolean);
-  let list = [...items.values()].filter((i) => (types.length ? types.includes(i.Type) : i.Type === 'Movie' || i.Type === 'Series'));
+  const parent = q.get('ParentId');
+  // A collection's items, or the library types asked for (movies and series when none is named).
+  let list = [...items.values()].filter((i) =>
+    parent ? i.parent === parent : types.length ? types.includes(i.Type) : i.Type === 'Movie' || i.Type === 'Series',
+  );
   const term = (q.get('searchTerm') || '').toLowerCase();
   if (term) list = list.filter((i) => i.Name.toLowerCase().includes(term) || (i.SeriesName || '').toLowerCase().includes(term));
   if ((q.get('Filters') || '').includes('IsResumable')) {
@@ -428,6 +457,10 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       const type = q.get('IncludeItemTypes');
       const names = [...new Set([...items.values()].filter((i) => i.Type === type).flatMap((i) => i.Genres || []))].sort();
       return json({ Items: names.map((Name) => ({ Id: `genre-${Name}`, Name })), TotalRecordCount: names.length });
+    }
+    if ((m = /^\/Items\/([^/]+)\/Similar$/.exec(path))) {
+      const list = similarTo(m[1], parseInt(q.get('limit') || q.get('Limit') || '', 10));
+      return json({ Items: list.map(strip), TotalRecordCount: list.length });
     }
     if ((m = /^\/Users\/[^/]+\/Items$/.exec(path))) return json(queryItems(q));
     if ((m = /^\/Users\/[^/]+\/Items\/([^/]+)$/.exec(path)) || (m = /^\/Items\/([^/]+)$/.exec(path))) {
