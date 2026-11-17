@@ -4,6 +4,7 @@ import { SubtitleTiming } from '../components/SubtitleTiming';
 import { TrackPicker } from '../components/TrackPicker';
 import { VolumeControls } from '../components/VolumeControls';
 import { Img } from '../components/Img';
+import { ScrubPreview, useScrubSource } from '../components/ScrubPreview';
 import { NextEpisodeCard } from '../components/NextEpisodeCard';
 import { useApp } from '../context';
 import { artUrl } from '../jellyfin/art';
@@ -58,6 +59,10 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
     };
   }, [client, itemId]);
 
+  // Preview frames above the thumb while dragging.
+  const scrubSource = useScrubSource(client, session.userId, session.token, itemId, null, 160, true);
+  const scrubBox = useRef<HTMLDivElement>(null);
+
   // The TV starts the next episode by itself; this phone only shows the card and can cancel it.
   const nextEpisode = useNextEpisode(client, session.userId, np ? np.item : null);
   const [cancelledFor, setCancelledFor] = useState('');
@@ -106,7 +111,18 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
         <h1>{item.Name}</h1>
       </div>
 
-      <div class="scrub">
+      <div class="scrub" ref={scrubBox}>
+        {drag !== null && runtimeSec > 0 && scrubBox.current ? (
+          <ScrubPreview
+            source={scrubSource}
+            seconds={drag}
+            // The native thumb is 16 px wide, so its centre runs from 8 px to 8 px short of the other end.
+            x={8 + Math.min(1, drag / runtimeSec) * (scrubBox.current.offsetWidth - 16)}
+            y={-2}
+            containerWidth={scrubBox.current.offsetWidth}
+            thumbWidth={160}
+          />
+        ) : null}
         <input
           type="range"
           min={0}

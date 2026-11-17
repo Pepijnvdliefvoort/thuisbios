@@ -5,6 +5,7 @@ import { formatClock } from '../jellyfin/format';
 import type { SubtitleTrack } from '../jellyfin/subtitles';
 import { scrubFraction } from '../scrub';
 import { Icon } from './Icon';
+import { ScrubPreview, type ScrubSource } from './ScrubPreview';
 
 /** Extras for a mouse: volume, fullscreen and hover time on the scrub bar. Absent on a phone. */
 export interface DesktopControls {
@@ -61,6 +62,8 @@ interface Props {
   onInteract(): void;
   desktop?: DesktopControls;
   episodeNav?: EpisodeNav;
+  /** Preview frames for the scrub bar (server tile sheets); absent offline or when the server has none. */
+  scrubSource?: ScrubSource | null;
 }
 
 /** Streaming-style overlay: top bar, centre buttons and a bottom bar with the scrub bar, the audio and subtitle menu and the quality menu. */
@@ -74,6 +77,7 @@ export function PlayerControls(p: Props) {
   // Mouse: a brief play icon in the middle when playback resumes.
   const [pulse, setPulse] = useState(false);
   const wasPaused = useRef(p.paused);
+  const scrubEl = useRef<HTMLDivElement>(null);
   const d = p.desktop;
   const nav = p.episodeNav;
 
@@ -129,6 +133,24 @@ export function PlayerControls(p: Props) {
   }, [open, !!d]);
 
   const tipAt = preview !== null && total > 0 ? preview / total : hover;
+
+  // The frame and time above the bar, placed from the bar's layout box (not affected by the stage's turn).
+  const scrubTip = () => {
+    const bar = scrubEl.current;
+    const host = bar && (bar.offsetParent as HTMLElement | null);
+    if (tipAt === null || !(total > 0) || !bar || !host) return null;
+    const f = Math.max(0, Math.min(1, tipAt));
+    return (
+      <ScrubPreview
+        source={p.scrubSource || null}
+        seconds={f * total}
+        x={bar.offsetLeft + f * bar.offsetWidth}
+        y={bar.offsetTop - 4}
+        containerWidth={host.offsetWidth}
+        thumbWidth={d ? 220 : 160}
+      />
+    );
+  };
 
   const toggleMenu = (menu: 'cc' | 'quality') => {
     const next = open === menu ? null : menu;
@@ -197,7 +219,6 @@ export function PlayerControls(p: Props) {
     ) : null;
 
   if (d) {
-    const tipFrac = tipAt === null ? null : Math.max(0, Math.min(1, tipAt));
     return (
       <div
         class={'pc pc-desk' + (p.visible ? ' show' : '') + (p.buffering ? ' buffering' : '') + (p.paused ? ' paused' : '')}
@@ -220,6 +241,7 @@ export function PlayerControls(p: Props) {
 
         <div class="pc-bottom">
           <div
+            ref={scrubEl}
             class={'pc-scrub' + (preview !== null ? ' dragging' : '')}
             role="slider"
             aria-label="Position"
@@ -237,12 +259,8 @@ export function PlayerControls(p: Props) {
               <i class="pc-played" style={{ width: pct(shown) }} />
             </div>
             <i class="pc-thumb" style={{ left: pct(shown) }} />
-            {tipFrac !== null && total > 0 ? (
-              <span class="pc-tip" style={{ left: `${tipFrac * 100}%` }}>
-                {formatClock(tipFrac * total)}
-              </span>
-            ) : null}
           </div>
+          {scrubTip()}
           <div class="pc-row">
             <div class="pc-group">
               <button type="button" class="pc-btn" onClick={p.onTogglePlay} aria-label={p.paused ? 'Play' : 'Pause'}>
@@ -371,9 +389,11 @@ export function PlayerControls(p: Props) {
       <div class="pc-bottom">
         {ccPanel}
         {qualityPanel}
+        {scrubTip()}
         <div class="pc-row">
           <span class="pc-time">{formatClock(shown)}</span>
           <div
+            ref={scrubEl}
             class={'pc-scrub' + (preview !== null ? ' dragging' : '')}
             role="slider"
             aria-label="Position"

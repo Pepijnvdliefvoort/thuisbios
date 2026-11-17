@@ -83,6 +83,20 @@ export interface BaseItem {
   LocalTrailerCount?: number;
   /** Only present when requested with Fields=RemoteTrailers (usually YouTube links). */
   RemoteTrailers?: { Url?: string; Name?: string }[];
+  /** Only present when requested with Fields=Trickplay: scrub preview tile sheets per media source and width. */
+  Trickplay?: Record<string, Record<string, TrickplayInfo>>;
+}
+
+/** One width of scrub preview tile sheets (see jellyfin/trickplay.ts). */
+export interface TrickplayInfo {
+  Width: number;
+  Height: number;
+  TileWidth: number;
+  TileHeight: number;
+  ThumbnailCount: number;
+  /** Milliseconds between two thumbnails. */
+  Interval: number;
+  Bandwidth?: number;
 }
 
 export interface ItemsResult {

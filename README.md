@@ -184,6 +184,7 @@ no native HLS). The phone plays in the app's own player, which fills the screen:
 show or hide the controls (play/pause, -10 s / +10 s, previous and next episode for episodes, a scrub bar, a menu for audio and subtitles and a cogwheel button for the video quality), double-tap
 the left or right side to skip 10 s back or forward (keep tapping to skip more). Text
 subtitles are drawn by the app itself and the app remembers the subtitle language you picked.
+While you drag the scrub bar (or hover it with a mouse), a preview frame with the time shows above it, also on the Now Playing screen. The frames are Jellyfin's trickplay images, so they need the server (not shown for a download played offline) and need trickplay to be turned on, see [docs/server/trickplay.md](docs/server/trickplay.md).
 Without a choice yet, the player starts with the track Jellyfin would pick for you (from your
 Jellyfin subtitle settings), as before. Subtitles are never burned into the picture unless you pick
 one that has to be: image subtitles (the kind stored as pictures on some discs) are listed with
