@@ -358,6 +358,45 @@ const CORS = {
   'Access-Control-Max-Age': '600',
 };
 
+// ---------- scrub previews (trickplay) ----------
+
+const TRICKPLAY_WIDTHS = [160, 320];
+const TRICKPLAY_TILES = 10;
+const TRICKPLAY_INTERVAL_MS = 10000;
+
+/** The item's Trickplay field: tile sheet sizes per media source (the mock's source id is the item id) and width. */
+function trickplayOf(it) {
+  const count = Math.ceil((it.RunTimeTicks || 0) / TICKS / (TRICKPLAY_INTERVAL_MS / 1000));
+  if (!count) return undefined;
+  const widths = {};
+  for (const w of TRICKPLAY_WIDTHS) {
+    widths[w] = { Width: w, Height: Math.round((w * 9) / 16), TileWidth: TRICKPLAY_TILES, TileHeight: TRICKPLAY_TILES, ThumbnailCount: count, Interval: TRICKPLAY_INTERVAL_MS, Bandwidth: 100000 };
+  }
+  return { [it.Id]: widths };
+}
+
+/** One generated tile sheet (SVG): every cell is a coloured frame with its timestamp, so the right cell is easy to see. */
+function trickplaySheet(it, width, sheet) {
+  const h = Math.round((width * 9) / 16);
+  const hue = Math.floor(rng(it.Id)() * 360);
+  const perSheet = TRICKPLAY_TILES * TRICKPLAY_TILES;
+  const cells = [];
+  for (let i = 0; i < perSheet; i++) {
+    const n = sheet * perSheet + i;
+    const sec = (n * TRICKPLAY_INTERVAL_MS) / 1000;
+    const x = (i % TRICKPLAY_TILES) * width;
+    const y = Math.floor(i / TRICKPLAY_TILES) * h;
+    const hours = Math.floor(sec / 3600);
+    const label = `${hours ? hours + ':' : ''}${String(Math.floor((sec % 3600) / 60)).padStart(hours ? 2 : 1, '0')}:${String(sec % 60).padStart(2, '0')}`;
+    cells.push(
+      `<rect x="${x}" y="${y}" width="${width}" height="${h}" fill="${hsl(hue + n * 7, 55, 28 + (n % 5) * 5)}"/>` +
+        `<circle cx="${x + width * (0.2 + (0.6 * ((n * 37) % 100)) / 100)}" cy="${y + h * 0.4}" r="${h * 0.22}" fill="${hsl(hue + n * 7 + 40, 60, 60, 0.55)}"/>` +
+        `<text x="${x + width / 2}" y="${y + h * 0.88}" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" font-size="${Math.round(h * 0.2)}" font-weight="700" fill="#fff">${label}</text>`,
+    );
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * TRICKPLAY_TILES}" height="${h * TRICKPLAY_TILES}" viewBox="0 0 ${width * TRICKPLAY_TILES} ${h * TRICKPLAY_TILES}">${cells.join('')}</svg>`;
+}
+
 export function startMock({ port = 8097, quickConnectAuthenticated = process.env.MOCK_QC_AUTHENTICATED === '1', quiet = false } = {}) {
   const secrets = new Set();
   const server = createServer((req, res) => {
@@ -433,8 +472,11 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
     if ((m = /^\/Users\/[^/]+\/Items\/([^/]+)$/.exec(path)) || (m = /^\/Items\/([^/]+)$/.exec(path))) {
       const it = items.get(m[1]);
       if (!it) return send(404, { error: 'not found' });
-      const withSources = (q.get('Fields') || '').includes('MediaSources');
-      return json(withSources ? { ...strip(it), MediaSources: [{ Id: it.Id, MediaStreams: STREAMS }] } : strip(it));
+      const fields = q.get('Fields') || '';
+      const withSources = fields.includes('MediaSources');
+      const out = withSources ? { ...strip(it), MediaSources: [{ Id: it.Id, MediaStreams: STREAMS }] } : strip(it);
+      if (fields.includes('Trickplay')) out.Trickplay = trickplayOf(it);
+      return json(out);
     }
     if ((m = /^\/Users\/[^/]+\/PlayedItems\/([^/]+)$/.exec(path))) {
       // Marks the item and, for a season or series, its episodes (like Jellyfin).
@@ -477,6 +519,11 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
     }
     if (/^\/Videos\/[^/]+\/[^/]+\/Subtitles\/\d+\/0\/Stream\.vtt$/.test(path)) return send(200, 'WEBVTT\n\n00:00:01.000 --> 00:00:04.000\nSample subtitle line\n', 'text/vtt');
     if (path === '/Videos/ActiveEncodings' && req.method === 'DELETE') return empty();
+    if ((m = /^\/Videos\/([^/]+)\/Trickplay\/(\d+)\/(\d+)\.jpg$/.exec(path))) {
+      const it = items.get(m[1]);
+      if (!it || !TRICKPLAY_WIDTHS.includes(Number(m[2]))) return send(404, { error: 'not found' });
+      return send(200, trickplaySheet(it, Number(m[2]), Number(m[3])), 'image/svg+xml');
+    }
     if ((m = /^\/Items\/([^/]+)\/Images\/(Primary|Backdrop|Thumb|Logo)(?:\/\d+)?$/.exec(path))) {
       const it = items.get(m[1]);
       if (!it) return send(404, { error: 'not found' });

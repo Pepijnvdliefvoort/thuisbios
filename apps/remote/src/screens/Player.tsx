@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { PlayerControls } from '../components/PlayerControls';
+import { useScrubSource } from '../components/ScrubPreview';
 import { NextEpisodeCard } from '../components/NextEpisodeCard';
 import { useApp } from '../context';
 import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscreen';
@@ -138,6 +139,8 @@ export function Player({
   const coarse = useMediaQuery(COARSE_QUERY);
   const rotated = portrait && coarse;
   const mouse = useFinePointer();
+  // Preview frames while scrubbing; they come from the server, so a download played offline has none.
+  const scrubSource = useScrubSource(client, session.userId, session.token, item.Id, loaded ? loaded.mediaSourceId : null, mouse ? 220 : 160, online);
   // Our own controls.
   const [paused, setPaused] = useState(true);
   const [buffering, setBuffering] = useState(true);
@@ -1012,6 +1015,7 @@ export function Player({
             onBusy={setBusy}
             episodeNav={episodeNav}
             onInteract={interact}
+            scrubSource={scrubSource}
             desktop={
               mouse
                 ? {
