@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.1.1...v1.1.2) (2026-11-20)
+
+
+### Bug Fixes
+
+* **remote:** keep playing when the next episode starts on iPhone ([512c337](https://github.com/Pepijnvdliefvoort/thuisbios/commit/512c33799fd11126f861101ddcc75d033fc8f7ad))
+* **remote:** send ApiKey with trickplay preview requests ([#219](https://github.com/Pepijnvdliefvoort/thuisbios/issues/219)) ([b824020](https://github.com/Pepijnvdliefvoort/thuisbios/commit/b82402000e4d906962bc24455f098a0d9ae345e8))
+
 ## [1.1.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.1.0...v1.1.1) (2026-11-17)
 
 
