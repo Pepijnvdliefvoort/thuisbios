@@ -54,10 +54,10 @@ export function sheetCount(info: TrickplayInfo): number {
   return Math.ceil(info.ThumbnailCount / (info.TileWidth * info.TileHeight));
 }
 
-/** URL of one tile sheet; the image request has no headers, so the access token goes in the query. */
+/** URL of one tile sheet; the image request has no headers, so the access token goes in the query (older servers read `api_key`, Jellyfin 10.11+ reads `ApiKey`). */
 export function sheetUrl(serverUrl: string, itemId: string, set: TrickplaySet, sheet: number, token: string): string {
   const t = encodeURIComponent(token);
-  return `${serverUrl}/Videos/${encodeURIComponent(itemId)}/Trickplay/${set.info.Width}/${sheet}.jpg?MediaSourceId=${encodeURIComponent(set.mediaSourceId)}&api_key=${t}`;
+  return `${serverUrl}/Videos/${encodeURIComponent(itemId)}/Trickplay/${set.info.Width}/${sheet}.jpg?MediaSourceId=${encodeURIComponent(set.mediaSourceId)}&api_key=${t}&ApiKey=${t}`;
 }
 
 /** The sheets worth loading while scrubbing near `positionSec`: the one under it and a neighbour when close to its edge. */
