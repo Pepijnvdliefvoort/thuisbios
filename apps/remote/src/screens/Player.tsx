@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { PlayerControls } from '../components/PlayerControls';
 import { useScrubSource } from '../components/ScrubPreview';
@@ -7,6 +7,7 @@ import { useApp } from '../context';
 import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscreen';
 import { artUrl } from '../jellyfin/art';
 import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
+import { getPlayerVideo, releasePlayerVideo } from '../playerVideo';
 import { playerKeyAction, stepVolume } from '../playerKeys';
 import { tapSide, type TapSide } from '../tapSide';
 import { getDeviceId, loadAudioLang, saveLocalProgress, loadPlayerVolume, loadSubtitleLang, loadSubtitleOffset, saveAudioLang, savePlayerVolume, saveSubtitleLang } from '../storage';
@@ -140,7 +141,17 @@ export function Player({
   const online = useOnline();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState(false);
-  const video = useRef<HTMLVideoElement>(null);
+  // The app's one shared <video> (see playerVideo.ts), put into the stage by `attachVideo`.
+  const video = useRef<HTMLVideoElement | null>(null);
+  const attachVideo = useCallback((host: HTMLDivElement | null) => {
+    if (!host) {
+      video.current = null;
+      return;
+    }
+    const el = getPlayerVideo();
+    if (el.parentNode !== host) host.appendChild(el);
+    video.current = el;
+  }, []);
   const [segments, setSegments] = useState<MediaSegment[]>([]);
   const [now, setNow] = useState(0);
   const portrait = useViewportPortrait();
@@ -240,6 +251,53 @@ export function Player({
     },
     [],
   );
+
+  // Media events and the poster go on the shared element by hand (it is not part of our JSX). The handlers are
+  // re-read from `media` on every event so they see the current state.
+  const posterUrl = isLocal ? '' : (mouse ? artUrl(client.serverUrl, item, 'backdrop', 1920, 1080) : artUrl(client.serverUrl, item, 'backdrop', 780, 440)) || '';
+  const media = useRef({
+    timeUpdate: (_el: HTMLVideoElement) => {},
+    volume: (_el: HTMLVideoElement) => {},
+    progress: (_el: HTMLVideoElement) => {},
+    duration: (_el: HTMLVideoElement) => {},
+  });
+  useEffect(() => {
+    const el = video.current;
+    if (!el) return;
+    // The element outlives the player: start from what it really is doing.
+    setPaused(el.paused);
+    const on = (type: string, fn: () => void) => {
+      el.addEventListener(type, fn);
+      return () => el.removeEventListener(type, fn);
+    };
+    const offs = [
+      on('timeupdate', () => media.current.timeUpdate(el)),
+      on('play', () => setPaused(false)),
+      on('pause', () => setPaused(true)),
+      on('waiting', () => setBuffering(true)),
+      on('seeking', () => setBuffering(true)),
+      on('playing', () => setBuffering(false)),
+      on('canplay', () => setBuffering(false)),
+      on('seeked', () => setBuffering(false)),
+      on('progress', () => media.current.progress(el)),
+      on('loadedmetadata', () => media.current.duration(el)),
+      on('durationchange', () => media.current.duration(el)),
+    ];
+    return () => offs.forEach((off) => off());
+  }, []);
+  useEffect(() => {
+    const el = video.current;
+    if (!el || !mouse) return;
+    const onVolume = () => media.current.volume(el);
+    el.addEventListener('volumechange', onVolume);
+    return () => el.removeEventListener('volumechange', onVolume);
+  }, [mouse]);
+  useEffect(() => {
+    const el = video.current;
+    if (!el) return;
+    if (posterUrl) el.setAttribute('poster', posterUrl);
+    else el.removeAttribute('poster');
+  }, [posterUrl]);
 
   // We draw the subtitles ourselves: keep the browser's own text tracks off (iOS would draw embedded ones).
   useEffect(() => {
@@ -362,6 +420,17 @@ export function Player({
 
   // Mouse only: volume (restored from the last session), fullscreen and the keyboard.
   const syncVolume = (el: HTMLVideoElement) => setVol({ volume: el.volume, muted: el.muted });
+  media.current = {
+    timeUpdate: (el) => {
+      const v = el.currentTime;
+      const t = Math.max(0, duration > 0 ? Math.min(duration, toMedia(v)) : toMedia(v));
+      if (v > 0) lastTime.current = t;
+      setNow(t);
+    },
+    volume: syncVolume,
+    progress: syncBuffered,
+    duration: syncDuration,
+  };
   const setVolume = (value: number) => {
     const el = video.current;
     if (!el) return;
@@ -585,6 +654,7 @@ export function Player({
     if (!loaded || !el) return;
     const startSeconds = ticksToSeconds(loaded.startTicks);
     shift.current = 0;
+    if (!isLocal) el.disableRemotePlayback = false;
     const seekToStart = () => {
       if (startSeconds > 0) el.currentTime = startSeconds;
     };
@@ -791,6 +861,18 @@ export function Player({
     };
   }, [client, loaded, item.Id, isLocal, isTrailer]);
 
+  // Leaving for good stops the stream and the audio. Moving to another episode keeps the element so its gesture
+  // unlock carries over; it only goes quiet until the next stream is attached. Declared after the effects that
+  // stop hls.js and report progress, so their cleanups run first.
+  useEffect(() => {
+    const el = video.current;
+    if (!el) return;
+    return () => {
+      if (advancing.current) el.pause();
+      else releasePlayerVideo(el);
+    };
+  }, []);
+
   // A watched episode leaves the downloads once the player has closed (this cleanup runs after the one that stops
   // the video and saves the position). Movies stay.
   const latest = useRef({ downloads, toast });
@@ -959,32 +1041,7 @@ export function Player({
           onMouseMove={mouse ? onMouseMove : undefined}
           onMouseLeave={mouse ? onMouseLeave : undefined}
         >
-          <video
-            ref={video}
-            class="player-video"
-            playsInline
-            webkit-playsinline=""
-            autoPlay
-            preload="auto"
-            poster={isLocal ? undefined : (mouse ? artUrl(client.serverUrl, item, 'backdrop', 1920, 1080) : artUrl(client.serverUrl, item, 'backdrop', 780, 440)) || undefined}
-            onTimeUpdate={(e) => {
-              const v = (e.target as HTMLVideoElement).currentTime;
-              const t = Math.max(0, duration > 0 ? Math.min(duration, toMedia(v)) : toMedia(v));
-              if (v > 0) lastTime.current = t;
-              setNow(t);
-            }}
-            onPlay={() => setPaused(false)}
-            onPause={() => setPaused(true)}
-            onVolumeChange={mouse ? (e) => syncVolume(e.target as HTMLVideoElement) : undefined}
-            onWaiting={() => setBuffering(true)}
-            onSeeking={() => setBuffering(true)}
-            onPlaying={() => setBuffering(false)}
-            onCanPlay={() => setBuffering(false)}
-            onSeeked={() => setBuffering(false)}
-            onProgress={(e) => syncBuffered(e.target as HTMLVideoElement)}
-            onLoadedMetadata={(e) => syncDuration(e.target as HTMLVideoElement)}
-            onDurationChange={(e) => syncDuration(e.target as HTMLVideoElement)}
-          />
+          <div class="player-video-host" ref={attachVideo} />
           <div class="player-tap" onClick={onStageClick} />
           {!mouse ? (
             <div class={'seek-hint ' + hint.side + (hint.on ? ' on' : '')} aria-hidden="true">
