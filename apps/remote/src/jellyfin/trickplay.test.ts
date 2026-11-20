@@ -50,7 +50,7 @@ describe('thumbnail math', () => {
     expect(sheetCount(i)).toBe(3);
   });
   it('builds the sheet url with the token', () => {
-    expect(sheetUrl('http://s', 'it 1', { mediaSourceId: 'ms', info: i }, 2, 'a b')).toBe('http://s/Videos/it%201/Trickplay/320/2.jpg?MediaSourceId=ms&api_key=a%20b');
+    expect(sheetUrl('http://s', 'it 1', { mediaSourceId: 'ms', info: i }, 2, 'a b')).toBe('http://s/Videos/it%201/Trickplay/320/2.jpg?MediaSourceId=ms&api_key=a%20b&ApiKey=a%20b');
   });
   it('preloads the neighbour sheet near an edge', () => {
     expect(sheetsNear(i, 0)).toEqual([0]);
