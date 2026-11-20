@@ -479,6 +479,7 @@ input:focus { outline: none; border-color: var(--accent); }
   --st-t: var(--safe-right); --st-b: var(--safe-left); --st-l: var(--safe-top); --st-r: var(--safe-bottom);
 }
 .player-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; pointer-events: none; }
+.player-video-host { position: absolute; inset: 0; pointer-events: none; }
 .player-tap { position: absolute; inset: 0; }
 .seek-hint {
   position: absolute; top: 0; bottom: 0; width: 30%; z-index: 2; display: flex; align-items: center; justify-content: center;
