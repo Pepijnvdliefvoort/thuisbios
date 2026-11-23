@@ -1072,6 +1072,8 @@ button.rs-row:active { background: var(--surface-2); }
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
   /* isolation keeps the shadow pseudo element behind the card but above the page */
   .card-cell { position: relative; isolation: isolate; flex: none; min-width: 0; }
+  /* In a grid the card fills its cell (a button is shrink-to-fit, so art and title would otherwise set its width) */
+  .grid .card-cell > .card { width: 100%; }
   /* Deep shadow under the hovered art: a pseudo element sized like the art, so only opacity animates */
   .card-cell::before {
     content: ''; position: absolute; z-index: -1; top: 0; left: 0; right: 0; border-radius: 8px; opacity: 0; transform: scale(1.05);
