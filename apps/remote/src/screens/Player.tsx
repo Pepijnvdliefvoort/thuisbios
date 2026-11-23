@@ -1109,6 +1109,7 @@ export function Player({
               localArt={nextPosters[next.Id]}
               next={next}
               remaining={card.remaining}
+              total={card.total}
               target="phone"
               onPlayNow={() => advance(true)}
               onCancel={() => setCancelled(true)}

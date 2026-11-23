@@ -157,6 +157,7 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
               serverUrl={client.serverUrl}
               next={nextEpisode}
               remaining={card.remaining}
+              total={card.total}
               target="tv"
               onPlayNow={tv.next}
               onCancel={() => {
