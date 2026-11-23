@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.1.2...v1.2.0) (2026-11-23)
+
+
+### Features
+
+* **remote,tv:** redesign the next episode card ([f8948c9](https://github.com/Pepijnvdliefvoort/thuisbios/commit/f8948c9163af6153f1a56281dd5f6bfe474dcaa9))
+* **remote,tv:** redesign the next episode card ([daee5b8](https://github.com/Pepijnvdliefvoort/thuisbios/commit/daee5b8a83bdd4d0483dd0bcba276cd3b4bc992b))
+* **remote:** hide the private library by default with a per-device switch ([#226](https://github.com/Pepijnvdliefvoort/thuisbios/issues/226)) ([071c25c](https://github.com/Pepijnvdliefvoort/thuisbios/commit/071c25cfc5dfa8a048685fe60499aac546c36820))
+
+
+### Bug Fixes
+
+* **remote:** keep search and library posters the same size on desktop ([f8948c9](https://github.com/Pepijnvdliefvoort/thuisbios/commit/f8948c9163af6153f1a56281dd5f6bfe474dcaa9))
+* **remote:** keep search and library posters the same size on desktop ([15dcb9b](https://github.com/Pepijnvdliefvoort/thuisbios/commit/15dcb9bd3733b238172505f18863a6b585266549))
+
 ## [1.1.2](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.1.1...v1.1.2) (2026-11-20)
 
 
