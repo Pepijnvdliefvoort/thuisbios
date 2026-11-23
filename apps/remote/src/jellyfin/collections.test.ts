@@ -70,4 +70,13 @@ describe('collectionIndex', () => {
     await Promise.resolve();
     expect((await collectionIndex(api, 'u1')).boxSets).toEqual([]);
   });
+
+  it('keeps one entry per client cache key', async () => {
+    const { client, api } = fake(async () => [film('x', { Type: 'BoxSet' })]);
+    await collectionIndex(api, 'u');
+    await collectionIndex({ ...api, cacheKey: 'hide:3' }, 'u');
+    expect(client.boxSets).toHaveBeenCalledTimes(2);
+    await collectionIndex({ ...api, cacheKey: 'hide:3' }, 'u');
+    expect(client.boxSets).toHaveBeenCalledTimes(2);
+  });
 });

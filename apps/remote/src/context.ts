@@ -5,10 +5,14 @@ import type { BaseItem, Session } from './jellyfin/types';
 import type { ProgressSync } from './offline/progressSync';
 import type { DownloadsApi } from './offline/useDownloads';
 import type { RequestsState } from './useRequests';
+import type { PrivacyApi } from './usePrivateLibrary';
 import type { TvApi } from './useTv';
 
 export interface AppContext {
+  /** The Jellyfin client for the screens: its lists leave out the private library while that is hidden. */
   client: JellyfinClient;
+  /** The private library (hidden by default) and the switch that shows it on this device. */
+  privacy: PrivacyApi;
   session: Session;
   tv: TvApi;
   /** Title requests (sent from Search) and the admin's open count. */

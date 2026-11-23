@@ -1,11 +1,11 @@
 import { useState } from 'preact/hooks';
 import { useApp } from '../context';
 import { initialOf, serverHost } from '../accountMenu';
-import { Avatar, ConfirmButton, MenuButton, MenuSheet } from './MenuSheet';
+import { Avatar, ConfirmButton, MenuButton, MenuSheet, SwitchRow } from './MenuSheet';
 
 /** Header avatar that opens the Account sheet: who is signed in, on which server, and Sign out. */
 export function AccountButton({ onSignOut }: { onSignOut: () => void }) {
-  const { session, requests, openRequests } = useApp();
+  const { session, requests, openRequests, privacy } = useApp();
   const pending = requests.isAdmin ? requests.badge : 0;
   const [open, setOpen] = useState(false);
   const letter = initialOf(session.userName);
@@ -36,6 +36,7 @@ export function AccountButton({ onSignOut }: { onSignOut: () => void }) {
               }}
             />
           ) : null}
+          {privacy.hasPrivate ? <SwitchRow label={`Show "${privacy.privateName}"`} note="Only on this device" checked={privacy.showPrivate} onChange={privacy.setShowPrivate} /> : null}
           <ConfirmButton
             label="Sign out"
             icon="signout"

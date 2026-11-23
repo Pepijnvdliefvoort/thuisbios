@@ -74,3 +74,16 @@ export function MenuButton({ label, icon, count = 0, onClick }: { label: string;
     </button>
   );
 }
+
+/** A row of an account sheet with an on/off switch and a small line under the label. */
+export function SwitchRow({ label, note, checked, onChange }: { label: string; note: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <button type="button" class="btn secondary switch-row" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
+      <span class="switch-text">
+        <span>{label}</span>
+        <small>{note}</small>
+      </span>
+      <span class="switch" aria-hidden="true" />
+    </button>
+  );
+}

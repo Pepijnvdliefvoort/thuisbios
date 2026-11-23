@@ -66,14 +66,23 @@ export type MediaType = 'Movie' | 'Series';
 
 export interface JellyfinClient {
   serverUrl: string;
+  /**
+   * Set on a client that filters its lists (see privacy.ts). Caches that keep data across calls (collections.ts)
+   * add it to their key, so a filtered and an unfiltered view never share an entry.
+   */
+  cacheKey?: string;
+  /** The user's libraries (CollectionFolders with `Id`, `Name` and `CollectionType`). */
+  userViews(userId: string): Promise<BaseItem[]>;
+  /** The movies and series (only `Id` and `Type`) of one library, at any depth. */
+  libraryItems(userId: string, libraryId: string): Promise<BaseItem[]>;
   resume(userId: string, limit: number): Promise<BaseItem[]>;
   nextUp(userId: string, limit: number, seriesId?: string): Promise<BaseItem[]>;
   /** Newest items by creation date (not the per-library "latest" endpoint). */
   latest(userId: string, type: MediaType, limit: number): Promise<BaseItem[]>;
   /** A library page of one type; `view` sorts and filters it (name order, no filters when left out). */
   library(userId: string, type: MediaType, limit?: number, view?: LibraryView): Promise<BaseItem[]>;
-  /** Genre names used by the items of one type. */
-  genres(userId: string, type: MediaType): Promise<string[]>;
+  /** Genre names used by the items of one type, of one library when `parentId` is given. */
+  genres(userId: string, type: MediaType, parentId?: string): Promise<string[]>;
   search(userId: string, term: string, limit: number): Promise<BaseItem[]>;
   /** Titles like `itemId` (Jellyfin's "similar items"). */
   similar(userId: string, itemId: string, limit: number): Promise<BaseItem[]>;
@@ -207,8 +216,14 @@ export function createClient(options: ClientOptions): JellyfinClient {
       items(
         `${user(userId)}/Items?${libraryQuery(type, view)}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}${limit ? `&Limit=${limit}` : ''}`,
       ),
-    genres: async (userId, type) => {
-      const r = await req<ItemsResult>('GET', `/Genres?UserId=${enc(userId)}&IncludeItemTypes=${type}&Recursive=true&SortBy=SortName`);
+    userViews: (userId) => items(`/UserViews?userId=${enc(userId)}`),
+    libraryItems: (userId, libraryId) =>
+      items(`${user(userId)}/Items?ParentId=${enc(libraryId)}&Recursive=true&IncludeItemTypes=Movie,Series&Fields=&EnableImages=false&EnableUserData=false`),
+    genres: async (userId, type, parentId) => {
+      const r = await req<ItemsResult>(
+        'GET',
+        `/Genres?UserId=${enc(userId)}&IncludeItemTypes=${type}&Recursive=true&SortBy=SortName${parentId ? `&ParentId=${enc(parentId)}` : ''}`,
+      );
       return r.Items.map((g) => g.Name).filter(Boolean);
     },
     search: (userId, term, limit) =>

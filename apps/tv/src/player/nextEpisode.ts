@@ -62,11 +62,13 @@ export interface NextEpisodeCard {
   show: boolean;
   /** Whole seconds left in the countdown (at least 1 while shown). */
   remaining: number;
+  /** Whole seconds of the full countdown (0 when hidden); `remaining / total` drives the progress bar. */
+  total: number;
   /** The countdown ran out before the natural end: start the next episode now. */
   due: boolean;
 }
 
-const HIDDEN: NextEpisodeCard = { show: false, remaining: 0, due: false };
+const HIDDEN: NextEpisodeCard = { show: false, remaining: 0, total: 0, due: false };
 
 /**
  * Card state for a video position in seconds. Derived from positions, so pausing pauses the countdown.
@@ -77,6 +79,6 @@ export function nextEpisodeCard(plan: NextEpisodePlan | null, position: number, 
   if (position >= plan.end) return HIDDEN;
   const start = armedAt === null ? position : armedAt;
   const playAt = plan.countdown === null ? plan.end : Math.min(start + plan.countdown, plan.end);
-  if (position >= playAt) return plan.countdown !== null && playAt < plan.end ? { show: false, remaining: 0, due: true } : HIDDEN;
-  return { show: true, remaining: Math.max(1, Math.ceil(playAt - position)), due: false };
+  if (position >= playAt) return plan.countdown !== null && playAt < plan.end ? { show: false, remaining: 0, total: 0, due: true } : HIDDEN;
+  return { show: true, remaining: Math.max(1, Math.ceil(playAt - position)), total: Math.max(1, Math.ceil(playAt - start)), due: false };
 }

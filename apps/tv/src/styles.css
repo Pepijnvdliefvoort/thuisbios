@@ -196,17 +196,27 @@ video::cue {
 .skipintro:focus { background: #fff; color: #111; border-color: #fff; }
 .skipintro .okhint { margin-left: 1.6vh; padding: 0.2vh 1vh; font-size: 2vh; border: 0.3vh solid currentColor; border-radius: 0.5vh; opacity: 0.8; }
 .nextcard {
-  display: flex; padding: 1.6vh; background: rgba(20, 20, 24, 0.92); border: 0.3vh solid rgba(255, 255, 255, 0.35);
-  border-radius: 0.8vh; animation: skipin 250ms ease-out;
+  display: flex; flex-direction: column; width: 52vh; padding: 2vh; background: rgba(20, 20, 24, 0.94);
+  border: 0.2vh solid rgba(255, 255, 255, 0.14); border-radius: 1.6vh; animation: skipin 250ms ease-out;
 }
-.nextthumb { flex: none; width: 28vh; height: 15.75vh; margin-right: 2vh; background: #222; border-radius: 0.5vh; overflow: hidden; }
+.nexttop { display: flex; align-items: center; }
+.nextthumb { position: relative; flex: none; width: 28vh; height: 15.75vh; margin-right: 2vh; background: #222; border-radius: 1vh; overflow: hidden; }
 .nextthumb img { display: block; width: 100%; height: 100%; }
-.nextbody { display: flex; flex-direction: column; justify-content: center; min-width: 30vh; max-width: 40vh; }
-.nextlabel { font-size: 2vh; opacity: 0.7; }
-.nextname { margin-top: 0.4vh; font-size: 2.6vh; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nextcount { margin-top: 0.6vh; font-size: 2.2vh; }
-.nextbtns { display: flex; margin-top: 1.4vh; }
-.nextbtns .skipintro { padding: 1vh 2vh; font-size: 2.4vh; margin-right: 1.2vh; }
+.nextbar {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 0.5vh; background: #fff; transform-origin: left;
+  transition: transform 1s linear;
+}
+.nextbody { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.nexteyebrow { font-size: 1.7vh; font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.6; }
+.nextlabel { margin-top: 0.6vh; font-size: 2vh; opacity: 0.7; }
+.nextname {
+  margin-top: 0.2vh; font-size: 2.6vh; line-height: 1.25; font-weight: bold; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
+.nextcount { margin-top: 0.8vh; font-size: 2.2vh; opacity: 0.8; }
+.nextbtns { display: flex; margin-top: 2vh; }
+.nextbtns .skipintro { flex: 1 1 0; justify-content: center; padding: 1.2vh 2vh; font-size: 2.4vh; white-space: nowrap; }
+.nextbtns .skipintro + .skipintro { margin-left: 1.4vh; }
 @keyframes skipin { from { opacity: 0; transform: translateX(4vh); } to { opacity: 1; transform: translateX(0); } }
 .remotenote { position: absolute; left: 50%; bottom: 6vh; transform: translateX(-50%); padding: 1vh 2vh; font-size: 2.2vh; background: rgba(0, 0, 0, 0.8); border-radius: 0.8vh; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
 .remotenote.on { opacity: 1; }
