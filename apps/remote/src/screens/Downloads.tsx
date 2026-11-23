@@ -117,8 +117,11 @@ function DoneRow({ entry, url, label, onPlay }: { entry: DownloadEntry; url?: st
 
 /** Everything saved for offline viewing: what is downloading, what is ready, and how much space it takes. Works without a network. */
 export function Downloads() {
-  const { downloads, playDownload, offline } = useApp();
-  const { entries, ready, supported } = downloads;
+  const { downloads, playDownload, offline, privacy } = useApp();
+  const { ready, supported } = downloads;
+  // The private library's downloads stay on the device but out of the list while it is hidden.
+  const all = downloads.entries;
+  const entries = useMemo(() => all.filter((e) => !privacy.isHidden({ Id: e.id, SeriesId: e.seriesId })), [all, privacy]);
   const store = useMemo(() => (supported ? createCacheStore() : null), [supported]);
   const states = entries.map((e) => `${e.id}:${e.state}`).join('|');
   const posters = usePosters(store, entries.map((e) => e.id), states);
