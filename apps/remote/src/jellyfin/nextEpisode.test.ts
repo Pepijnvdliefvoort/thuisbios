@@ -57,22 +57,23 @@ describe('nextEpisodeCard', () => {
     expect(nextEpisodeCard(null, 1300, null).show).toBe(false);
   });
   it('counts down from the arm point', () => {
-    expect(nextEpisodeCard(early, 1300, 1300)).toEqual({ show: true, remaining: OUTRO_COUNTDOWN_SECONDS, due: false });
-    expect(nextEpisodeCard(early, 1302.2, 1300)).toEqual({ show: true, remaining: OUTRO_COUNTDOWN_SECONDS - 2, due: false });
-    expect(nextEpisodeCard(early, 1300 + OUTRO_COUNTDOWN_SECONDS - 0.1, 1300)).toEqual({ show: true, remaining: 1, due: false });
+    expect(nextEpisodeCard(early, 1300, 1300)).toEqual({ show: true, remaining: OUTRO_COUNTDOWN_SECONDS, total: OUTRO_COUNTDOWN_SECONDS, due: false });
+    expect(nextEpisodeCard(early, 1302.2, 1300)).toEqual({ show: true, remaining: OUTRO_COUNTDOWN_SECONDS - 2, total: OUTRO_COUNTDOWN_SECONDS, due: false });
+    expect(nextEpisodeCard(early, 1300 + OUTRO_COUNTDOWN_SECONDS - 0.1, 1300)).toEqual({ show: true, remaining: 1, total: OUTRO_COUNTDOWN_SECONDS, due: false });
   });
   it('is due the countdown after the arm point, not at the outro start', () => {
-    expect(nextEpisodeCard(early, 1300 + OUTRO_COUNTDOWN_SECONDS, 1300)).toEqual({ show: false, remaining: 0, due: true });
-    expect(nextEpisodeCard(early, 1400, 1400)).toEqual({ show: true, remaining: OUTRO_COUNTDOWN_SECONDS, due: false });
+    expect(nextEpisodeCard(early, 1300 + OUTRO_COUNTDOWN_SECONDS, 1300)).toEqual({ show: false, remaining: 0, total: 0, due: true });
+    expect(nextEpisodeCard(early, 1400, 1400)).toEqual({ show: true, remaining: OUTRO_COUNTDOWN_SECONDS, total: OUTRO_COUNTDOWN_SECONDS, due: false });
   });
   it('clamps to the natural end', () => {
-    expect(nextEpisodeCard(early, 1438, 1438)).toEqual({ show: true, remaining: 2, due: false });
-    expect(nextEpisodeCard(early, 1440, 1438)).toEqual({ show: false, remaining: 0, due: false });
+    expect(nextEpisodeCard(early, 1438, 1438)).toEqual({ show: true, remaining: 2, total: 2, due: false });
+    expect(nextEpisodeCard(early, 1440, 1438)).toEqual({ show: false, remaining: 0, total: 0, due: false });
   });
   it('counts to the end without credits markers, never due', () => {
+    expect(nextEpisodeCard(late, late.showAt + 2, late.showAt).total).toBe(FALLBACK_LEAD_SECONDS);
     expect(nextEpisodeCard(late, late.showAt, late.showAt).remaining).toBe(FALLBACK_LEAD_SECONDS);
     expect(nextEpisodeCard(late, late.showAt + 2, late.showAt).remaining).toBe(FALLBACK_LEAD_SECONDS - 2);
-    expect(nextEpisodeCard(late, 1440, late.showAt)).toEqual({ show: false, remaining: 0, due: false });
+    expect(nextEpisodeCard(late, 1440, late.showAt)).toEqual({ show: false, remaining: 0, total: 0, due: false });
   });
 });
 

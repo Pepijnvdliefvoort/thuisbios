@@ -21,7 +21,7 @@ import {
 import { formatOffset, shiftVtt } from '../jellyfin/subtitleOffset';
 import { getSubtitleOffset, setSubtitleOffset } from '../storage';
 import { artFor, artUrl } from '../jellyfin/art';
-import { episodeSubtitle, playerTitle } from '../jellyfin/itemInfo';
+import { episodeLabel, playerTitle } from '../jellyfin/itemInfo';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import type { BaseItem, MediaSource, Session } from '../jellyfin/types';
 import { debugRequested } from '../debug/keyLogState';
@@ -721,22 +721,29 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
       {card && card.show && nextItem && (
         <div class={'skipwrap' + (controlsVisible ? ' up' : '')}>
           <div class="nextcard">
-            <div class="nextthumb">
-              <img src={artUrl(client, artFor(nextItem, 'thumb'), 320, 180)} width="320" height="180" alt="" />
-            </div>
-            <div class="nextbody">
-              <div class="nextlabel">Next episode</div>
-              <div class="nextname">{episodeSubtitle(nextItem) || nextItem.Name}</div>
-              <div class="nextcount">Plays in {card.remaining}</div>
-              <div class="nextbtns">
-                <button data-focusable data-kind="button" class="skipintro" onClick={() => advance(true)}>
-                  <span>Play now</span>
-                  {!controlsVisible && <span class="okhint">OK</span>}
-                </button>
-                <button data-focusable data-kind="button" class="skipintro" onClick={cancelCard}>
-                  <span>Cancel</span>
-                </button>
+            <div class="nexttop">
+              <div class="nextthumb">
+                <img src={artUrl(client, artFor(nextItem, 'thumb'), 252, 142)} width="252" height="142" alt="" />
+                <div
+                  class="nextbar"
+                  style={{ transform: 'scaleX(' + (card.total > 0 ? Math.max(0, (card.remaining - 1) / card.total) : 0) + ')' }}
+                />
               </div>
+              <div class="nextbody">
+                <div class="nexteyebrow">Next episode</div>
+                {episodeLabel(nextItem) && <div class="nextlabel">{episodeLabel(nextItem)}</div>}
+                <div class="nextname">{nextItem.Name}</div>
+                <div class="nextcount">Plays in {card.remaining}</div>
+              </div>
+            </div>
+            <div class="nextbtns">
+              <button data-focusable data-kind="button" class="skipintro" onClick={() => advance(true)}>
+                <span>Play now</span>
+                {!controlsVisible && <span class="okhint">OK</span>}
+              </button>
+              <button data-focusable data-kind="button" class="skipintro" onClick={cancelCard}>
+                <span>Cancel</span>
+              </button>
             </div>
           </div>
         </div>
