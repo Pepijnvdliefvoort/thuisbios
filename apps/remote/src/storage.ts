@@ -1,4 +1,5 @@
 import { createDeviceId } from './jellyfin/auth';
+import { parsePrivateSet, serializePrivateSet, type PrivateSet } from './jellyfin/privateLibrary';
 import { parseView, type LibraryType, type LibraryView } from './jellyfin/libraryQuery';
 import type { Session } from './jellyfin/types';
 import { DEFAULT_QUALITY, isQuality, type DownloadQuality } from './offline/downloadQuality';
@@ -50,7 +51,11 @@ export function loadSession(): Session | null {
 }
 
 export const saveSession = (session: Session): void => write(SESSION_KEY, JSON.stringify(session));
-export const clearSession = (): void => write(SESSION_KEY, null);
+export const clearSession = (): void => {
+  write(SESSION_KEY, null);
+  // The ids belong to the account that signed in.
+  write(PRIVATE_IDS_KEY, null);
+};
 export const loadServerUrl = (): string => read(SERVER_KEY) ?? '';
 export const saveServerUrl = (url: string): void => write(SERVER_KEY, url);
 export const loadTvDeviceId = (): string | null => read(TV_KEY);
@@ -162,3 +167,15 @@ export function loadDownloadQuality(): DownloadQuality {
   return isQuality(v) ? v : DEFAULT_QUALITY;
 }
 export const saveDownloadQuality = (quality: DownloadQuality): void => write(DOWNLOAD_QUALITY_KEY, quality);
+
+const SHOW_PRIVATE_KEY = 'thuisbios.remote.showPrivate';
+
+/** Whether the private library is shown on this device (hidden unless switched on; never stored on the server). */
+export const loadShowPrivate = (): boolean => read(SHOW_PRIVATE_KEY) === '1';
+export const saveShowPrivate = (show: boolean): void => write(SHOW_PRIVATE_KEY, show ? '1' : null);
+
+const PRIVATE_IDS_KEY = 'thuisbios.remote.privateIds';
+
+/** The private library's item ids from the last start, so they are hidden at once and offline. Null when never saved. */
+export const loadPrivateIds = (): PrivateSet | null => parsePrivateSet(read(PRIVATE_IDS_KEY));
+export const savePrivateIds = (set: PrivateSet): void => write(PRIVATE_IDS_KEY, set.libraryIds.length > 0 ? serializePrivateSet(set) : '{}');

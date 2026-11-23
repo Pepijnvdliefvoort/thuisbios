@@ -73,7 +73,7 @@ const cache = new Map<string, Promise<CollectionIndex>>();
  * so this is one request for the BoxSets plus one per BoxSet). A failed load is not kept, so the next call retries.
  */
 export function collectionIndex(client: JellyfinClient, userId: string): Promise<CollectionIndex> {
-  const key = `${client.serverUrl}|${userId}`;
+  const key = `${client.serverUrl}|${userId}|${client.cacheKey || ''}`;
   let hit = cache.get(key);
   if (!hit) {
     hit = load(client, userId);

@@ -42,6 +42,7 @@ import { useRequests } from './useRequests';
 import { isDesktop, useDesktop } from './useDesktop';
 import { useBottomInset } from './useBottomInset';
 import { useScrollerRefresh } from './useScrollerRefresh';
+import { usePrivateLibrary } from './usePrivateLibrary';
 import { useTv } from './useTv';
 
 /**
@@ -120,7 +121,7 @@ function Shell({
   // The client is memoized on the session, so it reaches the latest callback through a ref.
   const onSignOutRef = useRef(onSignOut);
   onSignOutRef.current = onSignOut;
-  const client = useMemo(
+  const baseClient = useMemo(
     () =>
       createClient({
         serverUrl: session.serverUrl,
@@ -131,6 +132,8 @@ function Shell({
       }),
     [session],
   );
+  // `client` is for the screens: it hides the private library. Everything that acts on one item keeps the base client.
+  const { client, privacy, ready: privacyReady } = usePrivateLibrary(baseClient, session);
   const nav = useNav();
   const online = useOnline();
   const [toastText, setToastText] = useState('');
@@ -140,7 +143,7 @@ function Shell({
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToastText(''), 2600);
   };
-  const tv = useTv(client, session.userId, getDeviceId(), toast);
+  const tv = useTv(baseClient, session.userId, getDeviceId(), toast);
   const requests = useRequests(session);
 
   // The download queue lives as long as the app, so progress keeps going while the user browses.
@@ -148,7 +151,7 @@ function Shell({
     if (!downloadsSupported()) return null;
     const probe = document.createElement('video');
     return new DownloadEngine({
-      client,
+      client: baseClient,
       session,
       deviceId: getDeviceId(),
       store: createCacheStore(),
@@ -160,7 +163,7 @@ function Shell({
         if (storage && storage.persist) void storage.persist().catch(() => undefined);
       },
     });
-  }, [client, session]);
+  }, [baseClient, session]);
   useEffect(() => {
     if (!engine) return;
     void engine.start().catch(() => undefined);
@@ -172,8 +175,8 @@ function Shell({
 
   // Watch progress made while offline goes to Jellyfin now, when the app opens and whenever the network is back.
   const progress = useMemo(
-    () => createProgressSync({ client, userId: session.userId, load: loadProgressQueue, save: saveProgressQueue }),
-    [client, session.userId],
+    () => createProgressSync({ client: baseClient, userId: session.userId, load: loadProgressQueue, save: saveProgressQueue }),
+    [baseClient, session.userId],
   );
   useEffect(() => {
     const flush = () => void progress.flush();
@@ -237,6 +240,7 @@ function Shell({
 
   const ctx: AppContext = {
     client,
+    privacy,
     session,
     tv,
     requests,
@@ -285,7 +289,7 @@ function Shell({
       // Online, the server may know a newer position (watched on the TV meanwhile).
       if (typeof navigator === 'undefined' || navigator.onLine !== false) {
         const fresh = await Promise.race([
-          client.item(session.userId, id).catch(() => null),
+          baseClient.item(session.userId, id).catch(() => null),
           new Promise<null>((resolve) => setTimeout(() => resolve(null), FRESH_ITEM_MS)),
         ]);
         if (fresh && fresh.UserData) item = { ...item, UserData: fresh.UserData };
@@ -314,7 +318,7 @@ function Shell({
   };
 
   const signOut = () => {
-    void client.logout().catch(() => undefined);
+    void baseClient.logout().catch(() => undefined);
     onSignOut();
   };
 
@@ -333,13 +337,13 @@ function Shell({
               </header>
             )}
             <main hidden={tab !== 'home'}>
-              <Home />
+              {privacyReady ? <Home /> : null}
             </main>
             <main hidden={tab !== 'search'}>
-              <Search />
+              {privacyReady ? <Search /> : null}
             </main>
             <main hidden={tab !== 'library'}>
-              <Library />
+              {privacyReady ? <Library /> : null}
             </main>
             {tab === 'downloads' ? (
               <main>

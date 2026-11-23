@@ -50,6 +50,8 @@ export interface BaseItem {
   Id: string;
   Name: string;
   Type?: 'Movie' | 'Series' | 'Season' | 'Episode' | string;
+  /** Only on a library (from /UserViews): movies, tvshows, boxsets, ... */
+  CollectionType?: string;
   ProductionYear?: number;
   /** ISO date (release date; a person's birth date); only present when requested with Fields=PremiereDate. */
   PremiereDate?: string;

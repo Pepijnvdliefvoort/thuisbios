@@ -5,6 +5,7 @@
 //   node scripts/screenshots/mock-jellyfin.mjs [port]      (default port 8097)
 //
 // Options (env): MOCK_QC_AUTHENTICATED=1 makes Quick Connect approve the TV at once.
+//                MOCK_PRIVATE=1 adds a "Prive" library with three placeholder films (to try hiding a private library).
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -130,6 +131,38 @@ const boxChildren = new Map();
 });
 for (const i of items.values()) if (i.Type === 'Movie') i.PremiereDate = `${i.ProductionYear}-06-15T00:00:00.0000000Z`;
 
+// Libraries (GET /UserViews). The optional private one only exists with MOCK_PRIVATE=1, so the public screenshots never change.
+const PRIVATE_LIBRARY = process.env.MOCK_PRIVATE === '1';
+const LIBRARIES = [
+  { Id: 'lib-movies', Name: 'Movies', CollectionType: 'movies' },
+  { Id: 'lib-shows', Name: 'Shows', CollectionType: 'tvshows' },
+  ...(PRIVATE_LIBRARY ? [{ Id: 'lib-prive', Name: 'Prive', CollectionType: 'movies' }] : []),
+].map((l) => ({ ...l, Type: 'CollectionFolder' }));
+if (PRIVATE_LIBRARY) {
+  ['One', 'Two', 'Three'].forEach((word, i) => {
+    const id = `private-${i + 1}`;
+    items.set(id, ready({
+      Id: id,
+      Name: `Private Title ${word}`,
+      Type: 'Movie',
+      ProductionYear: 2010 + i,
+      Overview: LOREM[i % LOREM.length],
+      Genres: ['Private Genre'],
+      RunTimeTicks: (90 + i) * 60 * TICKS,
+      PremiereDate: `${2010 + i}-06-15T00:00:00.0000000Z`,
+      hue: HUES[(i * 4) % HUES.length],
+      created: 12 + i, // the newest items, so they would lead the recently added rows
+      lib: 'lib-prive',
+      UserData: { PlaybackPositionTicks: 0, Played: false },
+    }));
+  });
+}
+/** The library an item lives in (episodes and seasons follow their series). */
+const libraryOf = (it) => {
+  const top = it.Type === 'Episode' || it.Type === 'Season' ? items.get(it.SeriesId) || it : it;
+  return top.lib || (top.Type === 'Series' ? 'lib-shows' : 'lib-movies');
+};
+
 /** Like Jellyfin's similar items: the same kind of title, the most shared genres first. */
 function similarTo(id, limit) {
   const it = items.get(id);
@@ -182,7 +215,7 @@ for (const i of items.values()) {
   if (i.Type === 'Episode') i.people = items.get(i.SeriesId).people.slice(0, 6);
 }
 
-const strip = ({ hue, created, parent, people, ...rest }) => rest; // drop internal fields from API output
+const strip = ({ hue, created, parent, people, lib, ...rest }) => rest; // drop internal fields from API output
 const episodesOf = (seriesId) => [...items.values()].filter((i) => i.Type === 'Episode' && i.SeriesId === seriesId);
 
 /** The first unwatched episode of a series that the user started, like Jellyfin's Next Up. */
@@ -394,9 +427,11 @@ function queryItems(q) {
   const types = (q.get('IncludeItemTypes') || '').split(',').filter(Boolean);
   const parent = q.get('ParentId');
   // A collection's items, or the library types asked for (movies and series when none is named).
-  let list = [...items.values()].filter((i) =>
-    parent ? i.parent === parent : types.length ? types.includes(i.Type) : i.Type === 'Movie' || i.Type === 'Series',
-  );
+  const library = parent && LIBRARIES.some((l) => l.Id === parent) ? parent : '';
+  let list = [...items.values()].filter((i) => {
+    if (library) return libraryOf(i) === library && (types.length ? types.includes(i.Type) : i.Type === 'Movie' || i.Type === 'Series');
+    return parent ? i.parent === parent : types.length ? types.includes(i.Type) : i.Type === 'Movie' || i.Type === 'Series';
+  });
   const term = (q.get('searchTerm') || '').toLowerCase();
   if (term) list = list.filter((i) => i.Name.toLowerCase().includes(term) || (i.SeriesName || '').toLowerCase().includes(term));
   if ((q.get('Filters') || '').includes('IsResumable')) {
@@ -551,9 +586,11 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       return json({ Items: seasons.map(strip), TotalRecordCount: seasons.length });
     }
     if ((m = /^\/Shows\/([^/]+)\/Episodes$/.exec(path))) return json(episodesQuery(m[1], q));
+    if (path === '/UserViews') return json({ Items: LIBRARIES, TotalRecordCount: LIBRARIES.length });
     if (path === '/Genres') {
       const type = q.get('IncludeItemTypes');
-      const names = [...new Set([...items.values()].filter((i) => i.Type === type).flatMap((i) => i.Genres || []))].sort();
+      const parentLib = q.get('ParentId');
+      const names = [...new Set([...items.values()].filter((i) => i.Type === type && (!parentLib || libraryOf(i) === parentLib)).flatMap((i) => i.Genres || []))].sort();
       return json({ Items: names.map((Name) => ({ Id: `genre-${Name}`, Name })), TotalRecordCount: names.length });
     }
     if ((m = /^\/Items\/([^/]+)\/Similar$/.exec(path))) {

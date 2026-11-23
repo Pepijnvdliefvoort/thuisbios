@@ -1,6 +1,7 @@
 import { buildAuthHeader } from './auth';
 import { buildDeviceProfile } from './deviceProfile';
 import type { ImageKind } from './art';
+import { isPrivateLibrary, mergeShuffled } from './privateLibrary';
 import { parseSegments, type MediaSegment } from './segments';
 import { REMOTE_CAPABILITIES } from '../remote/messages';
 import type {
@@ -146,18 +147,32 @@ export function createClient(options: ClientOptions): JellyfinClient {
       return result.Items;
     },
     screensaverItems: async (userId, limit) => {
-      const query = [
-        'IncludeItemTypes=Movie,Series',
-        'Recursive=true',
-        'SortBy=Random',
-        `Limit=${limit}`,
-        'ImageTypes=Backdrop',
-        'EnableImageTypes=Backdrop,Logo',
-        'ImageTypeLimit=1',
-        'Fields=Overview,ProductionYear',
-      ].join('&');
-      const result = await request<ItemsResult>('GET', `/Users/${encodeURIComponent(userId)}/Items?${query}`);
-      return result.Items;
+      const query = (parentId?: string) =>
+        [
+          'IncludeItemTypes=Movie,Series',
+          'Recursive=true',
+          'SortBy=Random',
+          `Limit=${limit}`,
+          'ImageTypes=Backdrop',
+          'EnableImageTypes=Backdrop,Logo',
+          'ImageTypeLimit=1',
+          'Fields=Overview,ProductionYear',
+          ...(parentId ? [`ParentId=${encodeURIComponent(parentId)}`] : []),
+        ].join('&');
+      const random = async (parentId?: string): Promise<BaseItem[]> =>
+        (await request<ItemsResult>('GET', `/Users/${encodeURIComponent(userId)}/Items?${query(parentId)}`)).Items;
+      // The TV is shared: the private library never reaches the screensaver. Only when there is one does it ask per library.
+      let libraries: BaseItem[] = [];
+      try {
+        libraries = (await request<ItemsResult>('GET', `/UserViews?userId=${encodeURIComponent(userId)}`)).Items;
+      } catch (e) {
+        // Without the list of libraries a private one cannot be told apart.
+        return [];
+      }
+      if (!libraries.some((l) => isPrivateLibrary(l.Name))) return random();
+      const open = libraries.filter((l) => !isPrivateLibrary(l.Name));
+      const lists = await Promise.all(open.map((l) => random(l.Id).catch(() => [] as BaseItem[])));
+      return mergeShuffled(lists, limit);
     },
     mediaSegments: async (itemId) => {
       try {
