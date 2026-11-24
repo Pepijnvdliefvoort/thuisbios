@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { clientInfo } from '../clientInfo';
 import type { JellyfinClient, PlaybackReport } from '../jellyfin/client';
 import {
@@ -22,6 +22,7 @@ import { formatOffset, shiftVtt } from '../jellyfin/subtitleOffset';
 import { getSubtitleOffset, setSubtitleOffset } from '../storage';
 import { artFor, artUrl } from '../jellyfin/art';
 import { episodeLabel, playerTitle } from '../jellyfin/itemInfo';
+import { chapterAt, markerFractions, parseChapters, type Chapter } from '../jellyfin/chapters';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import type { BaseItem, MediaSource, Session } from '../jellyfin/types';
 import { debugRequested } from '../debug/keyLogState';
@@ -134,6 +135,20 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
     };
   }, [client, item.Id]);
 
+  // Chapter markers on the seekbar; errors or no chapters simply mean none.
+  const [rawChapters, setRawChapters] = useState<unknown>([]);
+  useEffect(() => {
+    let alive = true;
+    setRawChapters([]);
+    client
+      .chapters(session.userId, item.Id)
+      .then((raw) => alive && setRawChapters(raw))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [client, session.userId, item.Id]);
+
   // Next episode autoplay: prefetched once the item loads. Movies and the last episode have none.
   const [nextItem, setNextItem] = useState<BaseItem | null>(null);
   const [cancelled, setCancelled] = useState(false);
@@ -151,6 +166,7 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
     };
   }, [client, session, item.Id]);
   const runtime = duration > 0 ? duration : ticksToSeconds(item.RunTimeTicks || 0);
+  const chapters: Chapter[] = useMemo(() => parseChapters(rawChapters, runtime), [rawChapters, runtime]);
   const plan = planNextEpisode(segments, runtime);
   // Where the countdown started: when the position entered the card zone (playing, seeking or resuming).
   const armed = useRef<{ at: number | null; last: number | null }>({ at: null, last: null });
@@ -667,10 +683,18 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
             <div class="track">
               <div class="buffered" style={{ transform: `scaleX(${fraction(bufferedEnd)})` }} />
               <div class="played" style={{ transform: `scaleX(${fraction(shownPos)})` }} />
+              {markerFractions(chapters, duration).map((f, i) => (
+                <div key={i} class="chapter-gap" style={{ left: f * 100 + '%' }} />
+              ))}
             </div>
             <div class="thumbwrap" style={{ transform: `translateX(${fraction(shownPos) * 100}%)` }}>
               <div class="thumb" />
-              {scrubbing && <div class="tip">{formatTime(shownPos)}</div>}
+              {scrubbing && (
+                <div class="tip">
+                  {chapters.length > 0 && <div class="chapter-name">{chapters[Math.max(0, chapterAt(chapters, shownPos))].label}</div>}
+                  {formatTime(shownPos)}
+                </div>
+              )}
             </div>
           </div>
           <div class="times">

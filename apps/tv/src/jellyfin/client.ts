@@ -66,6 +66,8 @@ export interface JellyfinClient {
   reportCapabilities(): Promise<void>;
   /** Intro, outro and similar markers (Jellyfin 10.10+ with a plugin). Any error means no segments. */
   mediaSegments(itemId: string): Promise<MediaSegment[]>;
+  /** Raw chapter list of an item (empty when it has none or the request fails). */
+  chapters(userId: string, itemId: string): Promise<NonNullable<BaseItem['Chapters']>>;
   /** Marks an item as watched, so it leaves Resume watching. */
   markPlayed(userId: string, itemId: string): Promise<void>;
   /** Ends this device's session on the server (the token stops working). */
@@ -177,6 +179,17 @@ export function createClient(options: ClientOptions): JellyfinClient {
     mediaSegments: async (itemId) => {
       try {
         return parseSegments(await request<unknown>('GET', `/MediaSegments/${encodeURIComponent(itemId)}`));
+      } catch (e) {
+        return [];
+      }
+    },
+    chapters: async (userId, itemId) => {
+      try {
+        const full = await request<BaseItem>(
+          'GET',
+          `/Users/${encodeURIComponent(userId)}/Items/${encodeURIComponent(itemId)}?Fields=Chapters`,
+        );
+        return full.Chapters || [];
       } catch (e) {
         return [];
       }

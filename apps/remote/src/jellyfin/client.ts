@@ -116,7 +116,7 @@ export interface JellyfinClient {
   logout(): Promise<void>;
   /** The audio and subtitle streams of an item's first media source (empty when the server lists none). */
   mediaStreams(userId: string, itemId: string): Promise<MediaStream[]>;
-  /** The item with its scrub preview data (Fields=Trickplay). */
+  /** The item with its scrub preview data and chapters (Fields=Trickplay,Chapters). */
   scrubInfo(userId: string, itemId: string): Promise<BaseItem>;
   /** Asks the server how this phone can play an item; see {@link PlaybackOptions}. */
   playbackInfo(userId: string, itemId: string, profile: DeviceProfile, options?: PlaybackOptions): Promise<PlaybackInfoResponse>;
@@ -250,7 +250,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
       ),
     localTrailers: (userId, itemId) => req<BaseItem[]>('GET', `${user(userId)}/Items/${enc(itemId)}/LocalTrailers`),
     scrubInfo: (userId, itemId) =>
-      req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=Trickplay`),
+      req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=Trickplay,Chapters`),
     mediaStreams: async (userId, itemId) => {
       const item = await req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=MediaSources,MediaStreams`);
       const source = item.MediaSources && item.MediaSources[0];

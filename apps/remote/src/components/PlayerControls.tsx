@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { AudioTrack } from '../jellyfin/audio';
+import { chapterAt, markerFractions, type Chapter } from '../jellyfin/chapters';
 import type { QualityId, QualityOption } from '../jellyfin/quality';
 import { formatClock } from '../jellyfin/format';
 import type { SubtitleTrack } from '../jellyfin/subtitles';
 import { scrubFraction } from '../scrub';
 import { Icon } from './Icon';
+import { Img } from './Img';
 import { ScrubPreview, type ScrubSource } from './ScrubPreview';
 
 /** Extras for a mouse: volume, fullscreen and hover time on the scrub bar. Absent on a phone. */
@@ -64,12 +66,14 @@ interface Props {
   episodeNav?: EpisodeNav;
   /** Preview frames for the scrub bar (server tile sheets); absent offline or when the server has none. */
   scrubSource?: ScrubSource | null;
+  /** Chapters of the item (2 or more, else empty): markers on the bar, the name in the tooltip and a list to jump to. */
+  chapters?: Chapter[];
 }
 
 /** Streaming-style overlay: top bar, centre buttons and a bottom bar with the scrub bar, the audio and subtitle menu and the quality menu. */
 export function PlayerControls(p: Props) {
   // Which menu is open; only one at a time.
-  const [open, setOpen] = useState<'cc' | 'quality' | null>(null);
+  const [open, setOpen] = useState<'cc' | 'quality' | 'chapters' | null>(null);
   // While dragging: the time under the finger. The video only seeks on release.
   const [preview, setPreview] = useState<number | null>(null);
   // Mouse: the fraction of the bar under the pointer, for the time tooltip.
@@ -80,6 +84,8 @@ export function PlayerControls(p: Props) {
   const scrubEl = useRef<HTMLDivElement>(null);
   const d = p.desktop;
   const nav = p.episodeNav;
+  const chapters = p.chapters && p.chapters.length >= 2 ? p.chapters : [];
+  const chapterPanel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!d) return;
@@ -93,6 +99,8 @@ export function PlayerControls(p: Props) {
 
   const total = p.duration > 0 ? p.duration : 0;
   const shown = preview !== null ? preview : p.position;
+  const marks = markerFractions(chapters, total);
+  const currentChapter = chapterAt(chapters, p.position);
   const pct = (seconds: number): string => `${total > 0 ? Math.max(0, Math.min(100, (seconds / total) * 100)) : 0}%`;
 
   const fractionOf = (e: PointerEvent): number =>
@@ -132,6 +140,14 @@ export function PlayerControls(p: Props) {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [open, !!d]);
 
+  // The chapter list opens scrolled to the current chapter.
+  useEffect(() => {
+    const panel = chapterPanel.current;
+    if (open !== 'chapters' || !panel) return;
+    const row = panel.querySelector<HTMLElement>('[aria-checked="true"]');
+    if (row) panel.scrollTop = Math.max(0, row.offsetTop - (panel.clientHeight - row.offsetHeight) / 2);
+  }, [open]);
+
   const tipAt = preview !== null && total > 0 ? preview / total : hover;
 
   // The frame and time above the bar, placed from the bar's layout box (not affected by the stage's turn).
@@ -140,6 +156,7 @@ export function PlayerControls(p: Props) {
     const host = bar && (bar.offsetParent as HTMLElement | null);
     if (tipAt === null || !(total > 0) || !bar || !host) return null;
     const f = Math.max(0, Math.min(1, tipAt));
+    const chapter = chapters[chapterAt(chapters, f * total)];
     return (
       <ScrubPreview
         source={p.scrubSource || null}
@@ -148,11 +165,12 @@ export function PlayerControls(p: Props) {
         y={bar.offsetTop - 4}
         containerWidth={host.offsetWidth}
         thumbWidth={d ? 220 : 160}
+        label={chapter ? chapter.label : undefined}
       />
     );
   };
 
-  const toggleMenu = (menu: 'cc' | 'quality') => {
+  const toggleMenu = (menu: 'cc' | 'quality' | 'chapters') => {
     const next = open === menu ? null : menu;
     setOpen(next);
     p.onBusy(next !== null);
@@ -168,6 +186,10 @@ export function PlayerControls(p: Props) {
   const pickAudio = (index: number) => {
     // The current track needs no restart of the stream.
     if (index !== p.audioSelected) p.onSelectAudio(index);
+    closeMenu();
+  };
+  const pickChapter = (c: Chapter) => {
+    p.onSeek(c.startSec);
     closeMenu();
   };
   const pickQuality = (id: QualityId) => {
@@ -200,6 +222,21 @@ export function PlayerControls(p: Props) {
           <button key={t.index} type="button" role="menuitemradio" aria-checked={p.selected === i} onClick={() => pick(i)}>
             <span class="pc-check">{p.selected === i ? <Icon name="check" size={20} /> : null}</span>
             {t.label}
+          </button>
+        ))}
+      </div>
+    ) : null;
+
+  const chaptersPanel =
+    open === 'chapters' && chapters.length >= 2 ? (
+      <div class="pc-panel pc-chapters" role="menu" aria-label="Chapters" ref={chapterPanel}>
+        <p class="pc-panel-h">Chapters</p>
+        {chapters.map((c, i) => (
+          <button key={c.index} type="button" role="menuitemradio" aria-checked={currentChapter === i} onClick={() => pickChapter(c)}>
+            <span class="pc-check">{currentChapter === i ? <Icon name="check" size={20} /> : null}</span>
+            {c.image ? <Img class="pc-chap-img" src={c.image} /> : null}
+            <span class="pc-chap-label">{c.label}</span>
+            <span class="pc-chap-time">{formatClock(c.startSec)}</span>
           </button>
         ))}
       </div>
@@ -257,6 +294,9 @@ export function PlayerControls(p: Props) {
             <div class="pc-track">
               <i class="pc-buffered" style={{ width: pct(p.buffered) }} />
               <i class="pc-played" style={{ width: pct(shown) }} />
+              {marks.map((f, i) => (
+                <i key={i} class="pc-mark" style={{ left: `${f * 100}%` }} />
+              ))}
             </div>
             <i class="pc-thumb" style={{ left: pct(shown) }} />
           </div>
@@ -304,6 +344,21 @@ export function PlayerControls(p: Props) {
               </span>
             </div>
             <div class="pc-group">
+              {chapters.length >= 2 ? (
+                <div class="pc-menu">
+                  {chaptersPanel}
+                  <button
+                    type="button"
+                    class="pc-btn"
+                    onClick={() => toggleMenu('chapters')}
+                    aria-label="Chapters"
+                    aria-expanded={open === 'chapters'}
+                    aria-haspopup="menu"
+                  >
+                    <Icon name="chapters" size={26} />
+                  </button>
+                </div>
+              ) : null}
               {showQuality ? (
                 <div class="pc-menu">
                   {qualityPanel}
@@ -389,6 +444,7 @@ export function PlayerControls(p: Props) {
       <div class="pc-bottom">
         {ccPanel}
         {qualityPanel}
+        {chaptersPanel}
         {scrubTip()}
         <div class="pc-row">
           <span class="pc-time">{formatClock(shown)}</span>
@@ -408,10 +464,18 @@ export function PlayerControls(p: Props) {
             <div class="pc-track">
               <i class="pc-buffered" style={{ width: pct(p.buffered) }} />
               <i class="pc-played" style={{ width: pct(shown) }} />
+              {marks.map((f, i) => (
+                <i key={i} class="pc-mark" style={{ left: `${f * 100}%` }} />
+              ))}
             </div>
             <i class="pc-thumb" style={{ left: pct(shown) }} />
           </div>
           <span class="pc-time">{total > 0 ? `-${formatClock(total - shown)}` : ''}</span>
+          {chapters.length >= 2 ? (
+            <button type="button" class="pc-btn" onClick={() => toggleMenu('chapters')} aria-label="Chapters" aria-expanded={open === 'chapters'}>
+              <Icon name="chapters" />
+            </button>
+          ) : null}
           {showQuality ? (
             <button type="button" class="pc-btn" onClick={() => toggleMenu('quality')} aria-label="Quality" aria-expanded={open === 'quality'}>
               <Icon name="gear" />

@@ -66,15 +66,15 @@ Phone and desktop app (`apps/remote`):
 
 - Home, search, library with sort and filter, collections, "More like this" and trailers.
 - Details with cast and crew, seasons and episodes, watched marks, and title requests.
-- Own player: resume, audio tracks, subtitles with timing, quality, skip intro, next episode, scrub previews.
+- Own player: resume, audio tracks, subtitles with timing, quality, skip intro, next episode, scrub previews, chapter markers and list.
 - Offline downloads that play without a network and sync progress back.
 - A Jellyfin library named "Prive" or "Private" stays hidden by default; a per-device switch in the account menu shows it.
-- Play on the TV, Now Playing remote (transport, tracks, subtitle timing) and TV volume.
+- Play on the TV, Now Playing remote (transport, tracks, subtitle timing, chapters) and TV volume.
 
 TV page (`apps/tv`, Tizen 4.0):
 
 - Connects with a Quick Connect code and QR, shows a screensaver, and plays on command of the phone.
-- Full-screen HTML5 player with subtitles, skip intro and next episode.
+- Full-screen HTML5 player with subtitles, skip intro, next episode and chapter markers.
 
 ## How it works
 
