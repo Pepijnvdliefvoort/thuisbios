@@ -1,7 +1,7 @@
 import { useRef } from 'preact/hooks';
 import { useApp } from '../context';
 import { artUrl } from '../jellyfin/art';
-import { episodeLabel, progressFraction } from '../jellyfin/format';
+import { episodeLabel, progressFraction, timeLeftLabel } from '../jellyfin/format';
 import { findPlayTarget, isPlayable, resumeTicks } from '../jellyfin/playTarget';
 import type { BaseItem } from '../jellyfin/types';
 import { isWatched } from '../jellyfin/watched';
@@ -12,8 +12,8 @@ import { Img } from './Img';
 export type CardShape = 'poster' | 'thumb';
 
 const SIZES = { poster: [240, 360], thumb: [480, 270] } as const; // 2x of the CSS size
-/** The cards are bigger in a desktop window (176 and 304 px wide). */
-const DESKTOP_SIZES = { poster: [352, 528], thumb: [608, 342] } as const;
+/** The cards grow with a desktop window (up to 250 and 440 px wide, see --poster-w and --thumb-w): 2x of the largest. */
+const DESKTOP_SIZES = { poster: [500, 750], thumb: [880, 495] } as const;
 
 /**
  * Tile with art, optional progress bar and a one- or two-line caption. On a desktop the card sits in a wrapper with
@@ -38,12 +38,16 @@ export function MediaCard({
   const [w, h] = (desktop ? DESKTOP_SIZES : SIZES)[shape];
   const isEpisode = item.Type === 'Episode';
   const title = isEpisode && shape === 'thumb' ? item.SeriesName || item.Name : item.Name;
-  const sub = isEpisode
-    ? `${episodeLabel(item)} ${item.Name}`.trim()
-    : item.ProductionYear
-      ? String(item.ProductionYear)
-      : '';
   const progress = progressFraction(item.UserData, item.RunTimeTicks);
+  // A desktop thumb card of something started says how much is left.
+  const left = desktop && shape === 'thumb' ? timeLeftLabel(item.UserData, item.RunTimeTicks) : '';
+  const sub = left
+    ? [isEpisode ? episodeLabel(item) : '', left].filter(Boolean).join(' · ')
+    : isEpisode
+      ? `${episodeLabel(item)} ${item.Name}`.trim()
+      : item.ProductionYear
+        ? String(item.ProductionYear)
+        : '';
   const saved = !desktop && (downloads.get(item.Id) || { state: '' }).state === 'done';
   /** Starts playback here without opening the details (a series plays its next episode). */
   const play = async () => {
