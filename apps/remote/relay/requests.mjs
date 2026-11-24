@@ -12,6 +12,10 @@ export const MAX_OPEN_PER_USER = 20;
 const MAX_BODY = 4096;
 const STATUSES = ['open', 'added', 'dismissed'];
 const TYPES = ['movie', 'show'];
+/** A request is looked up in the library at most this often. */
+const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
+const RECONCILE_MAX_PER_GET = 10;
+const RECONCILE_TIMEOUT_MS = 3000;
 
 /**
  * @typedef {object} TitleRequest
@@ -28,6 +32,7 @@ const TYPES = ['movie', 'show'];
  * @property {string} createdAt ISO time
  * @property {'open' | 'added' | 'dismissed'} status
  * @property {string} [handledAt] ISO time of the last status change away from open
+ * @property {string} [itemId] Jellyfin item id, set when the title was found in the library
  *
  * @typedef {{ id: string, name: string, isAdministrator: boolean }} Who
  *
@@ -119,13 +124,109 @@ function sameTitle(/** @type {Partial<TitleRequest>} */ a, /** @type {Partial<Ti
   return !b.tmdbId && a.title?.toLowerCase() === b.title?.toLowerCase() && a.year === b.year;
 }
 
+/**
+ * Finds the library item that matches a request, or null.
+ * With a TMDB id (else an IMDb id) only that id counts. Title and year are used when the request has no ids,
+ * or when none of the returned items carries a TMDB/IMDb id at all (so an id mismatch is never overruled by a name).
+ * @param {TitleRequest} request
+ * @param {any[]} items
+ */
+export function findMatch(request, items) {
+  const withProvider = (/** @type {any} */ item, /** @type {string} */ key) => {
+    const value = item?.ProviderIds?.[key];
+    return typeof value === 'string' ? value : '';
+  };
+  const wanted = request.tmdbId ? ['Tmdb', request.tmdbId] : request.imdbId ? ['Imdb', request.imdbId] : null;
+  if (wanted) {
+    const hit = items.find((item) => withProvider(item, wanted[0]) === wanted[1]);
+    if (hit) return hit;
+    if (items.some((item) => withProvider(item, 'Tmdb') || withProvider(item, 'Imdb'))) return null;
+  }
+  const title = request.title.trim().toLowerCase();
+  return (
+    items.find((item) => {
+      if (typeof item?.Name !== 'string' || item.Name.trim().toLowerCase() !== title) return false;
+      if (request.year === undefined) return true;
+      return typeof item.ProductionYear === 'number' && Math.abs(item.ProductionYear - request.year) <= 1;
+    }) || null
+  );
+}
+
 /** Connect middleware for `/api/requests`; the file and the Jellyfin lookup can be replaced in tests. */
 export function createRequestsHandler(/** @type {RequestsDeps} */ deps = {}) {
   const filePath = deps.filePath || requestsPath();
   const whoami = deps.whoami || createWhoami({ jellyfinUrl: deps.jellyfinUrl, fetchFn: deps.fetchFn });
   const now = deps.now || Date.now;
   const newId = deps.newId || randomUUID;
+  const jellyfinBase = (deps.jellyfinUrl || defaultJellyfinUrl()).replace(/\/+$/, '');
+  const fetchFn = deps.fetchFn || fetch;
+  /** @type {Map<string, number>} request id -> time of the last library search */
+  const lastChecked = new Map();
   const lookup = createLookup({ jellyfinUrl: deps.jellyfinUrl, fetchFn: deps.fetchFn, getApiKey: deps.getApiKey });
+
+  /** Searches the caller's library for one request. Any failure counts as "not found". */
+  async function search(/** @type {TitleRequest} */ request, /** @type {Who} */ who, /** @type {string} */ authorization) {
+    const types = request.type === 'movie' ? 'Movie' : request.type === 'show' ? 'Series' : 'Movie,Series';
+    const query = new URLSearchParams({
+      searchTerm: request.title,
+      IncludeItemTypes: types,
+      Recursive: 'true',
+      Limit: '10',
+      Fields: 'ProviderIds,ProductionYear',
+      EnableImages: 'false',
+      EnableUserData: 'false',
+    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), RECONCILE_TIMEOUT_MS);
+    try {
+      const response = await fetchFn(`${jellyfinBase}/Users/${encodeURIComponent(who.id)}/Items?${query}`, {
+        headers: { Authorization: authorization },
+        signal: controller.signal,
+      });
+      if (!response.ok) return null;
+      const data = /** @type {any} */ (await response.json());
+      const found = findMatch(request, Array.isArray(data?.Items) ? data.Items : []);
+      return found && typeof found.Id === 'string' && found.Id ? found.Id : null;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Marks open requests as added (and records the item id) when the title is now in the library.
+   * Runs before a GET answers; never throws. Only the caller's visible requests are checked, using the caller's token.
+   */
+  async function reconcile(/** @type {Who} */ who, /** @type {string} */ authorization) {
+    const time = now();
+    const due = loadRequests(filePath)
+      .filter((r) => (who.isAdministrator || r.userId === who.id) && (r.status === 'open' || (r.status === 'added' && !r.itemId)))
+      .filter((r) => time - (lastChecked.get(r.id) ?? -Infinity) >= RECONCILE_INTERVAL_MS)
+      .slice(0, RECONCILE_MAX_PER_GET);
+    if (!due.length) return;
+    for (const r of due) lastChecked.set(r.id, time);
+    const found = await Promise.all(due.map(async (r) => ({ request: r, itemId: await search(r, who, authorization) })));
+    const hits = found.filter((f) => f.itemId);
+    if (!hits.length) return;
+    // The file may have changed during the awaits: apply by id, only if the request is still in the state we checked.
+    const fresh = loadRequests(filePath);
+    let changed = false;
+    for (const { request, itemId } of hits) {
+      const target = fresh.find((r) => r.id === request.id);
+      if (!target || target.status !== request.status) continue;
+      if (target.status === 'open') {
+        target.status = 'added';
+        target.handledAt = new Date(now()).toISOString();
+        target.itemId = /** @type {string} */ (itemId);
+        changed = true;
+      } else if (target.status === 'added' && !target.itemId) {
+        target.itemId = /** @type {string} */ (itemId);
+        changed = true;
+      }
+    }
+    if (changed) saveRequests(fresh, filePath);
+  }
 
   /**
    * @param {import('node:http').IncomingMessage} req
@@ -162,6 +263,13 @@ export function createRequestsHandler(/** @type {RequestsDeps} */ deps = {}) {
         return send(res, found.status, found.body);
       }
       const admin = who.isAdministrator;
+      if (req.method === 'GET') {
+        try {
+          await reconcile(who, String(req.headers.authorization || ''));
+        } catch {
+          // A failed library check must never fail the list.
+        }
+      }
       const list = loadRequests(filePath);
 
       if (req.method === 'GET') {
@@ -192,7 +300,10 @@ export function createRequestsHandler(/** @type {RequestsDeps} */ deps = {}) {
         const status = body && typeof body === 'object' ? body.status : undefined;
         if (typeof status !== 'string' || !STATUSES.includes(status)) return send(res, 400, { error: 'bad-status' });
         target.status = /** @type {TitleRequest['status']} */ (status);
-        if (status === 'open') delete target.handledAt;
+        if (status === 'open') {
+          delete target.handledAt;
+          delete target.itemId;
+        }
         else target.handledAt = new Date(now()).toISOString();
         saveRequests(list, filePath);
         return send(res, 200, target);

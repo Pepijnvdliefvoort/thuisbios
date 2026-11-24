@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createRequestsApi, describeRequestsError, requestLabel, splitRequests, type TitleRequest, typeLabel } from './requests';
+import { arrivedRequests, createRequestsApi, describeRequestsError, requestLabel, splitRequests, type TitleRequest, typeLabel } from './requests';
 
 const make = (response: Partial<Response> | Error) => {
   const fetchFn = vi.fn(async (_url: string, _init: RequestInit) => {
@@ -95,5 +95,25 @@ describe('helpers', () => {
     expect(typeLabel('show')).toBe('Show');
     expect(typeLabel(undefined)).toBe('');
     expect(describeRequestsError('duplicate')).toBe('You already requested this.');
+  });
+});
+
+describe('arrivedRequests', () => {
+  const now = Date.parse('2026-06-30T12:00:00Z');
+  const at = (days: number) => new Date(now - days * 86400000).toISOString();
+  const req = (id: string, over: Partial<TitleRequest> = {}): TitleRequest =>
+    ({ ...item, id, userId: 'u', status: 'added', handledAt: at(1), ...over }) as TitleRequest;
+
+  it('keeps own, added, recent, unseen requests, newest first', () => {
+    const list = [
+      req('old', { handledAt: at(2) }),
+      req('new', { handledAt: at(0.5) }),
+      req('other', { userId: 'x' }),
+      req('open', { status: 'open' }),
+      req('stale', { handledAt: at(31) }),
+      req('seen'),
+      req('nodate', { handledAt: undefined }),
+    ];
+    expect(arrivedRequests(list, 'u', new Set(['seen']), now).map((r) => r.id)).toEqual(['new', 'old']);
   });
 });

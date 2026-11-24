@@ -15,6 +15,8 @@ export interface TitleRequest {
   createdAt: string;
   status: RequestStatus;
   handledAt?: string;
+  /** Jellyfin item id once the title is in the library (set by the relay when it flips to 'added'). */
+  itemId?: string;
 }
 
 export interface NewRequest {
@@ -156,3 +158,13 @@ export const requestLabel = (r: Pick<TitleRequest, 'title' | 'year'>): string =>
 
 /** The year line under a suggestion or request: "2024 · Movie". */
 export const typeLabel = (type: RequestType | undefined): string => (type === 'movie' ? 'Movie' : type === 'show' ? 'Show' : '');
+
+const ARRIVAL_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** This user's requests that arrived in the library within the last 30 days and were not dismissed yet, newest first. */
+export function arrivedRequests(list: TitleRequest[], userId: string, seen: ReadonlySet<string>, nowMs: number): TitleRequest[] {
+  const handled = (r: TitleRequest): number => (r.handledAt ? Date.parse(r.handledAt) : NaN);
+  return list
+    .filter((r) => r.userId === userId && r.status === 'added' && !seen.has(r.id) && nowMs - handled(r) <= ARRIVAL_WINDOW_MS)
+    .sort((a, b) => handled(b) - handled(a));
+}
