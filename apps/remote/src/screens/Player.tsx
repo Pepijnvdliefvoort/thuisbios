@@ -13,7 +13,7 @@ import { tapSide, type TapSide } from '../tapSide';
 import { getDeviceId, loadAudioLang, saveLocalProgress, loadPlayerVolume, loadSubtitleLang, loadSubtitleOffset, saveAudioLang, savePlayerVolume, saveSubtitleLang } from '../storage';
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { maxBitrateFor, measureBitrate } from '../jellyfin/bitrate';
-import { buildPhoneProfile } from '../jellyfin/phoneProfile';
+import { buildPhoneProfile, shouldRetrySafe } from '../jellyfin/phoneProfile';
 import { playingResolution, qualityOptions, requestFor, sourceLevel, type QualityId } from '../jellyfin/quality';
 import { nextArmedAt, nextEpisodeCard, planNextEpisode, shouldMarkPlayedOnSkip, type NextEpisodePlan } from '../jellyfin/nextEpisode';
 import { mpegTsShift } from '../jellyfin/hlsTimeline';
@@ -199,6 +199,8 @@ export function Player({
   const srcLevel = useRef<number | null>(null);
   /** Bumped to ask again once the source is known and the first request was capped for nothing. */
   const [requery, setRequery] = useState(0);
+  /** Set once a stream failed before playing: PlaybackInfo is asked again with the safe profile (no MKV direct play, no fMP4 HLS). */
+  const [safe, setSafe] = useState(false);
   // Last playing position, for reports after the video has been reset.
   const lastTime = useRef(ticksToSeconds(startTicks));
   // Seconds from the video's currentTime to the original file time (hls.js only, see hlsTimeline.ts).
@@ -559,6 +561,7 @@ export function Player({
           (mime) => canPlay.canPlayType(mime) !== '',
           fixed ? fixed.bitrate : maxBitrateFor(bps),
           fixed && fixed.maxHeight && fixed.maxWidth ? { height: fixed.maxHeight, width: fixed.maxWidth } : undefined,
+          { safe, firefox: /firefox/i.test(navigator.userAgent) },
         );
         return client.playbackInfo(session.userId, item.Id, profile, {
           startTicks: restartTicks.current,
@@ -628,7 +631,7 @@ export function Player({
     return () => {
       cancelled = true;
     };
-  }, [client, session, item.Id, audioSel, burnSel, probe, qualitySel, requery, isLocal]);
+  }, [client, session, item.Id, audioSel, burnSel, probe, qualitySel, requery, safe, isLocal]);
 
   // A download: everything is on the device, so the stream is the saved playlist and no server is asked.
   useEffect(() => {
@@ -727,10 +730,24 @@ export function Player({
       seekToStart();
       void el.play().catch(() => undefined); // blocked autoplay: stays paused, the big play button starts it
     };
+    // A failure before the first frame is retried once with the safe profile (same start, restartTicks); later ones show the error.
+    let started = false;
+    const onStarted = () => {
+      started = true;
+    };
+    el.addEventListener('playing', onStarted);
+    const fail = () => {
+      if (destroyed) return;
+      if (shouldRetrySafe({ safe, started })) {
+        setBuffering(true);
+        setLoaded(null);
+        setSafe(true);
+      } else setError(true);
+    };
     // Native playback has no other way to report a failure; without this the spinner never ends.
     const onError = () => {
       if (el.error && el.error.code === 1) return; // MEDIA_ERR_ABORTED: we changed the source ourselves
-      setError(true);
+      fail();
     };
     if (loaded.selection.hls && el.canPlayType(HLS_MIME) === '') {
       import('hls.js')
@@ -743,7 +760,7 @@ export function Player({
           const instance = new Hls({ startPosition: startSeconds > 0 ? startSeconds : -1 });
           hls = instance;
           instance.on(Hls.Events.ERROR, (_event, data) => {
-            if (data.fatal) setError(true);
+            if (data.fatal) fail();
           });
           // The first segment fixes the shift. `startPosition` was in video time, so once the shift is known seek to
           // where the resume point really is. Only the first event: the user cannot have seeked before any data.
@@ -772,9 +789,10 @@ export function Player({
       destroyed = true;
       el.removeEventListener('loadedmetadata', onMeta);
       el.removeEventListener('error', onError);
+      el.removeEventListener('playing', onStarted);
       if (hls) hls.destroy();
     };
-  }, [loaded, isLocal]);
+  }, [loaded, isLocal, safe]);
 
   // Progress reporting: start once playing, every 10 s, on pause/play/seek, stopped exactly once.
   useEffect(() => {
