@@ -78,6 +78,12 @@ TV page (`apps/tv`, Tizen 4.0):
 - Connects with a Quick Connect code and QR, shows a screensaver, and plays on command of the phone.
 - Full-screen HTML5 player with subtitles, skip intro, next episode and chapter markers.
 
+## Roadmap
+
+Ideas planned for later, not built yet:
+
+- **Who's watching?** profile picker: when the app opens you get profile tiles. Each profile is its own Jellyfin account with its own watch progress, Continue watching, My list and access to the private library. Switch with one tap without a password, with an optional PIN per profile.
+
 ## How it works
 
 ```text
