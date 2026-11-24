@@ -68,6 +68,8 @@ export interface BaseItem {
   ParentLogoItemId?: string;
   ParentLogoImageTag?: string;
   UserData?: UserData;
+  /** Only present when requested with `Fields=Chapters`. */
+  Chapters?: { StartPositionTicks: number; Name?: string; ImageTag?: string }[];
 }
 
 export interface ItemsResult {

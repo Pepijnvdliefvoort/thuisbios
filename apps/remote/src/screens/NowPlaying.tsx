@@ -4,11 +4,13 @@ import { SubtitleTiming } from '../components/SubtitleTiming';
 import { TrackPicker } from '../components/TrackPicker';
 import { VolumeControls } from '../components/VolumeControls';
 import { Img } from '../components/Img';
-import { ScrubPreview, useScrubSource } from '../components/ScrubPreview';
+import { ScrubPreview, useScrubInfo } from '../components/ScrubPreview';
+import { MenuSheet } from '../components/MenuSheet';
 import { NextEpisodeCard } from '../components/NextEpisodeCard';
 import { useApp } from '../context';
 import { artUrl } from '../jellyfin/art';
 import { nextArmedAt, nextEpisodeCard, planNextEpisode } from '../jellyfin/nextEpisode';
+import { chapterAt, markerFractions } from '../jellyfin/chapters';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { episodeLabel, formatClock, formatTicksClock, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { shouldCloseNowPlaying } from '../nav';
@@ -60,7 +62,8 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
   }, [client, itemId]);
 
   // Preview frames above the thumb while dragging.
-  const scrubSource = useScrubSource(client, session.userId, session.token, itemId, null, 160, true);
+  const { source: scrubSource, chapters: allChapters } = useScrubInfo(client, session.userId, session.token, itemId, null, 160, true, np ? ticksToSeconds(np.item.RunTimeTicks || 0) : 0);
+  const [chaptersOpen, setChaptersOpen] = useState(false);
   const scrubBox = useRef<HTMLDivElement>(null);
 
   // The TV starts the next episode by itself; this phone only shows the card and can cancel it.
@@ -95,6 +98,7 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
   const posSec = drag !== null ? drag : ticksToSeconds(tv.position());
   const subtitle = isEpisode ? `${item.SeriesName || ''} · ${episodeLabel(item)}`.replace(/^ · /, '') : item.ProductionYear ? String(item.ProductionYear) : '';
   const canSeek = np.canSeek && runtimeSec > 0;
+  const chapters = canSeek ? allChapters : [];
   const intro = canSeek ? activeIntro(segments, ticksToSeconds(tv.position())) : null;
 
   const plan = planNextEpisode(segments, runtimeSec);
@@ -121,7 +125,15 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
             y={-2}
             containerWidth={scrubBox.current.offsetWidth}
             thumbWidth={160}
+            label={chapters.length ? chapters[chapterAt(chapters, drag)].label : undefined}
           />
+        ) : null}
+        {chapters.length > 0 ? (
+          <div class="scrub-marks" aria-hidden="true">
+            {markerFractions(chapters, runtimeSec).map((f, i) => (
+              <i key={i} style={{ left: `${f * 100}%` }} />
+            ))}
+          </div>
         ) : null}
         <input
           type="range"
@@ -187,9 +199,16 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
         </div>
         <VolumeControls variant="rocker" />
       </div>
-      <div class="np-tiles">
+      <div class={'np-tiles' + (chapters.length >= 2 ? ' four' : '')}>
         <TrackPicker itemId={item.Id} variant="tile" />
         <SubtitleTiming itemId={item.Id} variant="tile" />
+        {chapters.length >= 2 ? (
+          <button type="button" class="np-tile" aria-haspopup="dialog" onClick={() => setChaptersOpen(true)}>
+            <Icon name="chapters" size={24} />
+            <span class="np-tile-label">Chapters</span>
+            <span class="np-tile-sub">{chapters[Math.max(0, chapterAt(chapters, ticksToSeconds(tv.position())))].label}</span>
+          </button>
+        ) : null}
         <button
           type="button"
           class="np-tile stop"
@@ -203,6 +222,33 @@ export function NowPlaying({ onBack, onClose }: { onBack: () => void; onClose: (
           <span class="np-tile-sub">{'\u00a0'}</span>
         </button>
       </div>
+      {chaptersOpen && chapters.length >= 2 ? (
+        <MenuSheet label="Chapters" onClose={() => setChaptersOpen(false)}>
+          <h2>Chapters</h2>
+          <ul class="tv-list np-chapters">
+            {chapters.map((c, i) => {
+              const current = chapterAt(chapters, ticksToSeconds(tv.position())) === i;
+              return (
+                <li key={c.index}>
+                  <button
+                    type="button"
+                    class={'tv-item np-chap' + (current ? ' selected' : '')}
+                    aria-current={current ? 'true' : undefined}
+                    onClick={() => {
+                      tv.seekTo(secondsToTicks(c.startSec));
+                      setChaptersOpen(false);
+                    }}
+                  >
+                    {c.image ? <Img class="np-chap-img" src={c.image} /> : null}
+                    <span class="tv-name np-chap-name">{c.label}</span>
+                    <span class="np-chap-time">{formatClock(c.startSec)}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </MenuSheet>
+      ) : null}
     </div>
   );
 }
