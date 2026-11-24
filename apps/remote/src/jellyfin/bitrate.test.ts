@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { maxBitrateFor, measureBitrate, resetBitrateCache, warmBitrate } from './bitrate';
+import { forgetBitrate, maxBitrateFor, measureBitrate, resetBitrateCache, warmBitrate } from './bitrate';
 import type { JellyfinClient } from './client';
 
 /**
@@ -41,15 +41,15 @@ describe('maxBitrateFor', () => {
 });
 
 describe('measureBitrate', () => {
-  it('uses the 1 MB download when its body took 1 s or more', async () => {
+  it('uses the first download when its body took 1 s or more', async () => {
     const t = setup([1000]);
-    expect(await measureBitrate(t.client, t.now)).toBe(8_000_000);
-    expect(t.calls).toEqual([1_000_000]);
+    expect(await measureBitrate(t.client, t.now)).toBe(4_000_000);
+    expect(t.calls).toEqual([500_000]);
   });
 
   it('leaves the request latency out of the timing', async () => {
     const t = setup([1000], 'http://far', 300);
-    expect(await measureBitrate(t.client, t.now)).toBe(8_000_000);
+    expect(await measureBitrate(t.client, t.now)).toBe(4_000_000);
   });
 
   it('times from the start when the headers callback never fires', async () => {
@@ -61,28 +61,28 @@ describe('measureBitrate', () => {
         return bytes;
       }),
     } as unknown as JellyfinClient;
-    expect(await measureBitrate(client, () => clock)).toBe(8_000_000);
+    expect(await measureBitrate(client, () => clock)).toBe(4_000_000);
   });
 
   it('escalates to a download sized for about 1.5 s and uses the fastest', async () => {
-    // 1 MB in 100 ms = 80 Mbit/s; 1.5 s of that is 15 MB.
-    const t = setup([100, 1500]);
+    // 0.5 MB in 50 ms = 80 Mbit/s; 1.5 s of that is 15 MB, capped to 8 MB.
+    const t = setup([50, 1500]);
     expect(await measureBitrate(t.client, t.now)).toBe(80_000_000);
-    expect(t.calls).toEqual([1_000_000, 15_000_000]);
+    expect(t.calls).toEqual([500_000, 8_000_000]);
   });
 
-  it('at least doubles the size and caps it at 16 MB, with three downloads at most', async () => {
+  it('at least doubles the size and caps it at 8 MB, with three downloads at most', async () => {
     const t = setup([800, 100, 100]);
-    // 1 MB / 800 ms = 10 Mbit/s wants under 2 MB, so it doubles to 2 MB; then 2 MB / 100 ms wants 30 MB, capped to 16 MB.
+    // 0.5 MB / 800 ms = 5 Mbit/s wants under 1 MB, so it doubles to 1 MB; then 1 MB / 100 ms wants 15 MB, capped to 8 MB.
     const bps = await measureBitrate(t.client, t.now);
-    expect(t.calls).toEqual([1_000_000, 2_000_000, 16_000_000]);
-    expect(bps).toBe((16_000_000 * 8) / 0.1);
+    expect(t.calls).toEqual([500_000, 1_000_000, 8_000_000]);
+    expect(bps).toBe((8_000_000 * 8) / 0.1);
   });
 
   it('keeps the fastest measurement when a later one is slower', async () => {
-    // 80 Mbit/s first; the 15 MB download then takes 3 s (40 Mbit/s).
+    // 40 Mbit/s first; the 8 MB download then takes 3 s (21 Mbit/s).
     const t = setup([100, 3000]);
-    expect(await measureBitrate(t.client, t.now)).toBe(80_000_000);
+    expect(await measureBitrate(t.client, t.now)).toBe(40_000_000);
   });
 
   it('gives 0 (the floor) when nothing finishes before the timeout', async () => {
@@ -95,7 +95,7 @@ describe('measureBitrate', () => {
         }),
     } as unknown as JellyfinClient;
     const result = measureBitrate(client, () => 0);
-    await vi.advanceTimersByTimeAsync(6000);
+    await vi.advanceTimersByTimeAsync(4000);
     const bps = await result;
     expect(bps).toBe(0);
     expect(maxBitrateFor(bps)).toBe(1_500_000);
@@ -116,10 +116,10 @@ describe('measureBitrate', () => {
         });
       },
     } as unknown as JellyfinClient;
-    // The clock never moves, so the first download took 0 ms (clamped to 1 ms): 8 Gbit/s.
+    // The clock never moves, so the first download took 0 ms (clamped to 1 ms): 4 Gbit/s.
     const result = measureBitrate(client, () => 0);
-    await vi.advanceTimersByTimeAsync(6000);
-    expect(await result).toBe(8_000_000_000);
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(await result).toBe(4_000_000_000);
   });
 
   it('gives null on other errors and does not cache them', async () => {
@@ -143,10 +143,10 @@ describe('measureBitrate', () => {
     expect(t.client.bitrateTest).toHaveBeenCalledTimes(1);
   });
 
-  it('reuses the result for 10 minutes per server, then measures again', async () => {
+  it('reuses the result for an hour per server, then measures again', async () => {
     const t = setup([1200, 1200, 1200]);
     await measureBitrate(t.client, t.now);
-    t.advance(9 * 60 * 1000);
+    t.advance(59 * 60 * 1000);
     await measureBitrate(t.client, t.now);
     expect(t.client.bitrateTest).toHaveBeenCalledTimes(1);
     t.advance(61 * 1000);
@@ -160,6 +160,23 @@ describe('measureBitrate', () => {
     await measureBitrate(a.client, a.now);
     await measureBitrate(b.client, b.now);
     expect(b.client.bitrateTest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('forgetBitrate', () => {
+  it('forgets one server, or all of them', async () => {
+    const a = setup([1200, 1200], 'http://a');
+    const b = setup([1200, 1200], 'http://b');
+    await measureBitrate(a.client, a.now);
+    await measureBitrate(b.client, b.now);
+    forgetBitrate('http://a');
+    await measureBitrate(a.client, a.now);
+    await measureBitrate(b.client, b.now);
+    expect(a.client.bitrateTest).toHaveBeenCalledTimes(2);
+    expect(b.client.bitrateTest).toHaveBeenCalledTimes(1);
+    forgetBitrate();
+    await measureBitrate(b.client, b.now);
+    expect(b.client.bitrateTest).toHaveBeenCalledTimes(2);
   });
 });
 
