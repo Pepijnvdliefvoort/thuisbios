@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.4.0...v1.4.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **remote:** make chapter markers visible on phones and report refused picture-in-picture ([#253](https://github.com/Pepijnvdliefvoort/thuisbios/issues/253)) ([69c8e00](https://github.com/Pepijnvdliefvoort/thuisbios/commit/69c8e00ba82be1035bc13eeed325ff197a131254))
+
 ## [1.4.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.3.0...v1.4.0) (2026-11-24)
 
 
