@@ -26,6 +26,16 @@ describe('sourceResolutionLabel', () => {
   });
 });
 
+describe('qualityOptions with versions', () => {
+  it('tops the menu at the highest version and labels each version level as original', () => {
+    const opts = qualityOptions(src(1080, 1920), null, [{ height: 2160 }, { height: 1080 }]);
+    expect(opts.map((o) => o.label)).toEqual(['Auto', '4K (original)', '1440p', '1080p (original)', '720p', '480p', '360p']);
+  });
+  it('works without a size on the playing source', () => {
+    expect(qualityOptions(src(), null, [{ height: 1080 }]).map((o) => o.label)).toEqual(['Auto', '1080p (original)', '720p', '480p', '360p']);
+  });
+});
+
 describe('qualityOptions', () => {
   it('lists Auto then the levels up to the source, the top one as original', () => {
     expect(qualityOptions(src(1080, 1920)).map((o) => o.label)).toEqual(['Auto', '1080p (original)', '720p', '480p', '360p']);

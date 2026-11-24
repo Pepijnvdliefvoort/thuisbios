@@ -24,7 +24,8 @@ import { activeIntro, type MediaSegment } from '../jellyfin/segments';
 import { createThrottle, resolveStreamUrl, selectPlayMethod, videoCopyAllowed, type PlaySelection } from '../jellyfin/playback';
 import { activeCueText, listSubtitles, parseVtt, pickInitialSubtitle, subtitleVttUrl, type Cue } from '../jellyfin/subtitles';
 import type { BaseItem, MediaSource, PlaybackReport } from '../jellyfin/types';
-import { COARSE_QUERY, useFinePointer } from '../useDesktop';
+import { pickAutoVersion, pickVersionForLevel, versionLevels } from '../jellyfin/versions';
+import { COARSE_QUERY, isDesktop, useFinePointer } from '../useDesktop';
 import { useMediaQuery } from '../useMediaQuery';
 import { useAdjacentEpisodes } from '../useNextEpisode';
 import { createCacheLoader } from '../offline/cacheLoader';
@@ -227,6 +228,20 @@ export function Player({
   const [qualitySel, setQualitySel] = useState<QualityId>(sessionQuality);
   /** The source's own level, known after the first answer; a chosen level at or above it means the original. */
   const srcLevel = useRef<number | null>(null);
+  // The versions of this film (4K, 1080p, ...), fetched once per item. Tagged with the item so a stale list is never used.
+  const [versionList, setVersionList] = useState<{ id: string; list: MediaSource[] } | null>(null);
+  const versions = versionList && versionList.id === item.Id ? versionList.list : null;
+  useEffect(() => {
+    if (isLocal) return;
+    let alive = true;
+    client
+      .mediaSources(session.userId, item.Id)
+      .catch(() => [] as MediaSource[])
+      .then((list) => alive && setVersionList({ id: item.Id, list }));
+    return () => {
+      alive = false;
+    };
+  }, [client, session.userId, item.Id, isLocal]);
   // Auto found that the server would re-encode a picture above 1080p: ask for 1080p instead.
   const [autoCapped, setAutoCapped] = useState(false);
   /** Bumped to ask again once the source is known and the first request was capped for nothing. */
@@ -392,8 +407,8 @@ export function Player({
   const audioTracks = useMemo(() => (loaded && !isLocal ? listAudio(loaded.source) : []), [loaded, isLocal]);
   // Auto shows what it ended up playing ("Auto (720p)"); a fixed level is already named by its own entry.
   const qualityChoices = useMemo(
-    () => (loaded && !isLocal ? qualityOptions(loaded.source, qualitySel === 'auto' ? playingResolution(loaded.source, loaded.selection.method, loaded.selection.url) : null) : []),
-    [loaded, qualitySel, isLocal],
+    () => (loaded && !isLocal ? qualityOptions(loaded.source, qualitySel === 'auto' ? playingResolution(loaded.source, loaded.selection.method, loaded.selection.url) : null, versions ? versionLevels(versions) : []) : []),
+    [loaded, qualitySel, isLocal, versions],
   );
   /** Notes the current position so the new stream starts there, and shows the loading state. */
   const prepareRestart = () => {
@@ -608,10 +623,16 @@ export function Player({
 
   // Ask the server how to play this item on this phone.
   useEffect(() => {
-    if (isLocal) return;
+    // Wait for the version list, so the first request already goes to the right version.
+    if (isLocal || versions === null) return;
     let cancelled = false;
     const canPlay = document.createElement('video');
-    const known = srcLevel.current;
+    // With several versions, pick the one to play: Auto by device, a fixed level by its own or the next one up.
+    const wanted = versions.length > 1 ? (qualitySel === 'auto' ? pickAutoVersion(versions, { desktop: isDesktop() }) : pickVersionForLevel(versions, qualitySel)) : null;
+    const wantedSource = wanted ? versions.filter((v) => v.Id === wanted)[0] : undefined;
+    const wantedLevel = wantedSource ? sourceLevel(wantedSource) : null;
+    // That version's own level is the one a fixed choice is compared with: equal means the original (direct play).
+    const known = wantedLevel ? wantedLevel.height : srcLevel.current;
     // A fixed choice is asked for as it is. Auto only gets a cap once it found the server would re-encode a big picture.
     const fixed = qualitySel === 'auto' ? (autoCapped ? AUTO_CAP : null) : requestFor(qualitySel, known);
     // A level below the source's own size forces a transcode (the profile's size cap would anyway; this is explicit).
@@ -629,6 +650,7 @@ export function Player({
           { safe, firefox: /firefox/i.test(navigator.userAgent) },
         );
         return client.playbackInfo(session.userId, item.Id, profile, {
+          mediaSourceId: wanted || undefined,
           startTicks: restartTicks.current,
           audioStreamIndex: audioSel === null ? undefined : audioSel,
           subtitleStreamIndex: probe ? null : burnSel === null ? undefined : burnSel,
@@ -638,7 +660,7 @@ export function Player({
       })
       .then((info) => {
         if (cancelled || !info) return;
-        const source = info.MediaSources[0];
+        const source = (wanted && info.MediaSources.filter((m) => m.Id === wanted)[0]) || info.MediaSources[0];
         const level = source ? sourceLevel(source) : null;
         srcLevel.current = level ? level.height : null;
         // The first request knew nothing of the source and capped the chosen level; ask again for the original.
@@ -709,7 +731,7 @@ export function Player({
     return () => {
       cancelled = true;
     };
-  }, [client, session, item.Id, audioSel, burnSel, probe, copyOk, qualitySel, autoCapped, requery, safe, isLocal]);
+  }, [client, session, item.Id, audioSel, burnSel, probe, copyOk, qualitySel, autoCapped, requery, safe, isLocal, versions]);
 
   // A download: everything is on the device, so the stream is the saved playlist and no server is asked.
   useEffect(() => {
