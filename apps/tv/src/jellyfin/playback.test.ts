@@ -8,6 +8,7 @@ import {
   secondsToTicks,
   selectPlayMethod,
   withAudioStreamIndex,
+  withSubtitleStreamIndex,
 } from './playback';
 import type { MediaSource } from './types';
 
@@ -50,9 +51,51 @@ describe('selectPlayMethod', () => {
     expect(s?.hls).toBe(true);
   });
 
+  it('burns in an image subtitle with a transcode, even when direct play is possible', () => {
+    const s = selectPlayMethod(
+      { ...base, SupportsDirectPlay: true, SupportsDirectStream: true, TranscodingUrl: '/videos/item1/master.m3u8?AllowVideoStreamCopy=true&SubtitleStreamIndex=-1' },
+      { ...params, subtitleStreamIndex: 5 },
+    );
+    expect(s?.method).toBe('Transcode');
+    expect(s?.hls).toBe(true);
+    expect(readQueryParam(s?.url ?? '', 'SubtitleStreamIndex')).toBe('5');
+    expect(readQueryParam(s?.url ?? '', 'AllowVideoStreamCopy')).toBe('false');
+  });
+
+  it('keeps the audio choice while burning in', () => {
+    const s = selectPlayMethod(
+      { ...base, SupportsDirectStream: true, DirectStreamUrl: '/Videos/x/stream.mkv', TranscodingUrl: '/videos/item1/master.m3u8' },
+      { ...params, subtitleStreamIndex: 5, audioStreamIndex: 2 },
+    );
+    expect(s?.method).toBe('Transcode');
+    expect(readQueryParam(s?.url ?? '', 'AudioStreamIndex')).toBe('2');
+    expect(readQueryParam(s?.url ?? '', 'SubtitleStreamIndex')).toBe('5');
+  });
+
+  it('strips subtitle parameters from a transcode url without a burned-in subtitle', () => {
+    const s = selectPlayMethod(
+      { ...base, TranscodingUrl: '/videos/item1/master.m3u8?SubtitleStreamIndex=3&SubtitleMethod=Encode&x=1' },
+      { ...params, subtitleStreamIndex: -1 },
+    );
+    expect(s?.url).toBe('/videos/item1/master.m3u8?x=1');
+  });
+
+  it('returns null for a burn-in without a transcode url', () => {
+    expect(selectPlayMethod({ ...base, SupportsDirectPlay: true }, { ...params, subtitleStreamIndex: 5 }, true)).toBeNull();
+  });
+
   it('returns null when nothing is playable', () => {
     expect(selectPlayMethod(base, params)).toBeNull();
     expect(selectPlayMethod({ ...base, SupportsDirectPlay: true }, params, true)).toBeNull();
+  });
+});
+
+describe('withSubtitleStreamIndex', () => {
+  it('replaces the value', () => {
+    expect(withSubtitleStreamIndex('/a?x=1&SubtitleStreamIndex=2', 7)).toBe('/a?x=1&SubtitleStreamIndex=7');
+  });
+  it('removes the subtitle parameters for a negative index', () => {
+    expect(withSubtitleStreamIndex('/a?SubtitleStreamIndex=2&SubtitleMethod=Encode', -1)).toBe('/a');
   });
 });
 
