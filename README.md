@@ -65,6 +65,8 @@ Regenerate them with `node scripts/screenshots/capture.mjs`, see [scripts/screen
 Phone and desktop app (`apps/remote`):
 
 - Home (with genre and "Because you watched" rows), search, library with sort and filter, collections, "More like this" and trailers.
+  On desktop, Home opens with a full-width hero spotlight that shows picture previews of the other titles,
+  and Resume watching cards show how much time is left.
 - Details with cast and crew, seasons and episodes, watched marks, and title requests (with a notice on Home when a requested title arrives).
 - My list: save movies and series for later from Details; they show as a row on Home (stored as Jellyfin favorites). The TV details page has the same button.
 - Own player: resume, audio tracks, subtitles with timing, quality (on Auto, a 4K film that the server has to convert plays at 1080p), skip intro, next episode, scrub previews, chapter markers and list.

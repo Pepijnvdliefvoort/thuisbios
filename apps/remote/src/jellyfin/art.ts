@@ -72,3 +72,9 @@ export function artUrl(serverUrl: string, item: BaseItem, kind: ArtKind, width: 
   const art = artFor(item, kind);
   return art ? imageUrl(serverUrl, art, width, height) : '';
 }
+
+/** The title's logo (transparent PNG) scaled to at most `maxWidth` px wide, or '' when the item has none. */
+export function logoUrl(serverUrl: string, item: BaseItem, maxWidth: number): string {
+  const tag = item.ImageTags && item.ImageTags.Logo;
+  return tag ? `${serverUrl}/Items/${encodeURIComponent(item.Id)}/Images/Logo?maxWidth=${maxWidth}&quality=90&tag=${encodeURIComponent(tag)}` : '';
+}

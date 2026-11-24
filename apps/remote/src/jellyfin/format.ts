@@ -26,6 +26,20 @@ export function formatRuntime(ticks: number | undefined): string {
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
 
+/** Time left of a started item in plain words: "34 min left", "1 h 5 min left"; empty when not started, finished or unknown. */
+export function timeLeftLabel(
+  userData: { PlaybackPositionTicks?: number } | undefined,
+  runtimeTicks: number | undefined,
+): string {
+  const pos = (userData && userData.PlaybackPositionTicks) || 0;
+  if (!runtimeTicks || runtimeTicks <= 0 || pos <= 0 || pos >= runtimeTicks) return '';
+  const minutes = Math.max(1, Math.ceil(ticksToSeconds(runtimeTicks - pos) / 60));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min left`;
+  return m === 0 ? `${h} h left` : `${h} h ${m} min left`;
+}
+
 /** Watched fraction 0..1 from UserData, or 0 when unknown. */
 export function progressFraction(
   userData: { PlaybackPositionTicks?: number } | undefined,
