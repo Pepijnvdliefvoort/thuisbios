@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.4.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.3.0...v1.4.0) (2026-11-24)
+
+
+### Features
+
+* **remote:** add genre and "Because you watched" rows to Home ([#244](https://github.com/Pepijnvdliefvoort/thuisbios/issues/244)) ([bb30ed4](https://github.com/Pepijnvdliefvoort/thuisbios/commit/bb30ed4951213ed4458fd527d06036b530710570))
+* **remote:** add My list to save titles for later ([#245](https://github.com/Pepijnvdliefvoort/thuisbios/issues/245)) ([2c43f31](https://github.com/Pepijnvdliefvoort/thuisbios/commit/2c43f31da2b9b35c7f3a5d1d07f2dc69282350d2))
+* **remote:** add picture-in-picture playback ([#249](https://github.com/Pepijnvdliefvoort/thuisbios/issues/249)) ([e4298f0](https://github.com/Pepijnvdliefvoort/thuisbios/commit/e4298f0214f6dc8535874e1c9622b6fd1e00e05d))
+* **remote:** lock-screen and notification playback controls ([#241](https://github.com/Pepijnvdliefvoort/thuisbios/issues/241)) ([430b343](https://github.com/Pepijnvdliefvoort/thuisbios/commit/430b343c7be3c91fb89e2e7a660af6a4a9833756))
+* **remote:** notify requester when a requested title arrives ([#243](https://github.com/Pepijnvdliefvoort/thuisbios/issues/243)) ([dcd58d6](https://github.com/Pepijnvdliefvoort/thuisbios/commit/dcd58d621854289ee2ffeb1b208bc06f11a9545a))
+* **remote:** watch together with Jellyfin SyncPlay ([#248](https://github.com/Pepijnvdliefvoort/thuisbios/issues/248)) ([2b96dab](https://github.com/Pepijnvdliefvoort/thuisbios/commit/2b96dabb01c7b6190092425ca90d6bc3a0f172f9))
+* show chapter markers and a chapter list on the timeline ([#246](https://github.com/Pepijnvdliefvoort/thuisbios/issues/246)) ([0842a90](https://github.com/Pepijnvdliefvoort/thuisbios/commit/0842a90c9c5e50d025097b78f1105bf214289339))
+* **tv:** show Blu-ray image subtitles by burning them in on the server ([#242](https://github.com/Pepijnvdliefvoort/thuisbios/issues/242)) ([f2a71e3](https://github.com/Pepijnvdliefvoort/thuisbios/commit/f2a71e3d706023a5fcaf83892cdb65addbebf5cb))
+
+
+### Bug Fixes
+
+* **remote:** ignore the previous episode's video events after autoplay ([#240](https://github.com/Pepijnvdliefvoort/thuisbios/issues/240)) ([2b3664f](https://github.com/Pepijnvdliefvoort/thuisbios/commit/2b3664ff19f7582db675e694aa02729c53d67de0))
+
+
+### Documentation
+
+* add roadmap with profile picker idea ([#247](https://github.com/Pepijnvdliefvoort/thuisbios/issues/247)) ([9240238](https://github.com/Pepijnvdliefvoort/thuisbios/commit/9240238c2e9242fcb0884871e130e035070a8886))
+
 ## [1.3.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.2.0...v1.3.0) (2026-11-24)
 
 
