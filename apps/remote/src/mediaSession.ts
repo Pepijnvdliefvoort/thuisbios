@@ -94,7 +94,7 @@ export interface MediaSessionOptions {
   onPrevious?: () => void;
   onNext?: () => void;
   /** Only set where picture-in-picture works: lets Chrome float the video by itself when the tab is left. */
-  onEnterPip?: () => void;
+  onEnterPip?: () => void | Promise<void>;
 }
 
 /** Lock-screen, notification and media-key controls for the local player. */
@@ -142,7 +142,8 @@ export function useMediaSession(opts: MediaSessionOptions): void {
   }, [hasPrevious, hasNext]);
 
   useEffect(() => {
-    safeSetHandler(ENTER_PIP_ACTION, hasPip ? () => ref.current.onEnterPip && ref.current.onEnterPip() : null);
+    // The promise is returned so Chrome sees the request finish inside the action.
+    safeSetHandler(ENTER_PIP_ACTION, hasPip ? () => (ref.current.onEnterPip ? ref.current.onEnterPip() : undefined) : null);
     return () => safeSetHandler(ENTER_PIP_ACTION, null);
   }, [hasPip]);
 

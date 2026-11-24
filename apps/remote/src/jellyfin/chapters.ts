@@ -59,7 +59,8 @@ export function chapterAt(chapters: Chapter[], sec: number): number {
 
 /** Where the chapter boundaries sit on the bar (0..1); the one at the very start is left out. */
 export function markerFractions(chapters: Chapter[], runtimeSec: number): number[] {
-  if (!(runtimeSec > 0)) return [];
+  // Infinity (native HLS before the playlist ends) or NaN would put every marker at 0%.
+  if (!(runtimeSec > 0) || !isFinite(runtimeSec)) return [];
   return chapters.filter((c) => c.startSec > 0).map((c) => Math.max(0, Math.min(1, c.startSec / runtimeSec)));
 }
 
