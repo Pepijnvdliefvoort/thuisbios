@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.4](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.4.3...v1.4.4) (2026-11-24)
+
+
+### Bug Fixes
+
+* **remote:** play 4K films at 1080p on Auto when the server has to convert them ([#269](https://github.com/Pepijnvdliefvoort/thuisbios/issues/269)) ([493c97b](https://github.com/Pepijnvdliefvoort/thuisbios/commit/493c97be79a3bd86af39bd58e6c51759fbc2ab1d))
+* **remote:** turn the watch together sheet with the rotated player ([#270](https://github.com/Pepijnvdliefvoort/thuisbios/issues/270)) ([d248985](https://github.com/Pepijnvdliefvoort/thuisbios/commit/d24898564a097dd670ec12b823ab05f039c3301c))
+
 ## [1.4.3](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.4.2...v1.4.3) (2026-11-24)
 
 
