@@ -418,6 +418,12 @@ const hlsMedia = () => [
   '#EXT-X-ENDLIST', '',
 ].join('\n');
 
+// My list: a few titles start as favorites, so the Home row shows up.
+for (const id of ['film-02', 'film-07', 'series-b', 'film-10']) {
+  const it = items.get(id);
+  if (it) it.UserData = { ...it.UserData, IsFavorite: true };
+}
+
 // ---------- HTTP ----------
 
 const userData = (it) => it.UserData || {};
@@ -446,6 +452,7 @@ function queryItems(q) {
     const key = { 'PremiereDate,ProductionYear,SortName': 'ProductionYear', 'CommunityRating,SortName': 'CommunityRating', 'Runtime,SortName': 'RunTimeTicks', 'DateCreated,SortName': 'created' }[sort];
     if (key) list.sort((a, b) => (desc ? -1 : 1) * ((a[key] ?? 0) - (b[key] ?? 0)));
   }
+  if ((q.get('Filters') || '').includes('IsFavorite')) list = list.filter((i) => userData(i).IsFavorite);
   if ((q.get('Filters') || '').includes('IsUnplayed')) list = list.filter((i) => !userData(i).Played);
   const personIds = (q.get('PersonIds') || '').split(',').filter(Boolean);
   if (personIds.length) list = list.filter((i) => (i.people || []).some((p) => personIds.includes(p.Id)));
@@ -619,9 +626,17 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       const hit = (i) => i.Id === m[1] || i.SeasonId === m[1] || (i.Type === 'Episode' && i.SeriesId === m[1]);
       for (const i of items.values()) {
         if (!hit(i)) continue;
-        i.UserData = played ? { ...i.UserData, Played: true, PlaybackPositionTicks: 0, LastPlayedDate: new Date().toISOString() } : { PlaybackPositionTicks: 0, Played: false };
+        i.UserData = played ? { ...i.UserData, Played: true, PlaybackPositionTicks: 0, LastPlayedDate: new Date().toISOString() } : { PlaybackPositionTicks: 0, Played: false, ...(i.UserData && i.UserData.IsFavorite ? { IsFavorite: true } : {}) };
       }
       return json({ Played: played });
+    }
+    if ((m = /^\/Users\/[^/]+\/FavoriteItems\/([^/]+)$/.exec(path))) {
+      // My list: favorites are kept in memory only.
+      const i = items.get(m[1]);
+      if (!i) return send(404, { error: 'not found' });
+      const favorite = req.method !== 'DELETE';
+      i.UserData = { ...i.UserData, IsFavorite: favorite };
+      return json({ IsFavorite: favorite });
     }
     if ((m = /^\/MediaSegments\/([^/]+)$/.exec(path))) {
       // One intro in the first two minutes, so the Skip intro button can be shown.

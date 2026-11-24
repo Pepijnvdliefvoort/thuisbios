@@ -88,6 +88,25 @@ describe('client', () => {
     expect(uinit.method).toBe('DELETE');
   });
 
+  it('adds and removes My list titles and lists them', async () => {
+    const fetchFn = vi.fn(async () => ok(undefined));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    await client.addToList('u1', 'm1');
+    const [aurl, ainit] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(aurl).toBe('http://pc/Users/u1/FavoriteItems/m1');
+    expect(ainit.method).toBe('POST');
+    await client.removeFromList('u1', 'm1');
+    const [rurl, rinit] = fetchFn.mock.calls[1] as unknown as [string, RequestInit];
+    expect(rurl).toBe('http://pc/Users/u1/FavoriteItems/m1');
+    expect(rinit.method).toBe('DELETE');
+    const list = vi.fn(async () => ok({ Items: [{ Id: 'm1', Name: 'One' }], TotalRecordCount: 1 }));
+    const c2 = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: list as unknown as typeof fetch });
+    expect((await c2.myList('u1', 30))[0].Id).toBe('m1');
+    const [lurl] = list.mock.calls[0] as unknown as [string];
+    expect(lurl.startsWith('http://pc/Users/u1/Items?Filters=IsFavorite&IncludeItemTypes=Movie,Series&Recursive=true&')).toBe(true);
+    expect(lurl).toContain('Limit=30');
+  });
+
   it('saves a resume position, falling back to the older path', async () => {
     const fetchFn = vi.fn(async () => ok(undefined));
     const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
