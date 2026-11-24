@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.2](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.4.1...v1.4.2) (2026-11-24)
+
+
+### Bug Fixes
+
+* **remote:** use the WebKit picture-in-picture call first on iPhone ([8dfdbf3](https://github.com/Pepijnvdliefvoort/thuisbios/commit/8dfdbf353f12b6a49e2ac4e821bd969778984818))
+* **remote:** use the WebKit picture-in-picture call first on iPhone ([773356b](https://github.com/Pepijnvdliefvoort/thuisbios/commit/773356b2870b49e7b9c3c4e58eba46d3cf171318))
+
 ## [1.4.1](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.4.0...v1.4.1) (2026-11-24)
 
 
