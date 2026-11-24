@@ -31,9 +31,14 @@ const std = (el: HTMLVideoElement): StdVideo => el as unknown as StdVideo;
 const webkit = (el: HTMLVideoElement): WebkitVideo => el as unknown as WebkitVideo;
 const doc = (): StdDocument | null => (typeof document === 'undefined' ? null : (document as unknown as StdDocument));
 
+/** HAVE_METADATA: before this the standard API rejects (InvalidStateError), which used to make the button a silent no-op. */
+const HAVE_METADATA = 1;
+
 function stdSupported(el: HTMLVideoElement): boolean {
   const d = doc();
-  return !!d && d.pictureInPictureEnabled === true && typeof std(el).requestPictureInPicture === 'function' && !std(el).disablePictureInPicture;
+  if (!d || d.pictureInPictureEnabled !== true || typeof std(el).requestPictureInPicture !== 'function' || std(el).disablePictureInPicture) return false;
+  // Like WebKit's presentation mode, the standard API only works once a stream with a picture is loaded.
+  return typeof el.readyState !== 'number' || el.readyState >= HAVE_METADATA;
 }
 
 function webkitSupported(el: HTMLVideoElement): boolean {
@@ -74,16 +79,27 @@ function waitWebkitChange(el: HTMLVideoElement): Promise<void> {
   });
 }
 
+/** Switches to WebKit's picture-in-picture mode; the switch call itself must still be inside the user's tap. */
+async function enterWebkit(el: HTMLVideoElement): Promise<void> {
+  const changed = waitWebkitChange(el);
+  webkit(el).webkitSetPresentationMode!(WEBKIT_PIP);
+  await changed;
+}
+
 /** Floats the element. Needs a user gesture in most browsers. Resolves once it floats (or failed); never rejects. */
 export async function enterPip(el: HTMLVideoElement): Promise<void> {
   try {
     if (isInPip(el)) return;
     if (stdSupported(el)) {
-      await std(el).requestPictureInPicture!();
+      try {
+        await std(el).requestPictureInPicture!();
+      } catch (e) {
+        // iPhone Safari may expose the standard API yet refuse it; the older WebKit mode is the one that is proven there.
+        if (!webkitSupported(el)) throw e;
+        await enterWebkit(el);
+      }
     } else if (webkitSupported(el)) {
-      const changed = waitWebkitChange(el);
-      webkit(el).webkitSetPresentationMode!(WEBKIT_PIP);
-      await changed;
+      await enterWebkit(el);
     }
   } catch {
     // Refused (no gesture, nothing loaded yet, policy): the player just stays as it is.
@@ -137,4 +153,24 @@ export function enableAutoPip(el: HTMLVideoElement): void {
   } catch {
     // Unsupported.
   }
+}
+
+/**
+ * Tries to float the video when the page is hidden (the user minimised the browser or left the app) while `canEnter`
+ * says it is playing. Browsers usually refuse this without a tap; that is swallowed by `enterPip`, and nothing here
+ * ever pauses the video. It complements `enableAutoPip` (WebKit) and the MediaSession `enterpictureinpicture`
+ * action (Chrome), which are the ways that really work where they exist. Returns the unsubscribe function.
+ */
+export function enterPipWhenHidden(el: HTMLVideoElement, canEnter: () => boolean): () => void {
+  if (typeof document === 'undefined') return () => undefined;
+  const onChange = () => {
+    if (document.visibilityState !== 'hidden') return;
+    try {
+      if (canEnter() && !isInPip(el)) void enterPip(el);
+    } catch {
+      // Never let this get in the way of playback.
+    }
+  };
+  document.addEventListener('visibilitychange', onChange);
+  return () => document.removeEventListener('visibilitychange', onChange);
 }
