@@ -25,6 +25,8 @@ describe('playerKeyAction', () => {
     expect(playerKeyAction({ key: 'f' })).toEqual({ type: 'fullscreen' });
     expect(playerKeyAction({ key: 'c' })).toEqual({ type: 'subtitles' });
     expect(playerKeyAction({ key: 'Escape' })).toEqual({ type: 'exit' });
+    expect(playerKeyAction({ key: 'p' })).toEqual({ type: 'pip' });
+    expect(playerKeyAction({ key: 'P' })).toEqual({ type: 'pip' });
   });
 
   it('ignores other keys', () => {
@@ -35,6 +37,7 @@ describe('playerKeyAction', () => {
 
   it('ignores keys held with ctrl, meta or alt', () => {
     expect(playerKeyAction({ key: 'f', ctrlKey: true })).toBeNull();
+    expect(playerKeyAction({ key: 'p', metaKey: true })).toBeNull();
     expect(playerKeyAction({ key: 'ArrowLeft', altKey: true })).toBeNull();
     expect(playerKeyAction({ key: 'k', metaKey: true })).toBeNull();
     expect(playerKeyAction({ key: ' ', ctrlKey: false, metaKey: false, altKey: false })).toEqual({ type: 'togglePlay' });

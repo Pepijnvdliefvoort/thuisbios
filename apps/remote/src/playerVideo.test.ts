@@ -11,6 +11,8 @@ describe('playerVideo', () => {
     expect(el.hasAttribute('webkit-playsinline')).toBe(true);
     expect(el.autoplay).toBe(true);
     expect(el.preload).toBe('auto');
+    expect(el.hasAttribute('autopictureinpicture')).toBe(true);
+    expect(el.hasAttribute('disablepictureinpicture')).toBe(false);
   });
 
   it('release stops the stream and clears src and poster', () => {

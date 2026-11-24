@@ -24,6 +24,8 @@ import { Requests } from './screens/Requests';
 import { Search } from './screens/Search';
 import { SignIn } from './screens/SignIn';
 import { enterLandscapeFullscreen } from './fullscreen';
+import { isInPip, onPipChange } from './pip';
+import { getPlayerVideo } from './playerVideo';
 import { parseConnectParam } from './jellyfin/quickConnect';
 import { clearSession, getDeviceId, loadAudioLang, loadPendingConnect, loadProgressQueue, loadSession, saveProgressQueue, saveSession, savePendingConnect } from './storage';
 import { SCROLLER_ID, getScroller, scrollOffset, scrollToOffset } from './scroller';
@@ -69,6 +71,13 @@ const RETIRED_CACHE = 'thuisbios-offline-test';
 
 /** How long Downloads waits for the server's resume point before it plays from what this device knows. */
 const FRESH_ITEM_MS = 2000;
+
+/** The player variant of a screen. */
+type PlayerScreen = Extract<Screen, { kind: 'player' }>;
+/** Counts playbacks: the Player is keyed by it, so one playback keeps its instance while it moves to the background and back. */
+let playSessionCounter = 0;
+/** Look at the video this long after PiP closed: browsers pause it just after the event when the window is closed. */
+const PIP_LEAVE_CHECK_MS = 300;
 
 export function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
@@ -224,6 +233,50 @@ function Shell({
     phone: nav.stack.length > 0 && nav.stack[nav.stack.length - 1].kind === 'player',
   };
   const top = visibleTop(offline, nav.stack);
+
+  // Picture-in-picture: a player that leaves the top of the stack while its video floats stays mounted in the
+  // background (hidden, still playing) so browsing does not stop it. Derived while rendering, from refs, so there is
+  // no render in which the Player is gone (that would stop the stream and end PiP).
+  const [, setPipTick] = useState(0);
+  const lastPlayer = useRef<PlayerScreen | null>(null);
+  const background = useRef<PlayerScreen | null>(null);
+  if (top && top.kind === 'player') {
+    lastPlayer.current = top;
+    background.current = null;
+  } else if (lastPlayer.current) {
+    const last = lastPlayer.current;
+    lastPlayer.current = null;
+    const el = getPlayerVideo();
+    if (isInPip(el) && !el.ended) background.current = last;
+  }
+  const playerScreen: PlayerScreen | null = top && top.kind === 'player' ? top : background.current;
+  const inBackground = !!playerScreen && playerScreen !== top;
+  const dropBackground = () => {
+    background.current = null;
+    setPipTick((n) => n + 1);
+  };
+  const pipNav = useRef(nav);
+  pipNav.current = nav;
+  useEffect(() => {
+    const el = getPlayerVideo();
+    let timer: number | undefined;
+    const off = onPipChange(el, (inPip) => {
+      window.clearTimeout(timer);
+      if (inPip) return;
+      const screen = background.current;
+      if (!screen) return;
+      // Browsers may pause the video just after the leave event, so look a moment later.
+      timer = window.setTimeout(() => {
+        if (background.current !== screen || isInPip(el)) return;
+        if (!el.paused && !el.ended) pipNav.current.push(screen);
+        else dropBackground();
+      }, PIP_LEAVE_CHECK_MS);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      off();
+    };
+  }, []);
   const tab = effectiveTab(offline, nav.tab);
   const prevPlaying = useRef(playing);
   useEffect(() => {
@@ -325,8 +378,9 @@ function Shell({
 
   // A finished download plays from the device (it saves data); anything else asks Jellyfin. `startTicks` is final here.
   // `remote` (watch together) always asks Jellyfin: every member must play the same stream.
-  const playScreen = (item: BaseItem, startTicks: number, remote = false): Screen => ({
+  const playScreen = (item: BaseItem, startTicks: number, remote = false): PlayerScreen => ({
     kind: 'player',
+    sid: ++playSessionCounter,
     item,
     startTicks,
     ...(!remote && preferLocal(downloads.entries, item.Id) ? { local: true } : {}),
@@ -382,13 +436,14 @@ function Shell({
           {top && top.kind === 'connect' ? <ConnectTv key={`${nav.stack.length}:connect`} initialCode={top.code} onBack={nav.back} /> : null}
           {top && top.kind === 'requests' ? <Requests key={`${nav.stack.length}:requests`} onBack={nav.back} /> : null}
           {top && top.kind === 'nowPlaying' ? <NowPlaying onBack={nav.back} onClose={() => nav.setTab('home')} /> : null}
-          {top && top.kind === 'player' ? (
+          {playerScreen ? (
             <Player
-              key={`${nav.stack.length}:player:${top.item.Id}`}
-              item={top.item}
-              startTicks={top.startTicks}
-              local={top.local}
-              onBack={nav.back}
+              key={`player:${playerScreen.sid}`}
+              item={playerScreen.item}
+              startTicks={playerScreen.startTicks}
+              local={playerScreen.local}
+              background={inBackground}
+              onBack={inBackground ? dropBackground : nav.back}
               onPlayEpisode={(episode) => nav.replace(playScreen(episode, 0, syncplay.group !== null))}
             />
           ) : null}

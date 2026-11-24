@@ -69,6 +69,7 @@ Phone and desktop app (`apps/remote`):
 - My list: save movies and series for later from Details; they show as a row on Home (stored as Jellyfin favorites). The TV details page has the same button.
 - Own player: resume, audio tracks, subtitles with timing, quality, skip intro, next episode, scrub previews, chapter markers and list.
 - Lock-screen and notification controls when playing on the phone: play/pause, 10 s skip, previous/next episode, title and artwork.
+- Picture-in-picture: a button in the player floats the video, it floats by itself when you leave the app where the browser supports it, and it keeps playing while you browse.
 - Offline downloads that play without a network and sync progress back.
 - Watch together: start a group from Details and others join from Home. Play, pause, seek and next episode apply to everyone.
   It uses Jellyfin's SyncPlay, so the Jellyfin apps can join too. An admin may need to allow it for a user
