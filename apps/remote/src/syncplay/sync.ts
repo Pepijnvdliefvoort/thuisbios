@@ -12,21 +12,28 @@ import { ticksToSeconds, type SyncCommand } from './protocol';
  * command late must not just start playing, it has to jump ahead by the time it missed.
  */
 
-/** Below this error nothing is done (jellyfin-web minDelaySpeedToSync). */
-export const MIN_DELAY_SPEED_TO_SYNC_MS = 60;
-/** At or above this error a seek replaces the rate nudge (jellyfin-web maxDelaySpeedToSync). */
-export const MAX_DELAY_SPEED_TO_SYNC_MS = 3000;
-/** Length of one catch-up rate nudge (jellyfin-web speedToSyncDuration). */
-export const SPEED_TO_SYNC_DURATION_MS = 1000;
-/** Minimum error before a seek is used (jellyfin-web minDelaySkipToSync). */
-export const MIN_DELAY_SKIP_TO_SYNC_MS = 400;
-/** The slowest relative speed a nudge may use (jellyfin-web MinSpeed): never slow down below 0.2x. */
-export const MIN_SPEED = 0.2;
 /**
- * Minimum time between drift checks, and the grace period after a play start before correcting at all:
- * jellyfin-web uses maxDelaySpeedToSync / 2 for both.
+ * Below this error nothing is done. jellyfin-web uses 60 ms, but that is within measurement jitter (clock offset
+ * error, currentTime granularity) and made us nudge nearly continuously; people watch from different homes, so
+ * about half a second of sync is plenty and smoothness comes first.
  */
-export const DRIFT_CHECK_INTERVAL_MS = MAX_DELAY_SPEED_TO_SYNC_MS / 2;
+export const DEAD_BAND_MS = 250;
+/** The largest deviation of a catch-up nudge: playbackRate stays within 0.9x..1.1x, too gentle to notice. */
+export const MAX_RATE_DEVIATION = 0.1;
+/** With a usable playbackRate, errors of this size or more are fixed by a seek instead of a nudge. */
+export const SEEK_THRESHOLD_MS = 2000;
+/** Without a usable playbackRate (iOS/Safari) the error that triggers a seek; lower would cause seek loops. */
+export const SEEK_THRESHOLD_NO_RATE_MS = 1000;
+/** Minimum error before a seek is used for a start/late Unpause (jellyfin-web minDelaySkipToSync). */
+export const MIN_DELAY_SKIP_TO_SYNC_MS = 400;
+/** Upper bound of the learned seek latency compensation. */
+export const MAX_SEEK_LEAD_MS = 1500;
+/** Wait after the first drift seek before another one is allowed; doubles per consecutive seek. */
+export const SEEK_BACKOFF_BASE_MS = 5000;
+/** The longest wait between drift seeks. */
+export const SEEK_BACKOFF_MAX_MS = 60_000;
+/** Minimum time between drift checks is the tick; this is the grace period after a play start before correcting. */
+export const DRIFT_CHECK_INTERVAL_MS = 1500;
 
 /** Something for the player to do, `delayMs` from now (0 = immediately). */
 export type SyncAction =
@@ -99,6 +106,8 @@ export interface DriftInput {
   positionSec: number;
   /** False where playbackRate cannot be trusted; then only seeks are used. */
   canChangeRate: boolean;
+  /** Learned seek latency in ms (default 0): a seek lands this much behind, so aim this far ahead. */
+  leadMs?: number;
 }
 
 export interface DriftResult {
@@ -110,28 +119,44 @@ export interface DriftResult {
 }
 
 /**
- * Compares the local playhead with where the group should be and picks a correction, like jellyfin-web's
- * PlaybackCore.syncPlaybackTime:
- * - error under 60 ms: ignore;
- * - 60 ms up to 3 s: nudge playbackRate to 1 + diff/1000 for one second (never below MIN_SPEED), which closes
- *   the gap without a visible jump; a long nudge for a large lead is stretched so the rate stays above MIN_SPEED;
- * - 3 s or more, or no usable playbackRate and at least 400 ms: seek to the group position.
+ * Compares the local playhead with where the group should be and picks a correction. Unlike jellyfin-web this is
+ * deliberately gentle, because every correction is visible to the viewer:
+ * - error under DEAD_BAND_MS: ignore;
+ * - up to SEEK_THRESHOLD_MS (with a usable playbackRate): run at 1.1x (behind) or 0.9x (ahead) for as long as it
+ *   takes to close the gap (|diff| / 0.1), and skip checks meanwhile;
+ * - SEEK_THRESHOLD_MS or more, or SEEK_THRESHOLD_NO_RATE_MS or more without a usable playbackRate: seek to the
+ *   group position plus `leadMs`. The caller backs off between seeks (seekBackoffMs) so a slow seek cannot loop.
  * The caller must skip the check while buffering, while an earlier correction is still active (honour
  * `blockMs`), for DRIFT_CHECK_INTERVAL_MS after starting playback, and when the command belongs to another item.
  */
 export function checkDrift(input: DriftInput): DriftResult {
-  const { lastUnpause, offsetMs, nowMs, positionSec, canChangeRate } = input;
+  const { lastUnpause, offsetMs, nowMs, positionSec, canChangeRate, leadMs = 0 } = input;
   const expected = expectedPosition(lastUnpause.positionTicks, lastUnpause.whenMs, offsetMs, nowMs);
   const diffMs = (expected - positionSec) * 1000;
   const abs = Math.abs(diffMs);
-  if (canChangeRate && abs >= MIN_DELAY_SPEED_TO_SYNC_MS && abs < MAX_DELAY_SPEED_TO_SYNC_MS) {
-    let forMs = SPEED_TO_SYNC_DURATION_MS;
-    // Far ahead: speed = 1 + diff/forMs would drop below MIN_SPEED, so stretch the window.
-    if (diffMs <= -forMs * MIN_SPEED) forMs = abs / (1 - MIN_SPEED);
-    return { diffMs, action: { type: 'rate', delayMs: 0, rate: 1 + diffMs / forMs, forMs }, blockMs: forMs };
+  if (abs < DEAD_BAND_MS) return { diffMs, action: null, blockMs: 0 };
+  if (abs >= (canChangeRate ? SEEK_THRESHOLD_MS : SEEK_THRESHOLD_NO_RATE_MS)) {
+    const position = expected + leadMs / 1000;
+    return { diffMs, action: { type: 'seek', delayMs: 0, position }, blockMs: DRIFT_CHECK_INTERVAL_MS };
   }
-  if (abs >= MIN_DELAY_SKIP_TO_SYNC_MS && (!canChangeRate || abs >= MAX_DELAY_SPEED_TO_SYNC_MS)) {
-    return { diffMs, action: { type: 'seek', delayMs: 0, position: expected }, blockMs: DRIFT_CHECK_INTERVAL_MS };
-  }
-  return { diffMs, action: null, blockMs: 0 };
+  if (!canChangeRate) return { diffMs, action: null, blockMs: 0 };
+  const forMs = abs / MAX_RATE_DEVIATION;
+  const rate = 1 + Math.sign(diffMs) * MAX_RATE_DEVIATION;
+  return { diffMs, action: { type: 'rate', delayMs: 0, rate, forMs }, blockMs: forMs };
+}
+
+/** How long to skip drift checks after the `consecutiveSeeks`-th drift seek in a row (1 = the first). */
+export function seekBackoffMs(consecutiveSeeks: number): number {
+  const n = Math.max(1, Math.floor(consecutiveSeeks));
+  return Math.min(SEEK_BACKOFF_MAX_MS, SEEK_BACKOFF_BASE_MS * 2 ** (n - 1));
+}
+
+/**
+ * Updates the learned seek lead from the error measured at the first drift check after a seek. A positive
+ * residual (still behind) means the seek took time, so aim further ahead next time; a negative one (overshot)
+ * means we aimed too far. Half the residual is applied to avoid oscillating; the result is clamped to
+ * 0..MAX_SEEK_LEAD_MS.
+ */
+export function nextSeekLead(currentLeadMs: number, residualDiffMs: number): number {
+  return Math.min(MAX_SEEK_LEAD_MS, Math.max(0, currentLeadMs + residualDiffMs * 0.5));
 }

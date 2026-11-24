@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { CastSection } from '../components/CastSection';
+import { ActionTile } from '../components/ActionTile';
 import { DownloadButton, DownloadSeasonButton } from '../components/DownloadButton';
-import { Icon } from '../components/Icon';
+import { Icon, type IconName } from '../components/Icon';
+import { MenuSheet } from '../components/MenuSheet';
 import { TrailerButton } from '../components/TrailerButton';
 import { PullSpinner } from '../components/PullSpinner';
 import { BackdropImg, Img } from '../components/Img';
@@ -21,6 +23,10 @@ import { canAddToList, isInList, myListToggle } from '../jellyfin/myList';
 import { allWatched, isWatched, watchedToggle, type WatchedScope } from '../jellyfin/watched';
 import { useAsync, useRegisterReload, type Reloaders } from '../useAsync';
 import { useDesktop } from '../useDesktop';
+import { useScrollLock } from '../useScrollLock';
+import { splitQuickActions, type QuickActionId } from '../detailsActions';
+import { trailerSource } from '../jellyfin/trailers';
+import { isDownloadable } from '../offline/downloadIndex';
 import { usePullToRefresh } from '../usePullToRefresh';
 
 /** Marks an item (or a season or series, which Jellyfin applies to all episodes) watched or unwatched, then refreshes. */
@@ -80,6 +86,12 @@ function PhoneDetailsSkeleton() {
           <Skeleton class="skel-chip wide" />
         </div>
         <Skeleton class="skel-button primary" />
+        <div class="skel-tiles">
+          <Skeleton class="skel-circle" />
+          <Skeleton class="skel-circle" />
+          <Skeleton class="skel-circle" />
+          <Skeleton class="skel-circle" />
+        </div>
         <Skeleton class="skel-line" />
         <Skeleton class="skel-line mid" />
         <Skeleton class="skel-line short" />
@@ -257,10 +269,116 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
           <Icon name={listToggle.icon} size={20} /> {listToggle.label}
         </button>
       ) : null}
-      {noTv && !desktop ? <p class="hint small">No TV connected, so this plays on your phone.</p> : null}
     </div>
   );
   const overview = item.Overview ? <p class="overview">{item.Overview}</p> : null;
+
+  // Phone: one primary button, a progress line while resuming, a row of icon tiles and a "More" sheet.
+  const [moreOpen, setMoreOpen] = useState(false);
+  const primary =
+    resume > 0 && playItem ? (
+      <button type="button" class="btn primary" disabled={disabled} onClick={() => start(playItem, resume)}>
+        <Icon name="play" /> {here ? 'Resume' : 'Resume on TV'} ({formatTicksClock(resume)})
+      </button>
+    ) : (
+      <button type="button" class="btn primary" disabled={disabled} onClick={() => playItem && start(playItem, 0)}>
+        <Icon name="play" /> {(isSeries ? 'Play next episode' : 'Play') + (here ? '' : ' on TV')}
+      </button>
+    );
+  const total = playItem ? playItem.RunTimeTicks || 0 : 0;
+  const left = total > resume ? formatRuntime(total - resume) : '';
+  const resumeLine =
+    resume > 0 && playItem ? (
+      <div class="resume-line">
+        {total > 0 ? (
+          <>
+            <span class="resume-bar" aria-hidden="true">
+              <i style={{ width: `${Math.round(Math.min(1, resume / total) * 100)}%` }} />
+            </span>
+            {left ? <span class="resume-left">{left} left</span> : null}
+          </>
+        ) : null}
+        <button type="button" class="restart-btn" disabled={disabled} aria-label="Play from start" onClick={() => start(playItem, 0)}>
+          <Icon name="restart" size={16} /> From start
+        </button>
+      </div>
+    ) : null;
+  const quickIds: QuickActionId[] = [];
+  if (canAddToList(item) && !offline) quickIds.push('list');
+  if (!isEpisode && !offline && !!trailerSource(item)) quickIds.push('trailer');
+  if (!isSeries && downloads.supported && isDownloadable(item)) quickIds.push('download');
+  if (playItem && !offline) quickIds.push('together');
+  quickIds.push('watched');
+  const { row, more } = splitQuickActions(quickIds);
+  const watchedAria = watched ? 'Watched, tap to mark unwatched' : toggle.label;
+  const together = (
+    <ActionTile
+      key="together"
+      label="Together"
+      ariaLabel="Watch together"
+      disabled={syncplay.busy || !!syncplay.group}
+      onClick={() => void startTogether()}
+    >
+      <Icon name="group" size={22} />
+    </ActionTile>
+  );
+  const tile = (id: QuickActionId) => {
+    switch (id) {
+      case 'list':
+        return (
+          <ActionTile key={id} label={listToggle.label} on={inList} pressed={inList} onClick={() => void toggleList()}>
+            <Icon name={listToggle.icon} size={22} />
+          </ActionTile>
+        );
+      case 'trailer':
+        return <TrailerButton key={id} item={item} variant="tile" />;
+      case 'download':
+        return <DownloadButton key={id} item={item} variant="tile" />;
+      case 'together':
+        return together;
+      default:
+        return (
+          <ActionTile key={id} label="Watched" ariaLabel={watchedAria} on={watched} pressed={watched} onClick={() => void toggleWatched()}>
+            <Icon name={watched ? 'watched' : 'unwatched'} size={22} />
+          </ActionTile>
+        );
+    }
+  };
+  const hasSheet = more.length > 0 || !noTv;
+  const phoneActions = (
+    <div class="details-actions">
+      {isSeries && playItem ? (
+        <p class="next-ep">
+          Next episode: {episodeLabel(playItem)} {playItem.Name}
+        </p>
+      ) : null}
+      {primary}
+      {resumeLine}
+      <div class="quick-actions">
+        {row.map(tile)}
+        {hasSheet ? (
+          <ActionTile key="more" class="details-more-btn" label="More" ariaLabel="More actions" onClick={() => setMoreOpen(true)}>
+            <Icon name="more" size={22} />
+          </ActionTile>
+        ) : null}
+      </div>
+      {moreOpen ? (
+        <DetailsMoreSheet
+          item={item}
+          onClose={() => setMoreOpen(false)}
+          entries={[
+            ...(more.includes('together')
+              ? [{ key: 'together', icon: 'group' as const, label: 'Watch together', disabled: syncplay.busy || !!syncplay.group, run: () => void startTogether() }]
+              : []),
+            ...(more.includes('watched')
+              ? [{ key: 'watched', icon: watched ? ('watched' as const) : ('unwatched' as const), label: toggle.label, disabled: false, run: () => void toggleWatched() }]
+              : []),
+            ...(noTv ? [] : [{ key: 'tv', icon: 'eye' as const, label: 'Show on TV', disabled: false, run: () => void send(tv.show(item)) }]),
+          ]}
+        />
+      ) : null}
+    </div>
+  );
   const genres = item.Genres && item.Genres.length > 0 ? <p class="genres">{item.Genres.join(' · ')}</p> : null;
   const episodes = isSeries ? (
     <Episodes
@@ -341,15 +459,64 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
               <p class="meta">{meta.join('  ·  ')}</p>
             </div>
           </div>
-          {actions}
+          {phoneActions}
         </div>
-        {overview}
+        {item.Overview ? <PhoneOverview key={item.Id} text={item.Overview} /> : null}
         {genres}
         {episodes}
         <CastSection item={item} />
         <DetailsExtras item={item} />
       </div>
     </>
+  );
+}
+
+type MoreEntry = { key: string; icon: IconName; label: string; disabled: boolean; run: () => void };
+
+/** The "More" sheet of the phone details page: the actions that did not fit in the row, and Show on TV. */
+function DetailsMoreSheet({ item, entries, onClose }: { item: BaseItem; entries: MoreEntry[]; onClose: () => void }) {
+  useScrollLock();
+  return (
+    <MenuSheet label={item.Name} onClose={onClose}>
+      <h2>{item.Name}</h2>
+      {entries.map((e) => (
+        <button
+          key={e.key}
+          type="button"
+          class="btn secondary menu-row"
+          disabled={e.disabled}
+          onClick={() => {
+            e.run();
+            onClose();
+          }}
+        >
+          <Icon name={e.icon} size={20} /> {e.label}
+        </button>
+      ))}
+    </MenuSheet>
+  );
+}
+
+/** Phone overview, clamped to four lines with a More / Less toggle that shows only when the text overflows. */
+function PhoneOverview({ text }: { text: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && !expanded) setOverflows(el.scrollHeight > el.clientHeight + 1);
+  }, [text, expanded]);
+  return (
+    <div class="overview-wrap">
+      <p class={expanded ? 'overview' : 'overview clamped'} ref={ref}>
+        {text}
+      </p>
+      {overflows || expanded ? (
+        <button type="button" class="overview-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+          {expanded ? 'Less' : 'More'}
+        </button>
+      ) : null}
+    </div>
   );
 }
 

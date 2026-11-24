@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { episodeLabel, formatClock, formatRuntime, formatTicksClock, progressFraction } from './format';
+import { episodeLabel, formatClock, formatRuntime, formatTicksClock, progressFraction, timeLeftLabel } from './format';
 
 const sec = 10_000_000;
 
@@ -39,5 +39,23 @@ describe('progressFraction and episodeLabel', () => {
     expect(episodeLabel({ ParentIndexNumber: 2, IndexNumber: 5 })).toBe('S2:E5');
     expect(episodeLabel({ IndexNumber: 5 })).toBe('E5');
     expect(episodeLabel({})).toBe('');
+  });
+});
+
+describe('timeLeftLabel', () => {
+  const min = 60 * sec;
+  it('shows minutes, rounded up', () => {
+    expect(timeLeftLabel({ PlaybackPositionTicks: 40 * min }, 90 * min)).toBe('50 min left');
+    expect(timeLeftLabel({ PlaybackPositionTicks: 89 * min + 30 * sec }, 90 * min)).toBe('1 min left');
+  });
+  it('shows hours and minutes', () => {
+    expect(timeLeftLabel({ PlaybackPositionTicks: 10 * min }, 135 * min)).toBe('2 h 5 min left');
+    expect(timeLeftLabel({ PlaybackPositionTicks: 30 * min }, 150 * min)).toBe('2 h left');
+  });
+  it('is empty without a position, a runtime or when finished', () => {
+    expect(timeLeftLabel(undefined, 90 * min)).toBe('');
+    expect(timeLeftLabel({ PlaybackPositionTicks: 0 }, 90 * min)).toBe('');
+    expect(timeLeftLabel({ PlaybackPositionTicks: 10 * min }, undefined)).toBe('');
+    expect(timeLeftLabel({ PlaybackPositionTicks: 90 * min }, 90 * min)).toBe('');
   });
 });

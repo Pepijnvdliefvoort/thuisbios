@@ -99,12 +99,17 @@ export function Home({ active = true }: { active?: boolean }) {
   const slides = desktop ? spotlightItems(movies.data || [], shows.data || []) : [];
   const spotlightPending = (movies.loading || shows.loading) && slides.length === 0;
   const hero = slides.length > 0 || spotlightPending;
+  const notices = (
+    <>
+      <ArrivedNotice />
+      <TogetherCard groups={groups} busy={syncplay.busy} onJoin={(g) => void join(g)} />
+    </>
+  );
   return (
     <div class={desktop ? (hero ? 'page home has-hero' : 'page home') : 'page'} ref={pageRef}>
       <PullSpinner pull={pull} />
       {desktop ? <Spotlight items={slides} pending={spotlightPending} /> : null}
-      <ArrivedNotice />
-      <TogetherCard groups={groups} busy={syncplay.busy} onJoin={(g) => void join(g)} />
+      {desktop ? <div class="home-strip">{notices}</div> : notices}
       <Row title="Resume watching" items={resume.data || []} shape="thumb" />
       <Row title="Next up" items={withoutResumed(nextUp.data || [], resume.data || [])} shape="thumb" />
       <Row title="My list" items={myList.data || []} shape="poster" />

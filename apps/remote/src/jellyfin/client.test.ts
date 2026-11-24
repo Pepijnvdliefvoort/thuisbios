@@ -256,6 +256,16 @@ describe('client', () => {
     expect(await none.mediaStreams('u1', 'i1')).toEqual([]);
   });
 
+  it('lists every media source (version) of an item', async () => {
+    const sources = [{ Id: 'm1' }, { Id: 'm2' }];
+    const fetchFn = vi.fn(async () => ok({ Id: 'i1', Name: 'A', MediaSources: sources }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    expect(await client.mediaSources('u1', 'i1')).toEqual(sources);
+    expect((fetchFn.mock.calls[0] as unknown as [string])[0]).toBe('http://pc/Users/u1/Items/i1?Fields=MediaSources,MediaStreams');
+    const none = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: (async () => ok({ Id: 'i1', Name: 'A' })) as unknown as typeof fetch });
+    expect(await none.mediaSources('u1', 'i1')).toEqual([]);
+  });
+
   it('reports playback start, progress and stopped, keepalive only when asked', async () => {
     const fetchFn = vi.fn(async () => ok(undefined));
     const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });

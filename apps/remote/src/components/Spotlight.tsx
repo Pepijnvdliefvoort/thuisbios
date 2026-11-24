@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useApp } from '../context';
-import { artUrl, artUrls } from '../jellyfin/art';
+import { artUrl, artUrls, logoUrl } from '../jellyfin/art';
 import { formatRuntime } from '../jellyfin/format';
 import { findPlayTarget, resumeTicks } from '../jellyfin/playTarget';
 import type { BaseItem } from '../jellyfin/types';
 import { Icon } from './Icon';
-import { BackdropImg } from './Img';
+import { BackdropImg, Img } from './Img';
 import { Skeleton } from './Skeleton';
 
 /** Time a slide stays before the next one fades in. */
@@ -23,7 +23,12 @@ export function Spotlight({ items, pending }: { items: BaseItem[]; pending: bool
   const [index, setIndex] = useState(0);
   const [hovered, setHovered] = useState(false);
   const [away, setAway] = useState(() => typeof document !== 'undefined' && document.hidden);
+  // Items whose logo failed to load: they show the text title.
+  const [noLogo, setNoLogo] = useState<string[]>([]);
+  // Bumped when the carousel resumes, so the progress bar restarts together with the slide timer.
+  const [epoch, setEpoch] = useState(0);
   const root = useRef<HTMLDivElement>(null);
+  const wasPaused = useRef(false);
   const looking = useRef(false);
   const count = items.length;
 
@@ -32,6 +37,12 @@ export function Spotlight({ items, pending }: { items: BaseItem[]; pending: bool
     document.addEventListener('visibilitychange', sync);
     return () => document.removeEventListener('visibilitychange', sync);
   }, []);
+
+  const paused = hovered || away;
+  useEffect(() => {
+    if (wasPaused.current && !paused) setEpoch((e) => e + 1);
+    wasPaused.current = paused;
+  }, [paused]);
 
   useEffect(() => {
     if (count < 2 || hovered || away || reducedMotion()) return;
@@ -65,8 +76,9 @@ export function Spotlight({ items, pending }: { items: BaseItem[]; pending: bool
     ) : null;
   }
   const current = items[index % count];
+  const logo = noLogo.indexOf(current.Id) === -1 ? logoUrl(client.serverUrl, current, 1040) : '';
   const isShow = current.Type === 'Series';
-  const meta = [formatRuntime(current.RunTimeTicks), current.Genres ? current.Genres.slice(0, 2).join(', ') : ''].filter(Boolean);
+  const genres = current.Genres ? current.Genres.slice(0, 3) : [];
 
   /** Starts playback here, like the play button on a card (a series plays its next episode). */
   const play = async () => {
@@ -85,7 +97,7 @@ export function Spotlight({ items, pending }: { items: BaseItem[]; pending: bool
 
   return (
     <div
-      class="spotlight"
+      class={paused ? 'spotlight paused' : 'spotlight'}
       ref={root}
       role="region"
       aria-roledescription="carousel"
@@ -106,15 +118,28 @@ export function Spotlight({ items, pending }: { items: BaseItem[]; pending: bool
       <div class="sp-shade" />
       <div class="sp-content" key={current.Id}>
         <p class="sp-eyebrow">{isShow ? 'New series' : 'New movie'}</p>
-        <h2 class="sp-title">{current.Name}</h2>
+        <h2 class={logo ? 'sp-title has-logo' : 'sp-title'}>
+          {logo ? (
+            <img class="sp-logo" src={logo} alt={current.Name} draggable={false} onError={() => setNoLogo((l) => [...l, current.Id])} />
+          ) : (
+            current.Name
+          )}
+        </h2>
         <p class="sp-meta">
           {current.ProductionYear ? <span>{current.ProductionYear}</span> : null}
           {current.OfficialRating ? <span class="rating-badge">{current.OfficialRating}</span> : null}
           {current.CommunityRating ? <span>{`★ ${current.CommunityRating.toFixed(1)}`}</span> : null}
-          {meta.map((m) => (
-            <span key={m}>{m}</span>
-          ))}
+          {formatRuntime(current.RunTimeTicks) ? <span>{formatRuntime(current.RunTimeTicks)}</span> : null}
         </p>
+        {genres.length > 0 ? (
+          <p class="sp-genres">
+            {genres.map((g) => (
+              <span key={g} class="sp-chip">
+                {g}
+              </span>
+            ))}
+          </p>
+        ) : null}
         {current.Overview ? <p class="sp-overview">{current.Overview}</p> : null}
         <div class="sp-actions">
           <button type="button" class="sp-btn sp-play" onClick={() => void play()}>
@@ -126,16 +151,19 @@ export function Spotlight({ items, pending }: { items: BaseItem[]; pending: bool
         </div>
       </div>
       {count > 1 ? (
-        <div class="sp-dots">
+        <div class="sp-thumbs">
           {items.map((item, i) => (
             <button
               key={item.Id}
               type="button"
-              class={i === index ? 'sp-dot on' : 'sp-dot'}
+              class={i === index ? 'sp-thumb on' : 'sp-thumb'}
               aria-label={`Show ${item.Name} (${i + 1} of ${count})`}
               aria-current={i === index ? 'true' : undefined}
               onClick={() => setIndex(i)}
-            />
+            >
+              <Img src={artUrls(client.serverUrl, item, 'backdrop', 300, 169)} />
+              {i === index ? <span class="sp-prog" key={`${index}-${epoch}`} /> : null}
+            </button>
           ))}
         </div>
       ) : null}

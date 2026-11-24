@@ -8,6 +8,7 @@ import type {
   BaseItem,
   ClientInfo,
   ItemsResult,
+  MediaSource,
   MediaStream,
   PlaybackInfoResponse,
   PlaybackReport,
@@ -126,6 +127,8 @@ export interface JellyfinClient {
   logout(): Promise<void>;
   /** The audio and subtitle streams of an item's first media source (empty when the server lists none). */
   mediaStreams(userId: string, itemId: string): Promise<MediaStream[]>;
+  /** Every version (media source) of an item, with its streams. Empty when the server lists none. */
+  mediaSources(userId: string, itemId: string): Promise<MediaSource[]>;
   /** The item with its scrub preview data and chapters (Fields=Trickplay,Chapters). */
   scrubInfo(userId: string, itemId: string): Promise<BaseItem>;
   /** Asks the server how this phone can play an item; see {@link PlaybackOptions}. */
@@ -209,6 +212,10 @@ export function createClient(options: ClientOptions): JellyfinClient {
     doRequest<T>(options, method, path, body, keepalive);
   const items = async (path: string): Promise<BaseItem[]> => (await req<ItemsResult>('GET', path)).Items;
   const user = (id: string) => `/Users/${enc(id)}`;
+  const mediaSources = async (userId: string, itemId: string): Promise<MediaSource[]> => {
+    const item = await req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=MediaSources,MediaStreams`);
+    return item.MediaSources || [];
+  };
 
   return {
     serverUrl: options.serverUrl,
@@ -269,9 +276,9 @@ export function createClient(options: ClientOptions): JellyfinClient {
     localTrailers: (userId, itemId) => req<BaseItem[]>('GET', `${user(userId)}/Items/${enc(itemId)}/LocalTrailers`),
     scrubInfo: (userId, itemId) =>
       req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=Trickplay,Chapters`),
+    mediaSources,
     mediaStreams: async (userId, itemId) => {
-      const item = await req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=MediaSources,MediaStreams`);
-      const source = item.MediaSources && item.MediaSources[0];
+      const source = (await mediaSources(userId, itemId))[0];
       return (source && source.MediaStreams) || [];
     },
     seasons: (userId, seriesId) =>

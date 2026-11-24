@@ -3,6 +3,7 @@ import { useApp } from '../context';
 import { asTrailerItem, trailerSource, youtubeEmbedUrl } from '../jellyfin/trailers';
 import type { BaseItem } from '../jellyfin/types';
 import { useScrollLock } from '../useScrollLock';
+import { ActionTile } from './ActionTile';
 import { Icon } from './Icon';
 
 /**
@@ -10,7 +11,7 @@ import { Icon } from './Icon';
  * link plays in a sheet on top of the page; any other link opens in a new tab. Nothing starts until it is tapped,
  * and it is left out offline.
  */
-export function TrailerButton({ item }: { item: BaseItem }) {
+export function TrailerButton({ item, variant = 'button' }: { item: BaseItem; variant?: 'button' | 'tile' }) {
   const { client, session, offline, toast, playHere } = useApp();
   const [busy, setBusy] = useState(false);
   const [youtube, setYoutube] = useState<string | null>(null);
@@ -37,9 +38,15 @@ export function TrailerButton({ item }: { item: BaseItem }) {
 
   return (
     <>
-      <button type="button" class="btn secondary" disabled={busy} onClick={() => void open()}>
-        <Icon name="trailer" size={20} /> Trailer
-      </button>
+      {variant === 'tile' ? (
+        <ActionTile label="Trailer" disabled={busy} onClick={() => void open()}>
+          <Icon name="trailer" size={22} />
+        </ActionTile>
+      ) : (
+        <button type="button" class="btn secondary" disabled={busy} onClick={() => void open()}>
+          <Icon name="trailer" size={20} /> Trailer
+        </button>
+      )}
       {youtube ? <TrailerSheet id={youtube} title={item.Name} onClose={() => setYoutube(null)} /> : null}
     </>
   );

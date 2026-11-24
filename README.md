@@ -65,9 +65,12 @@ Regenerate them with `node scripts/screenshots/capture.mjs`, see [scripts/screen
 Phone and desktop app (`apps/remote`):
 
 - Home (with genre and "Because you watched" rows), search, library with sort and filter, collections, "More like this" and trailers.
+  On desktop, Home opens with a full-width hero spotlight that shows picture previews of the other titles,
+  and Resume watching cards show how much time is left.
 - Details with cast and crew, seasons and episodes, watched marks, and title requests (with a notice on Home when a requested title arrives).
 - My list: save movies and series for later from Details; they show as a row on Home (stored as Jellyfin favorites). The TV details page has the same button.
 - Own player: resume, audio tracks, subtitles with timing, quality (on Auto, a 4K film that the server has to convert plays at 1080p), skip intro, next episode, scrub previews, chapter markers and list.
+- Films with several versions (for example 4K and 1080p) play the 1080p one on a phone and the best one on a computer, switchable in the quality menu.
 - Lock-screen and notification controls when playing on the phone: play/pause, 10 s skip, previous/next episode, title and artwork.
 - Offline downloads that play without a network and sync progress back.
 - Watch together: start a group from Details and others join from Home. Play, pause, seek and next episode apply to everyone.
@@ -108,6 +111,9 @@ and phone app, one Docker image) runs next to Jellyfin, including the relay for 
 3. Optional, skip intro: [docs/server/intro-skipper.md](docs/server/intro-skipper.md). Scrub previews: [docs/server/trickplay.md](docs/server/trickplay.md).
 4. Phone app, TV pairing and title requests: [docs/remote/setup.md](docs/remote/setup.md).
 5. TV page (the TV's built-in browser): [docs/tv/dev-setup.md](docs/tv/dev-setup.md).
+
+Tip, several versions of a film: keep the files in one folder and name them `Title (Year) - 4K.mp4` and
+`Title (Year) - 1080p.mp4`. Jellyfin then shows one film with both versions.
 
 Older alternative on a Windows PC: [docs/server/windows-setup.md](docs/server/windows-setup.md).
 

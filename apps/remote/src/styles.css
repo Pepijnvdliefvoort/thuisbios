@@ -284,6 +284,8 @@ input:focus { outline: none; border-color: var(--accent); }
 .details-skel-phone .skel-chip { width: 52px; height: 16px; }
 .details-skel-phone .skel-chip.wide { width: 84px; }
 .details-skel-phone .skel-button { width: 100%; height: 48px; border-radius: var(--radius); background: rgba(255, 255, 255, 0.14); }
+.details-skel-phone .skel-tiles { display: flex; justify-content: space-between; padding: 0 6px; }
+.details-skel-phone .skel-circle { width: 48px; height: 48px; border-radius: 50%; }
 .details-skel-phone .skel-line { width: 100%; height: 14px; }
 .details-skel-phone .skel-line.mid { width: 85%; }
 .details-skel-phone .skel-line.short { width: 55%; }
@@ -325,6 +327,44 @@ input:focus { outline: none; border-color: var(--accent); }
 .btn.is-listed .icon { color: #6fcf8e; }
 .next-ep { color: var(--muted); font-size: 14px; }
 .overview { padding: 12px var(--gutter) 0; color: #d6d6de; }
+
+/* Phone details: primary button, resume line, quick-action row, clamped overview */
+.details-actions { display: flex; flex-direction: column; gap: 10px; padding: 16px var(--gutter) 4px; }
+.resume-line { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: -4px; font-size: 13px; color: var(--muted); }
+.resume-bar { flex: 1 1 0; min-width: 24px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
+.resume-bar i { display: block; height: 100%; border-radius: 2px; background: var(--fg); }
+.resume-left { flex: none; white-space: nowrap; }
+.restart-btn {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-left: auto; padding: 0 10px;
+  border-radius: 22px; font-size: 13px; font-weight: 600; color: var(--fg);
+}
+.restart-btn:disabled { opacity: 0.5; }
+.restart-btn .icon { flex: none; }
+.quick-actions { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
+.action-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; min-height: 44px; padding: 4px 0;
+  color: var(--fg); background: none;
+}
+.tile-circle {
+  display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%;
+  background: var(--surface-2); color: var(--fg);
+}
+.tile-circle .icon, .tile-circle .dl-ring { flex: none; }
+.tile-label { max-width: 100%; padding: 0 2px; font-size: 12px; line-height: 1.2; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.action-tile:disabled { opacity: 0.5; }
+.action-tile.on .tile-circle { background: var(--fg); color: #111; }
+.action-tile.on .tile-label { color: var(--fg); }
+.action-tile.dl-tile.failed .tile-circle { color: #ff8a80; }
+.overview-wrap { display: flex; flex-direction: column; align-items: flex-start; }
+.overview.clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+.overview-toggle { min-height: 44px; padding: 0 var(--gutter); font-size: 14px; font-weight: 600; color: var(--fg); }
+@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .action-tile, .restart-btn { transition: transform 0.12s ease-out; }
+  .action-tile:active:not(:disabled), .restart-btn:active:not(:disabled) { transform: scale(0.95); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .action-tile, .restart-btn { transition: none; }
+}
 .genres { padding: 8px var(--gutter) 0; color: var(--muted); font-size: 14px; }
 .episodes { padding: 20px 0 0; }
 .episodes h2 { font-size: 18px; padding: 0 var(--gutter); }
@@ -779,8 +819,8 @@ button.rs-row:active { background: var(--surface-2); }
    Look: a floating top bar over full-bleed art, edge-to-edge rows, glass buttons. Only transform and opacity animate.
    ========================================================================== */
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  /* --edge: the left/right inset of full-width content; it lines up with the 1600px content column on wide windows. */
-  :root { --gutter: 40px; --desk-top: 64px; --edge: max(var(--gutter), calc((100% - 1600px) / 2 + var(--gutter))); --glass: rgba(255, 255, 255, 0.14); --glass-hover: rgba(255, 255, 255, 0.24); --hairline: rgba(255, 255, 255, 0.08); }
+  /* --edge: the fluid left/right inset of the page; the top bar, rows and pages all line up with it. Cards grow with the window. */
+  :root { --edge: clamp(40px, 4vw, 112px); --gutter: var(--edge); --desk-top: 64px; --poster-w: clamp(160px, 9.4vw, 250px); --thumb-w: clamp(280px, 17vw, 440px); --glass: rgba(255, 255, 255, 0.14); --glass-hover: rgba(255, 255, 255, 0.24); --hairline: rgba(255, 255, 255, 0.08); }
 
   /* Focus: clear outlines for keyboard users (the mouse never shows them) */
   :focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
@@ -863,7 +903,7 @@ button.rs-row:active { background: var(--surface-2); }
   .mini-progress { height: 3px; background: rgba(255, 255, 255, 0.12); }
 
   /* Content: centred, capped width. Every page except Home's hero starts under the top bar. */
-  .page { max-width: 1600px; margin: 0 auto; padding-top: calc(var(--desk-top) + 8px); }
+  .page { max-width: none; margin: 0 auto; padding-top: calc(var(--desk-top) + 8px); }
   .page.home { max-width: none; }
   .page.home.has-hero { padding-top: 0; }
   .page-title { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; padding: 20px var(--gutter) 6px; }
@@ -888,85 +928,112 @@ button.rs-row:active { background: var(--surface-2); }
   .request-link:hover, .rs-link:hover, .rs-change:hover, .rs-cancel:hover { color: var(--fg); }
   .rating-badge { display: inline-block; padding: 0 6px; border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 4px; font-size: 0.85em; line-height: 1.45; color: inherit; }
 
-  /* Spotlight (Home): full-bleed hero under the top bar; the first row overlaps its bottom edge */
-  .spotlight { position: relative; height: clamp(460px, 76vh, 860px); margin-bottom: -64px; overflow: hidden; background: var(--bg); }
+  /* Spotlight (Home): cinematic full-bleed hero under the top bar; the strip and first row overlap its faded bottom edge. */
+  .spotlight { --sp-overlap: clamp(110px, 13vh, 190px); position: relative; height: clamp(540px, min(86vh, 56.25vw), 1240px); margin-bottom: calc(-1 * var(--sp-overlap)); overflow: hidden; background: var(--bg); }
   .spotlight.loading { background: linear-gradient(to bottom, #15151d 0%, var(--bg) 100%); }
   .sp-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.9s ease; }
   .sp-slide.on { opacity: 1; }
   .sp-img img { object-position: center 22%; }
+  /* Slow zoom on the active backdrop (transform only); an inactive slide rests at the end scale, so it does not jump while fading out */
+  .sp-slide .sp-img { transform: scale(1.05); }
+  .sp-slide.on .sp-img { animation: sp-zoom 9s linear both; }
+  @keyframes sp-zoom { from { transform: scale(1); } to { transform: scale(1.05); } }
   .sp-shade {
     position: absolute; inset: 0; pointer-events: none;
     background:
-      linear-gradient(to right, rgba(11, 11, 16, 0.95) 0%, rgba(11, 11, 16, 0.7) 28%, rgba(11, 11, 16, 0) 62%),
-      linear-gradient(to top, var(--bg) 0%, rgba(11, 11, 16, 0.55) 18%, rgba(11, 11, 16, 0) 48%);
+      linear-gradient(to right, rgba(11, 11, 16, 0.97) 0%, rgba(11, 11, 16, 0.82) 24%, rgba(11, 11, 16, 0.35) 48%, rgba(11, 11, 16, 0) 70%),
+      linear-gradient(to top, var(--bg) 0%, var(--bg) 4%, rgba(11, 11, 16, 0.85) 16%, rgba(11, 11, 16, 0.4) 34%, rgba(11, 11, 16, 0) 56%),
+      linear-gradient(to bottom, rgba(11, 11, 16, 0.55) 0%, rgba(11, 11, 16, 0) 18%);
   }
-  .sp-content { position: absolute; left: 0; bottom: 0; width: calc(var(--edge) + 640px); max-width: 100%; padding: 0 24px 128px var(--edge); animation: sp-in 0.55s ease both; }
+  .sp-content { position: absolute; left: 0; bottom: 0; width: calc(var(--edge) + clamp(560px, 38vw, 880px)); max-width: 100%; padding: 0 24px calc(var(--sp-overlap) + 36px) var(--edge); animation: sp-in 0.55s ease both; }
   @keyframes sp-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-  .sp-eyebrow { color: rgba(255, 255, 255, 0.7); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+  .sp-eyebrow {
+    display: inline-block; padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #fff; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  }
   .sp-title {
-    margin-top: 8px; font-size: clamp(40px, 4.2vw, 64px); font-weight: 800; letter-spacing: -0.025em; line-height: 1.04; text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45);
+    margin-top: 16px; font-size: clamp(44px, 4.6vw, 96px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.02; text-shadow: 0 2px 28px rgba(0, 0, 0, 0.5);
     overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
   }
-  .sp-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 14px; font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.82); }
+  .sp-title.has-logo { display: block; overflow: visible; }
+  .sp-logo { display: block; width: auto; height: auto; max-width: clamp(280px, 24vw, 520px); max-height: clamp(100px, 8vw, 160px); object-fit: contain; object-position: left bottom; filter: drop-shadow(0 2px 18px rgba(0, 0, 0, 0.5)); }
+  .sp-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 18px; font-size: clamp(15px, 1vw, 19px); font-weight: 600; color: rgba(255, 255, 255, 0.86); }
+  .sp-genres { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .sp-chip { padding: 3px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.78); font-size: 13px; font-weight: 600; }
   .sp-overview {
-    max-width: 560px; margin-top: 14px; font-size: 16px; line-height: 1.5; color: rgba(255, 255, 255, 0.82);
+    max-width: 46ch; margin-top: 16px; font-size: clamp(16px, 1.05vw, 20px); line-height: 1.5; color: rgba(255, 255, 255, 0.84);
     overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical;
   }
-  .sp-actions { display: flex; gap: 12px; margin-top: 24px; }
+  .sp-actions { display: flex; gap: 14px; margin-top: 28px; }
   .sp-btn {
-    display: inline-flex; align-items: center; gap: 8px; height: 52px; padding: 0 28px 0 22px; border-radius: 8px; font-size: 17px; font-weight: 700;
-    transition: background-color 0.16s ease, transform 0.16s ease;
+    display: inline-flex; align-items: center; gap: 10px; height: clamp(52px, 3.4vw, 64px); padding: 0 clamp(26px, 1.8vw, 36px) 0 clamp(22px, 1.5vw, 30px); border-radius: 10px;
+    font-size: clamp(17px, 1.15vw, 21px); font-weight: 700; transition: background-color 0.16s ease, transform 0.16s ease;
   }
   .sp-btn:active { transform: scale(0.98); }
   .sp-play { background: #fff; color: #111; }
   .sp-play:hover { background: #e6e6ea; }
-  .sp-info { background: rgba(255, 255, 255, 0.16); color: #fff; padding-left: 20px; }
-  .sp-info:hover { background: rgba(255, 255, 255, 0.28); }
-  .sp-dots { position: absolute; right: var(--edge); bottom: 128px; display: flex; gap: 0; }
-  .sp-dot { position: relative; width: 40px; height: 24px; }
-  .sp-dot::before {
-    content: ''; position: absolute; left: 0; right: 0; top: 10px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.4);
-    transform: scaleX(0.45); transition: transform 0.2s ease, background-color 0.2s ease;
+  .sp-info { background: rgba(109, 109, 118, 0.62); color: #fff; }
+  .sp-info:hover { background: rgba(130, 130, 140, 0.75); }
+  /* Slide picker: small backdrop thumbnails bottom right; the active one is raised and outlined, with a progress bar over the slide time */
+  .sp-thumbs { position: absolute; right: var(--edge); bottom: calc(var(--sp-overlap) + 36px); display: flex; gap: clamp(8px, 0.6vw, 14px); }
+  .sp-thumb {
+    position: relative; flex: none; width: clamp(112px, 7.5vw, 150px); aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: var(--surface);
+    opacity: 0.6; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); transition: transform 0.2s ease, opacity 0.2s ease;
   }
-  .sp-dot:hover::before { background: rgba(255, 255, 255, 0.7); }
-  .sp-dot.on::before { background: #fff; transform: scaleX(1); }
-  .sp-dot:focus-visible { outline-offset: -2px; }
+  .sp-thumb .img { position: absolute; inset: 0; }
+  .sp-thumb::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 2px transparent; pointer-events: none; transition: box-shadow 0.2s ease; }
+  .sp-thumb:hover { opacity: 0.92; }
+  .sp-thumb.on { opacity: 1; transform: translateY(-6px) scale(1.06); }
+  .sp-thumb.on::after { box-shadow: inset 0 0 0 2px #fff; }
+  .sp-thumb:focus-visible { outline-offset: 3px; }
+  .sp-prog { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; height: 3px; background: #fff; transform-origin: left center; animation: sp-fill 8s linear both; }
+  @keyframes sp-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .spotlight.paused .sp-prog { animation-play-state: paused; }
 
-  /* Rows: edge to edge, the first card lines up with the content column; arrows are side panels over the art */
-  .together-card { margin: 20px var(--edge) 0; max-width: 560px; }
-  .has-hero .together-card { position: relative; z-index: 1; }
-  .together-row { background: var(--glass); }
+  /* Notices strip under the hero: Together and Arrived cards side by side, compact, in line with the page edge */
+  .home-strip { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: stretch; gap: 16px; padding: 0 var(--edge); }
+  .home-strip:empty { display: none; }
+  .home-strip .arrived, .home-strip .together-card { display: contents; }
+  .home-strip .arrived-card, .home-strip .together-row { width: clamp(320px, 22vw, 420px); min-height: 84px; box-sizing: border-box; }
+  .home-strip .arrived-more { align-self: center; }
+  .together-row { background: var(--glass); border: 1px solid var(--hairline); border-radius: 14px; padding: 8px 12px 8px 16px; }
   .pc-desk .pc-together { margin-left: auto; min-height: 40px; padding: 0 16px; font-size: 14px; }
-  .row { margin: 28px 0 36px; }
+
+  /* Rows: the first card lines up with --edge, the scroll area bleeds to the window edge; arrows are full-height edge panels */
+  .home .row { margin: 0 0 clamp(28px, 2.6vw, 48px); }
+  .home-strip + .row, .has-hero .spotlight + .row { margin-top: 8px; }
+  .home-strip { margin-bottom: clamp(20px, 2vw, 36px); }
   .has-hero .row { position: relative; z-index: 1; }
-  .row h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; padding: 0 var(--edge); margin-bottom: 14px; }
-  /* Vertical padding leaves room for the hover scale and the focus outline; the negative margin keeps the spacing. */
-  .row-scroll { gap: 16px; padding: 12px var(--edge); scroll-padding-inline: var(--edge); margin: -12px 0; }
+  .row { margin: 28px 0 36px; }
+  .row h2 { font-size: clamp(22px, 1.35vw, 26px); font-weight: 700; letter-spacing: -0.015em; padding: 0 var(--edge); margin-bottom: 10px; }
+  /* Vertical padding leaves room for the hover lift and the focus outline; the negative margin keeps the spacing. */
+  .row-scroll { gap: clamp(14px, 1vw, 22px); padding: 14px var(--edge); scroll-padding-inline: var(--edge); margin: -14px 0; }
   .row-wrap { position: relative; }
-  .card-poster { width: 176px; }
-  .card-thumb { width: 304px; }
-  .card-title { margin-top: 10px; font-size: 14px; font-weight: 600; }
-  .card-sub { margin-top: 1px; font-size: 13px; }
-  .card-art { border-radius: 8px; transition: transform 0.18s ease; }
-  .card:hover .card-art { transform: scale(1.05); }
+  .card-poster { width: var(--poster-w); }
+  .card-thumb { width: var(--thumb-w); }
+  .card-title { margin-top: 12px; font-size: clamp(14px, 0.9vw, 16px); font-weight: 600; color: rgba(255, 255, 255, 0.86); transition: color 0.18s ease; }
+  .card-sub { margin-top: 2px; font-size: clamp(13px, 0.8vw, 14px); }
+  .card:hover .card-title, .card-cell:focus-within .card-title { color: #fff; }
+  .card-art { border-radius: 10px; transition: transform 0.2s ease; }
+  .card:hover .card-art { transform: translateY(-4px) scale(1.03); }
   /* The hover ring is on a pseudo element of the art (opacity only) */
   .card-art::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); opacity: 0; transition: opacity 0.18s ease; pointer-events: none; }
   .card:hover .card-art::after { opacity: 1; }
   .row-arrow {
-    position: absolute; z-index: 2; top: 12px; width: 64px; display: flex; align-items: center; justify-content: center; color: var(--fg);
+    position: absolute; z-index: 2; top: 14px; width: clamp(48px, 3.6vw, 88px); display: flex; align-items: center; justify-content: center; color: var(--fg);
     opacity: 0; transition: opacity 0.18s ease;
   }
   .row-arrow .icon { transition: transform 0.18s ease; }
-  .row-wrap:hover .row-arrow, .row-arrow:focus-visible { opacity: 0.9; }
-  .row-wrap .row-arrow:hover { opacity: 1; }
+  .row-wrap:hover .row-arrow, .row-arrow:focus-visible { opacity: 1; }
   .row-arrow:hover .icon { transform: scale(1.25); }
-  .row-arrow.prev { left: 0; background: linear-gradient(to right, rgba(11, 11, 16, 0.95), rgba(11, 11, 16, 0)); }
-  .row-arrow.next { right: 0; background: linear-gradient(to left, rgba(11, 11, 16, 0.95), rgba(11, 11, 16, 0)); }
+  .row-arrow.prev { left: 0; background: linear-gradient(to right, rgba(11, 11, 16, 0.96) 0%, rgba(11, 11, 16, 0.75) 45%, rgba(11, 11, 16, 0)); }
+  .row-arrow.next { right: 0; background: linear-gradient(to left, rgba(11, 11, 16, 0.96) 0%, rgba(11, 11, 16, 0.75) 45%, rgba(11, 11, 16, 0)); }
   .row-arrow.next .icon { transform: rotate(180deg); }
   .row-arrow.next:hover .icon { transform: rotate(180deg) scale(1.25); }
-  .row-poster .row-arrow { height: 264px; }
-  .row-thumb .row-arrow { height: 171px; }
-  .progress { height: 3px; background: rgba(0, 0, 0, 0.6); }
+  .row-poster .row-arrow { height: calc(var(--poster-w) * 1.5); }
+  .row-thumb .row-arrow { height: calc(var(--thumb-w) * 9 / 16); }
+  .progress { height: 5px; background: rgba(0, 0, 0, 0.6); }
+  .progress i { border-radius: 0 3px 3px 0; }
 
   /* Grid (Library, Search) */
   .grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 28px 18px; padding-top: 20px; }
@@ -1001,7 +1068,7 @@ button.rs-row:active { background: var(--surface-2); }
   .details-hero-body .eyebrow { color: rgba(255, 255, 255, 0.72); font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
   .details-hero-body .eyebrow-link { padding: 0 0 6px; }
   .details-hero-body .eyebrow-link:hover { color: #fff; }
-  .details-content { max-width: 1600px; margin: 0 auto; }
+  .details-content { max-width: none; margin: 0 auto; }
   .details h1 { font-size: clamp(36px, 4vw, 56px); font-weight: 800; letter-spacing: -0.025em; line-height: 1.06; text-shadow: 0 2px 24px rgba(0, 0, 0, 0.4); }
   .meta { font-size: 16px; margin-top: 12px; }
   .meta-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-weight: 600; color: rgba(255, 255, 255, 0.82); white-space: normal; }
@@ -1047,7 +1114,7 @@ button.rs-row:active { background: var(--surface-2); }
   /* Dropdown under the top bar for the TV and Account sheets, right-aligned with the bar's content */
   .sheet-backdrop.menu { background: transparent; padding: 0; display: block; animation: none; }
   .sheet.menu {
-    position: fixed; top: calc(var(--desk-top) + 8px); right: max(var(--gutter), calc((100vw - 1600px) / 2 + var(--gutter)));
+    position: fixed; top: calc(var(--desk-top) + 8px); right: var(--edge);
     width: 340px; max-width: calc(100vw - 24px); padding: 20px; border-radius: 14px;
     transform-origin: top right; animation: menu-in 140ms ease-out both;
   }
@@ -1063,7 +1130,9 @@ button.rs-row:active { background: var(--surface-2); }
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
   .sheet-backdrop, .sheet, .volume-backdrop.out .volume-sheet { animation-duration: 1ms; }
   .sp-content { animation: none; }
-  .sp-slide, .sp-dot::before, .topbar::before, .topbar::after, .topbar-tabs button::after, .row-arrow, .row-arrow .icon, .card-art::after { transition-duration: 1ms; }
+  .sp-slide.on .sp-img { animation: none; transform: none; }
+  .sp-prog { animation: none; display: none; }
+  .sp-slide, .sp-thumb, .sp-thumb::after, .topbar::before, .topbar::after, .topbar-tabs button::after, .row-arrow, .row-arrow .icon, .card-art::after, .card-title { transition-duration: 1ms; }
 }
 
 /* Desktop polish: sign-in card over a poster wall, loading skeletons, grouped search, request cards, blurred poster hero. */
@@ -1113,13 +1182,13 @@ button.rs-row:active { background: var(--surface-2); }
   .signin-link:hover { color: var(--fg); }
 
   /* Loading skeletons: the base shapes and shimmer are global (phone too); these are the desktop sizes. */
-  .skel-heading { width: 220px; height: 24px; margin: 0 0 18px var(--edge); }
+  .skel-heading { width: 240px; height: 26px; margin: 0 0 14px var(--edge); }
   .row-skel .row-scroll { overflow: hidden; }
   .skel-card { flex: none; min-width: 0; }
-  .skel-card-poster { width: 176px; }
-  .skel-card-thumb { width: 304px; }
+  .skel-card-poster { width: var(--poster-w); }
+  .skel-card-thumb { width: var(--thumb-w); }
   .grid .skel-card { width: auto; }
-  .skel-art { border-radius: 8px; }
+  .skel-art { border-radius: 10px; }
   .skel-poster { aspect-ratio: 2 / 3; }
   .skel-thumb { aspect-ratio: 16 / 9; }
   .skel-line { width: 100%; height: 12px; margin-top: 12px; }
@@ -1130,13 +1199,13 @@ button.rs-row:active { background: var(--surface-2); }
   .spotlight.loading .skel { background: rgba(255, 255, 255, 0.08); }
   .spotlight.loading .sp-content { animation: none; display: flex; flex-direction: column; align-items: flex-start; }
   .skel-eyebrow { width: 110px; height: 12px; }
-  .skel-title { width: min(480px, 70%); height: clamp(40px, 4vw, 56px); margin-top: 14px; border-radius: 8px; }
+  .skel-title { width: min(520px, 70%); height: clamp(48px, 4.6vw, 88px); margin-top: 14px; border-radius: 8px; }
   .skel-row { display: flex; gap: 12px; margin-top: 18px; }
   .skel-chip { width: 52px; height: 16px; }
   .skel-chip.wide { width: 84px; }
   .spotlight.loading .skel-line, .details-skel .skel-line { width: min(560px, 100%); height: 14px; margin-top: 14px; }
   .skel-buttons { margin-top: 28px; }
-  .skel-button { width: 130px; height: 48px; border-radius: 8px; }
+  .skel-button { width: 140px; height: 56px; border-radius: 10px; }
   .skel-button.primary { background: rgba(255, 255, 255, 0.16); }
   .details-skel .skel { background: rgba(255, 255, 255, 0.08); }
   .details-skel .skel-line.mid { width: min(380px, 70%); }
@@ -1206,14 +1275,14 @@ button.rs-row:active { background: var(--surface-2); }
   .grid .card-cell > .card { width: 100%; }
   /* Deep shadow under the hovered art: a pseudo element sized like the art, so only opacity animates */
   .card-cell::before {
-    content: ''; position: absolute; z-index: -1; top: 0; left: 0; right: 0; border-radius: 8px; opacity: 0; transform: scale(1.05);
+    content: ''; position: absolute; z-index: -1; top: 0; left: 0; right: 0; border-radius: 10px; opacity: 0; transform: translateY(-4px) scale(1.03);
     box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 4px 10px rgba(0, 0, 0, 0.4); transition: opacity 0.18s ease; pointer-events: none;
   }
   .card-cell-poster::before { aspect-ratio: 2 / 3; }
   .card-cell-thumb::before { aspect-ratio: 16 / 9; }
   .card-cell:hover::before, .card-cell:focus-within::before { opacity: 1; }
   .card-shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.15)); opacity: 0; transition: opacity 0.18s ease; pointer-events: none; }
-  .card-cell:hover .card-art, .card-cell:focus-within .card-art { transform: scale(1.05); }
+  .card-cell:hover .card-art, .card-cell:focus-within .card-art { transform: translateY(-4px) scale(1.03); }
   .card-cell:hover .card-shade, .card-cell:focus-within .card-shade { opacity: 1; }
   .card-play-zone { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
   .card-cell-poster .card-play-zone { aspect-ratio: 2 / 3; }
@@ -1223,8 +1292,8 @@ button.rs-row:active { background: var(--surface-2); }
     background: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
     opacity: 0; transform: scale(0.8); transition: opacity 0.18s ease, transform 0.18s ease;
   }
-  .card-cell-poster .card-play { width: 48px; height: 48px; }
-  .card-cell-thumb .card-play { width: 54px; height: 54px; }
+  .card-cell-poster .card-play { width: 52px; height: 52px; }
+  .card-cell-thumb .card-play { width: 58px; height: 58px; }
   .card-play .icon { margin-left: 2px; }
   .card-cell:hover .card-play, .card-cell:focus-within .card-play, .card-play:focus-visible { opacity: 1; transform: scale(1); }
   .card-play:hover { transform: scale(1.1); }
@@ -1460,6 +1529,14 @@ button.rs-row:active { background: var(--surface-2); }
     -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
   }
 
+  /* Details: quick-action tiles and the From start button */
+  html.ios-glass .tile-circle,
+  html.ios-glass .restart-btn {
+    background: var(--glass-fill); border: var(--glass-edge); box-shadow: var(--glass-highlight);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  }
+  html.ios-glass .action-tile.on .tile-circle { background: var(--fg); color: #111; }
+
   /* Details: back button */
   html.ios-glass .back {
     background: var(--glass-fill); border: var(--glass-edge); box-shadow: var(--glass-highlight), var(--glass-shadow);
@@ -1589,7 +1666,7 @@ button.rs-row:active { background: var(--surface-2); }
 .arrived-more { color: var(--muted); font-size: 13px; padding: 0 4px; }
 @media (hover: hover) { .arrived-close:hover { color: var(--fg); } }
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  .arrived { position: relative; z-index: 1; max-width: 640px; padding-top: 20px; }
-  .arrived-card { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--hairline); border-left: 3px solid var(--ok); border-radius: 14px; }
-  .arrived .req-poster { width: 48px; height: 72px; border-radius: 6px; }
+  .arrived { position: relative; z-index: 1; padding-top: 20px; }
+  .arrived-card { background: var(--glass); border: 1px solid var(--hairline); border-left: 3px solid var(--ok); border-radius: 14px; }
+  .arrived .req-poster { width: 44px; height: 66px; border-radius: 6px; }
 }
