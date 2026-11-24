@@ -2,13 +2,13 @@
  * Picture-in-picture for the shared player element, behind one small API.
  *
  * Two browser APIs exist: the standard one (Chrome, Edge, Android, Safari 13.1+) and the older WebKit presentation
- * mode (iPhone Safari and the home-screen app, older Safari). The standard API wins where both are present.
+ * mode (iPhone Safari and the home-screen app, older Safari). WebKit's wins where it exists (it must run synchronously in the tap); the standard API covers the rest.
  * Nothing here throws: a browser without PiP just reports `pipSupported` false.
  */
 
 const WEBKIT_PIP = 'picture-in-picture';
-/** The WebKit mode switch is asynchronous; stop waiting for its event after this long (ms). */
-const WEBKIT_WAIT_MS = 1500;
+/** iOS animates into PiP and may report late; stop waiting for the event after this long (ms). */
+const PIP_WAIT_MS = 3000;
 
 /** The standard API as far as we use it (kept loose: lib typings differ between TypeScript versions). */
 interface StdVideo {
@@ -74,36 +74,83 @@ function waitWebkitChange(el: HTMLVideoElement): Promise<void> {
       el.removeEventListener('webkitpresentationmodechanged', done);
       resolve();
     };
-    const timer = window.setTimeout(done, WEBKIT_WAIT_MS);
+    const timer = window.setTimeout(done, PIP_WAIT_MS);
     el.addEventListener('webkitpresentationmodechanged', done);
   });
 }
 
-/** Switches to WebKit's picture-in-picture mode; the switch call itself must still be inside the user's tap. */
-async function enterWebkit(el: HTMLVideoElement): Promise<void> {
-  const changed = waitWebkitChange(el);
-  webkit(el).webkitSetPresentationMode!(WEBKIT_PIP);
-  await changed;
+/** Outcome of `enterPip`. `reason` is a short diagnostic code the UI may show. */
+export type PipResult = { ok: true } | { ok: false; reason: string };
+/** Reason for "no error, but not floating (yet)": iOS animates in and may report late, so the UI must not complain. */
+export const PIP_PENDING = 'pending';
+
+/**
+ * Waits until the element floats: resolves true on `enterpictureinpicture` / `webkitpresentationmodechanged` once
+ * `isInPip` agrees, or false after the timeout. Listeners must be attached BEFORE the switch call (events can be sync).
+ */
+function waitForPip(el: HTMLVideoElement): { promise: Promise<boolean>; cancel: () => void } {
+  let cancel = () => undefined as void;
+  const promise = new Promise<boolean>((resolve) => {
+    const events = ['enterpictureinpicture', 'webkitpresentationmodechanged'];
+    const finish = (v: boolean) => {
+      window.clearTimeout(timer);
+      for (const e of events) el.removeEventListener(e, onEvent);
+      resolve(v);
+    };
+    // iOS fires one of the two events (sometimes without updating the property we check first); re-check on each.
+    const onEvent = () => {
+      if (isInPip(el)) finish(true);
+    };
+    const timer = window.setTimeout(() => finish(isInPip(el)), PIP_WAIT_MS);
+    for (const e of events) el.addEventListener(e, onEvent);
+    cancel = () => finish(false);
+  });
+  return { promise, cancel };
 }
 
-/** Floats the element. Needs a user gesture in most browsers. Resolves once it floats (or failed); never rejects. */
-export async function enterPip(el: HTMLVideoElement): Promise<void> {
+/**
+ * Floats the element. Needs a user gesture. Never rejects.
+ *
+ * WebKit's presentation mode goes FIRST and is called synchronously (nothing awaited before it): iOS only honours it
+ * inside the tap, and chaining it after a rejected standard request lost the gesture. The standard API is used only
+ * where WebKit has no PiP mode (Chrome, Edge, Firefox, Android).
+ */
+export async function enterPip(el: HTMLVideoElement): Promise<PipResult> {
   try {
-    if (isInPip(el)) return;
+    if (isInPip(el)) return { ok: true };
+    if (webkitSupported(el)) {
+      const waiter = waitForPip(el);
+      try {
+        webkit(el).webkitSetPresentationMode!(WEBKIT_PIP);
+      } catch (e) {
+        waiter.cancel();
+        return { ok: false, reason: 'webkit-threw:' + errName(e) };
+      }
+      if (await waiter.promise || isInPip(el)) return { ok: true };
+      // Still 'inline' after the long wait: refused. Anything else (unknown property) may just be late.
+      return { ok: false, reason: webkit(el).webkitPresentationMode === 'inline' ? 'webkit-unchanged' : PIP_PENDING };
+    }
     if (stdSupported(el)) {
       try {
         await std(el).requestPictureInPicture!();
       } catch (e) {
-        // iPhone Safari may expose the standard API yet refuse it; the older WebKit mode is the one that is proven there.
-        if (!webkitSupported(el)) throw e;
-        await enterWebkit(el);
+        return { ok: false, reason: 'std-rejected:' + errName(e) };
       }
-    } else if (webkitSupported(el)) {
-      await enterWebkit(el);
+      return isInPip(el) ? { ok: true } : { ok: false, reason: PIP_PENDING };
     }
-  } catch {
-    // Refused (no gesture, nothing loaded yet, policy): the player just stays as it is.
+    const d = doc();
+    if (d && d.pictureInPictureEnabled === true && typeof std(el).requestPictureInPicture === 'function' && !std(el).disablePictureInPicture) {
+      return { ok: false, reason: 'no-metadata' };
+    }
+    return { ok: false, reason: 'unsupported' };
+  } catch (e) {
+    return { ok: false, reason: 'error:' + errName(e) };
   }
+}
+
+function errName(e: unknown): string {
+  const n = e && typeof e === 'object' ? (e as { name?: unknown }).name : undefined;
+  return typeof n === 'string' && n ? n : 'unknown';
 }
 
 /** Brings the element back from floating. Never rejects. */
@@ -123,8 +170,9 @@ export async function exitPip(el: HTMLVideoElement): Promise<void> {
 }
 
 /** Enters PiP, or leaves it when already floating. */
-export function togglePip(el: HTMLVideoElement): Promise<void> {
-  return isInPip(el) ? exitPip(el) : enterPip(el);
+export async function togglePip(el: HTMLVideoElement): Promise<void> {
+  if (isInPip(el)) await exitPip(el);
+  else await enterPip(el);
 }
 
 /** Calls `cb` with the new state whenever the element enters or leaves PiP. Returns the unsubscribe function. */
