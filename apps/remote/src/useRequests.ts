@@ -14,6 +14,8 @@ export interface RequestsState {
   arrivals: TitleRequest[];
   /** Marks an arrival as seen (stored per user on this device) and removes it from `arrivals`. */
   dismissArrival(id: string): void;
+  /** Every request from the last successful load (empty before the first one); a failed call keeps the last known list. */
+  list: TitleRequest[];
   /** Reads the badge and the arrivals again (after the list changed). */
   refresh(): Promise<void>;
 }
@@ -26,10 +28,12 @@ export function useRequests(session: Session): RequestsState {
   );
   const [info, setInfo] = useState({ isAdmin: false, badge: 0 });
   const [arrivals, setArrivals] = useState<TitleRequest[]>([]);
+  const [list, setList] = useState<TitleRequest[]>([]);
   const refresh = useCallback(async () => {
     const result = await api.list();
     // A missing relay or a failed call keeps the last known count.
     if (result.ok) setInfo({ isAdmin: result.value.isAdmin, badge: result.value.isAdmin ? result.value.openCount : 0 });
+    if (result.ok) setList(result.value.requests);
     if (result.ok) setArrivals(arrivedRequests(result.value.requests, session.userId, new Set(loadSeenRequests(session.userId)), Date.now()));
   }, [api, session.userId]);
   const dismissArrival = useCallback(
@@ -47,5 +51,5 @@ export function useRequests(session: Session): RequestsState {
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [refresh]);
-  return { api, isAdmin: info.isAdmin, badge: info.badge, arrivals, dismissArrival, refresh };
+  return { api, isAdmin: info.isAdmin, badge: info.badge, arrivals, list, dismissArrival, refresh };
 }

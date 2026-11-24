@@ -8,7 +8,7 @@ import { SuggestionList, suggestionKey } from '../components/SuggestionList';
 import { useApp } from '../context';
 import type { BaseItem } from '../jellyfin/types';
 import { describeRequestsError, type Suggestion } from '../requests';
-import { isRequested, notInLibrary, ownOpenRequest } from '../searchRequests';
+import { hasAnyRequest, notInLibrary, ownOpenRequest, requestState } from '../searchRequests';
 import { addRecentSearch, groupSearchResults } from '../searchGroups';
 import { loadRecentSearches, saveRecentSearches } from '../storage';
 import { useDesktop } from '../useDesktop';
@@ -53,10 +53,10 @@ export function Search() {
     async () => (term.length >= 2 ? await requests.api.lookup(term, 'any') : null),
     [requests.api, term],
   );
-  const mine = useAsync(async () => {
-    const result = await requests.api.list();
-    return result.ok ? result.value.requests : [];
-  }, [requests.api]);
+  // Fresh request statuses for every new search (the admin may have answered since).
+  useEffect(() => {
+    if (term.length >= 2) void requests.refresh();
+  }, [term, requests.refresh]);
   // Requests made here, by suggestion key, so they can be withdrawn before the list reloads.
   const [sent, setSent] = useState<Record<string, string>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -80,7 +80,7 @@ export function Search() {
   const groups = desktop && results.data ? groupSearchResults(results.data) : null;
   const [requesting, setRequesting] = useState(false);
   const pageRef = useRef<HTMLDivElement>(null);
-  const pull = usePullToRefresh(pageRef, () => Promise.all([results.reload(), lookup.reload(), mine.reload()]).then(() => undefined));
+  const pull = usePullToRefresh(pageRef, () => Promise.all([results.reload(), lookup.reload(), requests.refresh()]).then(() => undefined));
 
   const settled = !!term && !results.loading && !results.error && !!results.data && !lookup.loading;
   const found = settled && lookup.data && lookup.data.ok ? notInLibrary(lookup.data.value, results.data || []) : [];
@@ -107,13 +107,20 @@ export function Search() {
       toast(describeRequestsError(result.error));
       return;
     }
-    // A duplicate has no id here; the reload of `mine` provides it.
+    // A duplicate has no id here; the refreshed list provides it.
     setSent((map) => ({ ...map, [key]: result.ok ? result.value.id : '' }));
-    void mine.reload();
     void requests.refresh();
   };
-  const requested = (s: Suggestion) => suggestionKey(s) in sent || isRequested(s, mine.data || []);
-  const withdrawId = (s: Suggestion): string | undefined => sent[suggestionKey(s)] || ownOpenRequest(s, mine.data || [], session.userId)?.id;
+  // A request made here whose id the list does not have yet (e.g. re-requested after a dismissal) wins until the refresh returns.
+  const pendingId = (s: Suggestion): string | undefined => {
+    const id = sent[suggestionKey(s)];
+    return id && !requests.list.some((r) => r.id === id) ? id : undefined;
+  };
+  // Otherwise the server's list wins once it has a request for the title; until then the local `sent` map stands in.
+  const stateOf = (s: Suggestion) =>
+    pendingId(s) ? 'requested' : hasAnyRequest(s, requests.list) ? requestState(s, requests.list) : suggestionKey(s) in sent ? 'requested' : 'none';
+  const withdrawId = (s: Suggestion): string | undefined =>
+    pendingId(s) || ownOpenRequest(s, requests.list, session.userId)?.id || (hasAnyRequest(s, requests.list) ? undefined : sent[suggestionKey(s)] || undefined);
   const canWithdraw = (s: Suggestion) => !!withdrawId(s);
   const withdraw = async (s: Suggestion) => {
     const id = withdrawId(s);
@@ -132,7 +139,6 @@ export function Search() {
       delete next[key];
       return next;
     });
-    void mine.reload();
     void requests.refresh();
   };
   const notInLibrarySection = found.length > 0 ? (
@@ -140,7 +146,7 @@ export function Search() {
       <h2>
         Not in the library <span class="search-count">{found.length}</span>
       </h2>
-      <SuggestionList items={found} isRequested={requested} busyKey={busyKey} onRequest={request} canWithdraw={canWithdraw} onWithdraw={withdraw} />
+      <SuggestionList items={found} stateOf={stateOf} busyKey={busyKey} onRequest={request} canWithdraw={canWithdraw} onWithdraw={withdraw} />
     </section>
   ) : null;
   return (
@@ -216,7 +222,7 @@ export function Search() {
           initialTitle={term || text.trim()}
           onClose={() => {
             setRequesting(false);
-            void mine.reload();
+            void requests.refresh();
           }}
         /> : null}
     </div>

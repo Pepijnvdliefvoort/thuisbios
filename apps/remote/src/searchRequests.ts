@@ -31,25 +31,29 @@ export function notInLibrary(suggestions: Suggestion[], library: BaseItem[]): Su
   );
 }
 
+/** Whether a request is for this suggestion: same TMDB id, IMDb id, or title and year. */
+const matches = (suggestion: Suggestion, r: TitleRequest): boolean =>
+  (!!suggestion.tmdbId && r.tmdbId === suggestion.tmdbId) ||
+  (!!suggestion.imdbId && r.imdbId === suggestion.imdbId) ||
+  sameTitleAndYear(suggestion.title, suggestion.year, r.title, r.year);
+
 /** The suggestion's open request that this user made (the one they may withdraw), matched like isRequested. */
 export function ownOpenRequest(suggestion: Suggestion, requests: TitleRequest[], userId: string): TitleRequest | undefined {
-  return requests.find(
-    (r) =>
-      r.status === 'open' &&
-      r.userId === userId &&
-      ((!!suggestion.tmdbId && r.tmdbId === suggestion.tmdbId) ||
-        (!!suggestion.imdbId && r.imdbId === suggestion.imdbId) ||
-        sameTitleAndYear(suggestion.title, suggestion.year, r.title, r.year)),
-  );
+  return requests.find((r) => r.status === 'open' && r.userId === userId && matches(suggestion, r));
 }
 
 /** Whether there is an open request for this suggestion (same TMDB id, IMDb id, or title and year). */
 export function isRequested(suggestion: Suggestion, requests: TitleRequest[]): boolean {
-  return requests.some(
-    (r) =>
-      r.status === 'open' &&
-      ((!!suggestion.tmdbId && r.tmdbId === suggestion.tmdbId) ||
-        (!!suggestion.imdbId && r.imdbId === suggestion.imdbId) ||
-        sameTitleAndYear(suggestion.title, suggestion.year, r.title, r.year)),
-  );
+  return requests.some((r) => r.status === 'open' && matches(suggestion, r));
+}
+
+/** Whether any request, whatever its status, matches this suggestion. */
+export function hasAnyRequest(suggestion: Suggestion, requests: TitleRequest[]): boolean {
+  return requests.some((r) => matches(suggestion, r));
+}
+
+/** 'requested' for an open request, else 'added' when one arrived in the library, else 'none' (also when only dismissed). */
+export function requestState(suggestion: Suggestion, requests: TitleRequest[]): 'requested' | 'added' | 'none' {
+  if (isRequested(suggestion, requests)) return 'requested';
+  return requests.some((r) => r.status === 'added' && matches(suggestion, r)) ? 'added' : 'none';
 }
