@@ -446,6 +446,7 @@ function queryItems(q) {
     const key = { 'PremiereDate,ProductionYear,SortName': 'ProductionYear', 'CommunityRating,SortName': 'CommunityRating', 'Runtime,SortName': 'RunTimeTicks', 'DateCreated,SortName': 'created' }[sort];
     if (key) list.sort((a, b) => (desc ? -1 : 1) * ((a[key] ?? 0) - (b[key] ?? 0)));
   }
+  if ((q.get('Filters') || '').includes('IsPlayed')) list = list.filter((i) => userData(i).Played);
   if ((q.get('Filters') || '').includes('IsUnplayed')) list = list.filter((i) => !userData(i).Played);
   const personIds = (q.get('PersonIds') || '').split(',').filter(Boolean);
   if (personIds.length) list = list.filter((i) => (i.people || []).some((p) => personIds.includes(p.Id)));
