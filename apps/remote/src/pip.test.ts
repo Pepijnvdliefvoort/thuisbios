@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { enableAutoPip, enterPip, enterPipWhenHidden, exitPip, isInPip, onPipChange, pipSupported, togglePip } from './pip';
+import { enableAutoPip, enterPip, enterPipWhenHidden, exitPip, isInPip, onPipChange, pipSupported, resetPipSupportMemory, togglePip } from './pip';
 
 type Loose = Record<string, unknown>;
 // jsdom's readyState is a read-only 0; the tests mean a video with its metadata loaded unless they say otherwise.
@@ -12,6 +12,7 @@ const video = (extra: Loose = {}): HTMLVideoElement => {
 const setDoc = (props: Loose) => Object.assign(document, props);
 
 afterEach(() => {
+  resetPipSupportMemory();
   for (const k of ['pictureInPictureEnabled', 'pictureInPictureElement', 'exitPictureInPicture']) delete (document as unknown as Loose)[k];
 });
 
@@ -41,6 +42,40 @@ describe('pipSupported', () => {
   it('does not throw when the WebKit check throws', () => {
     const el = video({ webkitSupportsPresentationMode: () => { throw new Error('x'); }, webkitSetPresentationMode: vi.fn() });
     expect(pipSupported(el)).toBe(false);
+  });
+});
+
+describe('pipSupported where PiP cannot work', () => {
+  it('is false when WebKit says no with metadata loaded, even if the standard API looks available', () => {
+    setDoc({ pictureInPictureEnabled: true });
+    const el = video({ requestPictureInPicture: vi.fn(), webkitSupportsPresentationMode: () => false, webkitSetPresentationMode: vi.fn() });
+    expect(pipSupported(el)).toBe(false);
+  });
+  it('is unchanged when WebKit says no before metadata', () => {
+    setDoc({ pictureInPictureEnabled: true });
+    const el = video({ requestPictureInPicture: vi.fn(), webkitSupportsPresentationMode: () => false, webkitSetPresentationMode: vi.fn(), readyState: 0 });
+    expect(pipSupported(el)).toBe(false); // standard API also needs metadata
+    const plain = video({ requestPictureInPicture: vi.fn(), readyState: 0 });
+    expect(pipSupported(plain)).toBe(pipSupported(el));
+  });
+  it('is unchanged for a Chrome-like element without WebKit methods', () => {
+    setDoc({ pictureInPictureEnabled: true });
+    expect(pipSupported(video({ requestPictureInPicture: vi.fn() }))).toBe(true);
+  });
+  it('is false after the standard API rejected with NotSupportedError', async () => {
+    setDoc({ pictureInPictureEnabled: true });
+    const el = video({ requestPictureInPicture: vi.fn().mockRejectedValue(Object.assign(new Error('x'), { name: 'NotSupportedError' })) });
+    expect(pipSupported(el)).toBe(true);
+    expect(await enterPip(el)).toEqual({ ok: false, reason: 'std-rejected:NotSupportedError' });
+    expect(pipSupported(el)).toBe(false);
+    resetPipSupportMemory();
+    expect(pipSupported(el)).toBe(true);
+  });
+  it('does not remember other rejections', async () => {
+    setDoc({ pictureInPictureEnabled: true });
+    const el = video({ requestPictureInPicture: vi.fn().mockRejectedValue(Object.assign(new Error('x'), { name: 'NotAllowedError' })) });
+    await enterPip(el);
+    expect(pipSupported(el)).toBe(true);
   });
 });
 

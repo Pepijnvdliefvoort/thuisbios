@@ -50,8 +50,28 @@ function webkitSupported(el: HTMLVideoElement): boolean {
   }
 }
 
+/** Set once the standard API answered NotSupportedError (e.g. an iOS home-screen app): PiP cannot work here. */
+let stdNotSupported = false;
+
+/** Test-only: forgets a remembered NotSupportedError. */
+export function resetPipSupportMemory(): void {
+  stdNotSupported = false;
+}
+
+/** WebKit browser that has a stream loaded but says it cannot do PiP (the iOS home-screen app): the standard API then cannot either. */
+function webkitRefuses(el: HTMLVideoElement): boolean {
+  try {
+    const w = webkit(el);
+    if (typeof w.webkitSupportsPresentationMode !== 'function') return false;
+    return typeof el.readyState === 'number' && el.readyState >= HAVE_METADATA && w.webkitSupportsPresentationMode(WEBKIT_PIP) !== true;
+  } catch {
+    return false;
+  }
+}
+
 /** Whether this browser can float the element. */
 export function pipSupported(el: HTMLVideoElement): boolean {
+  if (stdNotSupported || webkitRefuses(el)) return false;
   return stdSupported(el) || webkitSupported(el);
 }
 
@@ -83,6 +103,9 @@ function waitWebkitChange(el: HTMLVideoElement): Promise<void> {
 export type PipResult = { ok: true } | { ok: false; reason: string };
 /** Reason for "no error, but not floating (yet)": iOS animates in and may report late, so the UI must not complain. */
 export const PIP_PENDING = 'pending';
+
+/** Reason code when the standard API says NotSupportedError (remembered: `pipSupported` is false afterwards). */
+export const PIP_NOT_SUPPORTED = 'std-rejected:NotSupportedError';
 
 /**
  * Waits until the element floats: resolves true on `enterpictureinpicture` / `webkitpresentationmodechanged` once
@@ -134,6 +157,7 @@ export async function enterPip(el: HTMLVideoElement): Promise<PipResult> {
       try {
         await std(el).requestPictureInPicture!();
       } catch (e) {
+        if (errName(e) === 'NotSupportedError') stdNotSupported = true;
         return { ok: false, reason: 'std-rejected:' + errName(e) };
       }
       return isInPip(el) ? { ok: true } : { ok: false, reason: PIP_PENDING };

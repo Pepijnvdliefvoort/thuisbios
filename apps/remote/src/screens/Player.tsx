@@ -10,7 +10,7 @@ import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscree
 import { artUrl } from '../jellyfin/art';
 import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
 import { useMediaSession } from '../mediaSession';
-import { enterPip, enterPipWhenHidden, exitPip, isInPip, onPipChange, PIP_PENDING, pipSupported } from '../pip';
+import { enterPip, enterPipWhenHidden, exitPip, isInPip, onPipChange, PIP_NOT_SUPPORTED, PIP_PENDING, pipSupported } from '../pip';
 import { getPlayerVideo, releasePlayerVideo } from '../playerVideo';
 import { playerKeyAction, stepVolume } from '../playerKeys';
 import { tapSide, type TapSide } from '../tapSide';
@@ -534,6 +534,7 @@ export function Player({
     }
   };
   // Picture in picture: float the video and, from the player screen, land in the app with it still playing.
+  const [, setPipSupportTick] = useState(0);
   const pipOk = pipSupported(getPlayerVideo());
   // Set while a PiP request from the button may still complete: iOS can enter PiP after enterPip gave up waiting.
   const pipAsked = useRef(false);
@@ -565,6 +566,14 @@ export function Player({
     pipAskTimer.current = window.setTimeout(() => (pipAsked.current = false), 10000);
     // No toast for a mere timeout: iOS may still be animating in.
     if (result.reason !== PIP_PENDING) {
+      if (result.reason === PIP_NOT_SUPPORTED) {
+        // Remembered by pip.ts: re-render so the button disappears.
+        setPipSupportTick((n) => n + 1);
+        if ((navigator as unknown as { standalone?: boolean }).standalone === true) {
+          toast("Picture in picture doesn't work in the home-screen app. Open Thuisbios in Safari to use it.");
+          return;
+        }
+      }
       // The browser refused (no stream yet, policy): say so, with a short code, instead of looking like a dead button.
       toast(`Picture in picture isn't available right now (${result.reason})`);
     }
