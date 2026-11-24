@@ -369,7 +369,7 @@ export class DownloadEngine {
 
   /** Asks the server for a forced transcode of the item (no direct play, no burned-in subtitles). */
   private async requestInfo(id: string, preset: QualityPreset, audio: number | null): Promise<{ source: MediaSource; playSessionId?: string }> {
-    const profile = buildPhoneProfile(this.d.canPlay, preset.bitrate, { height: preset.maxHeight, width: preset.maxWidth });
+    const profile = buildPhoneProfile(this.d.canPlay, preset.bitrate, { height: preset.maxHeight, width: preset.maxWidth }, { safe: true });
     const info = await this.d.client.playbackInfo(this.d.session.userId, id, profile, {
       directPlay: false,
       directStream: false,

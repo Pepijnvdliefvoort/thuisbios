@@ -7,15 +7,15 @@ export const UNMEASURED_BITRATE = 20_000_000;
 /** Lowest stream we ask for, even on a link that is barely alive. */
 export const MIN_BITRATE = 1_500_000;
 
-const FIRST_BYTES = 1_000_000;
-const MAX_BYTES = 16_000_000;
+const FIRST_BYTES = 500_000;
+const MAX_BYTES = 8_000_000;
 const MAX_DOWNLOADS = 3;
 /** A download whose body took less than this was too short to time well, so a bigger one follows. */
 const FAST_MS = 1000;
 /** How long the next download should take at the speed just measured. */
 const TARGET_MS = 1500;
-const TIMEOUT_MS = 6000;
-const CACHE_MS = 10 * 60 * 1000;
+const TIMEOUT_MS = 4000;
+const CACHE_MS = 60 * 60 * 1000;
 /** Leave room for the link wobbling and for the audio and the HLS overhead. */
 const HEADROOM = 0.7;
 
@@ -34,13 +34,19 @@ export function resetBitrateCache(): void {
   running.clear();
 }
 
+/** Forgets the measurement of one server (or of every server), e.g. after the network changed. */
+export function forgetBitrate(serverUrl?: string): void {
+  if (serverUrl === undefined) cache.clear();
+  else cache.delete(serverUrl);
+}
+
 /**
  * Measures the download speed to the server in bit/s. Each download is timed from the response headers to the
  * end of the body, so the round trip to a far-away server does not count. A fast link gets bigger downloads
- * (up to 16 MB, three in all) and the fastest one is the result. A timeout gives the best finished download,
+ * (up to 8 MB, three in all) and the fastest one is the result. A timeout gives the best finished download,
  * or 0 when none finished (the link is clearly slow, so the caller ends up at the floor). Any other error
  * (endpoint missing, offline) gives null: not measured.
- * The result is remembered per server for a few minutes, so an audio change or the next episode does not
+ * The result is remembered per server for an hour, so an audio change or the next episode does not
  * measure again, and a measurement that is already running is shared.
  */
 export function measureBitrate(client: JellyfinClient, now: () => number = () => performance.now()): Promise<number | null> {

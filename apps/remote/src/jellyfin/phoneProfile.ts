@@ -43,11 +43,14 @@ export interface DeviceProfile {
  * (for example `video/mp4; codecs="hvc1.1.6.L93.B0"`) and answers whether the browser supports it.
  * `maxStreamingBitrate` is what the connection can carry, so the server picks a transcode that fits.
  * `maxSize` is a picture size cap chosen in the player: anything taller or wider gets scaled down by the server.
+ * `opts.firefox` leaves MKV out (Firefox preloads the whole file). `opts.safe` is the fallback: no MKV direct play
+ * and no fMP4 HLS, the profile of before those were added.
  */
 export function buildPhoneProfile(
   canPlay: (mime: string) => boolean,
   maxStreamingBitrate = 20000000,
   maxSize?: { height: number; width: number },
+  opts: { firefox?: boolean; safe?: boolean } = {},
 ): DeviceProfile {
   const mp4Video = ['h264'];
   if (canPlay('video/mp4; codecs="hvc1.1.6.L93.B0"')) mp4Video.push('hevc');
@@ -64,6 +67,12 @@ export function buildPhoneProfile(
   if (canPlay('video/webm; codecs="vp9"')) {
     directPlay.push({ Type: 'Video', Container: 'webm', VideoCodec: 'vp8,vp9', AudioCodec: 'opus,vorbis' });
   }
+  // MKV: only where the browser says it plays it, and never on Firefox.
+  if (!opts.safe && !opts.firefox && (canPlay('video/x-matroska') || canPlay('video/mkv'))) {
+    directPlay.push({ Type: 'Video', Container: 'mkv', VideoCodec: mp4Video.join(','), AudioCodec: mp4Audio.join(',') });
+  }
+  // Safari plays HEVC in HLS only as fMP4 (not TS), so HEVC passes through there; h264 stays first as the re-encode target.
+  const hevcHls = !opts.safe && mp4Video.includes('hevc') && canPlay('application/vnd.apple.mpegurl');
 
   return {
     Name: 'Thuisbios (phone browser)',
@@ -74,9 +83,9 @@ export function buildPhoneProfile(
     TranscodingProfiles: [
       {
         Type: 'Video',
-        Container: 'ts',
+        Container: hevcHls ? 'mp4' : 'ts',
         Protocol: 'hls',
-        VideoCodec: 'h264',
+        VideoCodec: hevcHls ? 'h264,hevc' : 'h264',
         AudioCodec: 'aac',
         Context: 'Streaming',
         MaxAudioChannels: '2',
@@ -105,4 +114,9 @@ export function buildPhoneProfile(
     ],
     SubtitleProfiles: [],
   };
+}
+
+/** True when a stream built with the new options failed before it ever played: ask again once with the safe profile. */
+export function shouldRetrySafe(state: { safe: boolean; started: boolean; isLocal?: boolean }): boolean {
+  return !state.safe && !state.started && !state.isLocal;
 }

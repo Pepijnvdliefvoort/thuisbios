@@ -72,6 +72,13 @@ describe('selectPlayMethod', () => {
     expect(selectPlayMethod(transcode, params)?.url).toBe('/videos/item1/master.m3u8?VideoCodec=h264&AllowVideoStreamCopy=false');
   });
 
+  it('leaves the video copy to the server only when allowed and no subtitle is burned in', () => {
+    const src: MediaSource = { ...base, TranscodingUrl: '/v/master.m3u8?VideoCodec=h264&AllowVideoStreamCopy=true' };
+    expect(selectPlayMethod(src, { ...params, allowVideoStreamCopy: true })?.url).toBe('/v/master.m3u8?VideoCodec=h264&AllowVideoStreamCopy=true');
+    expect(selectPlayMethod(src, { ...params, allowVideoStreamCopy: false })?.url).toBe('/v/master.m3u8?VideoCodec=h264&AllowVideoStreamCopy=false');
+    expect(selectPlayMethod(src, { ...params, allowVideoStreamCopy: true, subtitleStreamIndex: 4 })?.url).toContain('AllowVideoStreamCopy=false');
+  });
+
   it('returns null when nothing is playable', () => {
     expect(selectPlayMethod(base, params)).toBeNull();
   });

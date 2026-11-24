@@ -59,8 +59,29 @@ export function Details({ id, onBack }: { id: string; onBack: () => void }) {
       </button>
       {item.data && item.data.Type === 'BoxSet' ? <CollectionDetails item={item.data} reloaders={reloaders} /> : null}
       {item.data && item.data.Type !== 'BoxSet' ? <DetailsBody item={item.data} reloaders={reloaders} refresh={refresh} /> : null}
-      {item.loading && !item.data ? desktop ? <DetailsSkeleton /> : <p class="hint pad-top">Loading...</p> : null}
+      {item.loading && !item.data ? desktop ? <DetailsSkeleton /> : <PhoneDetailsSkeleton /> : null}
       {item.error ? <p class="empty pad-top">Couldn't load this item.</p> : null}
+    </div>
+  );
+}
+
+/** Phone placeholder while the item loads: hero image, title, a meta line, buttons and a few text lines. */
+function PhoneDetailsSkeleton() {
+  return (
+    <div class="details-skel-phone" role="status" aria-label="Loading">
+      <Skeleton class="skel-hero" />
+      <div class="skel-body">
+        <Skeleton class="skel-title" />
+        <div class="skel-row">
+          <Skeleton class="skel-chip" />
+          <Skeleton class="skel-chip" />
+          <Skeleton class="skel-chip wide" />
+        </div>
+        <Skeleton class="skel-button primary" />
+        <Skeleton class="skel-line" />
+        <Skeleton class="skel-line mid" />
+        <Skeleton class="skel-line short" />
+      </div>
     </div>
   );
 }

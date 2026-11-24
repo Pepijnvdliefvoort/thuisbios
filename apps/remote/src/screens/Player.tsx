@@ -13,7 +13,7 @@ import { tapSide, type TapSide } from '../tapSide';
 import { getDeviceId, loadAudioLang, saveLocalProgress, loadPlayerVolume, loadSubtitleLang, loadSubtitleOffset, saveAudioLang, savePlayerVolume, saveSubtitleLang } from '../storage';
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { maxBitrateFor, measureBitrate } from '../jellyfin/bitrate';
-import { buildPhoneProfile } from '../jellyfin/phoneProfile';
+import { buildPhoneProfile, shouldRetrySafe } from '../jellyfin/phoneProfile';
 import { playingResolution, qualityOptions, requestFor, sourceLevel, type QualityId } from '../jellyfin/quality';
 import { nextArmedAt, nextEpisodeCard, planNextEpisode, shouldMarkPlayedOnSkip, type NextEpisodePlan } from '../jellyfin/nextEpisode';
 import { mpegTsShift } from '../jellyfin/hlsTimeline';
@@ -77,6 +77,8 @@ interface Loaded {
   audioIndex: number | null;
   /** Where the stream was asked to start (ticks): the resume point, or the spot an audio switch left. */
   startTicks: number;
+  /** The stream was asked with video copy allowed: a text subtitle needs a re-encoded stream instead. */
+  copyAllowed: boolean;
 }
 
 /**
@@ -99,10 +101,13 @@ interface Loaded {
  * SubtitleStreamIndex=-1, or else Jellyfin burns in the item's default track (it only honours the audio and
  * subtitle index together with MediaSourceId, which the client always sends). An image track (PGS, dvdsub) can only be
  * burned in: choosing one restarts the stream like an audio switch, and so does leaving it for a text track or Off.
- * PlaybackInfo also always sends AllowVideoStreamCopy=false: when only the audio needs transcoding Jellyfin would
- * otherwise remux the video into HLS, and those keyframe-cut segments do not line up with the playlist times, so
- * our overlay drifts by seconds. A video re-encode lines them up exactly (the hls.js shift is then 0). Direct play
- * is unaffected.
+ * PlaybackInfo sends AllowVideoStreamCopy=true only while no text subtitle of ours is shown (`copyOk`): then
+ * Jellyfin may remux the video into HLS instead of re-encoding it, which starts much faster. Remuxed segments are cut
+ * at keyframes and do not line up with the playlist times, so our overlay would drift by seconds; with a text
+ * subtitle on the video is re-encoded, which lines them up exactly (the hls.js shift is then 0). The first guess
+ * is "off" only when the user turned subtitles off last time; the first answer corrects it (one extra request,
+ * shared with the other re-asks). Turning a text subtitle on during a remuxed stream restarts it re-encoded.
+ * Direct play is unaffected.
  *
  * Playing a download (`local`): nothing is asked of the server. hls.js plays the saved playlist straight from the
  * Cache API (always hls.js, even where the browser has native HLS), the text subtitles and intro / credits markers come
@@ -192,6 +197,8 @@ export function Player({
   const [burnSel, setBurnSel] = useState<number | null>(null);
   // Never chose a subtitle language: the first request omits SubtitleStreamIndex, so the server reports its own default.
   const [probe, setProbe] = useState(() => loadSubtitleLang() === null);
+  // Video copy (remux) allowed: no text subtitle is shown. Guess from the last choice; the first answer settles it.
+  const [copyOk, setCopyOk] = useState(() => loadSubtitleLang() === '');
   const restartTicks = useRef(startTicks);
   const picked = useRef(false);
   const [qualitySel, setQualitySel] = useState<QualityId>(sessionQuality);
@@ -199,6 +206,8 @@ export function Player({
   const srcLevel = useRef<number | null>(null);
   /** Bumped to ask again once the source is known and the first request was capped for nothing. */
   const [requery, setRequery] = useState(0);
+  /** Set once a stream failed before playing: PlaybackInfo is asked again with the safe profile (no MKV direct play, no fMP4 HLS). */
+  const [safe, setSafe] = useState(false);
   // Last playing position, for reports after the video has been reset.
   const lastTime = useRef(ticksToSeconds(startTicks));
   // Seconds from the video's currentTime to the original file time (hls.js only, see hlsTimeline.ts).
@@ -369,10 +378,14 @@ export function Player({
     setSubSel(index);
     // Only a change of the burned-in track needs a new stream: text tracks and Off are drawn by us.
     const burn = tracks[index] && tracks[index].burnIn ? tracks[index].index : null;
-    if (burn !== burnSel) {
+    const textOn = index >= 0 && !!tracks[index] && !tracks[index].burnIn;
+    // A remuxed stream has keyframe-cut segments that would make our overlay drift: restart it re-encoded.
+    const reencode = textOn && !!loaded && loaded.copyAllowed && loaded.selection.method === 'Transcode';
+    if (burn !== burnSel || reencode) {
       prepareRestart();
       setBurnSel(burn);
     }
+    if (textOn && copyOk) setCopyOk(false);
     // '' remembers "off". A track without a language cannot be matched later, so it is not remembered.
     if (index < 0) saveSubtitleLang('');
     else if (tracks[index] && tracks[index].lang) saveSubtitleLang(tracks[index].lang);
@@ -559,12 +572,14 @@ export function Player({
           (mime) => canPlay.canPlayType(mime) !== '',
           fixed ? fixed.bitrate : maxBitrateFor(bps),
           fixed && fixed.maxHeight && fixed.maxWidth ? { height: fixed.maxHeight, width: fixed.maxWidth } : undefined,
+          { safe, firefox: /firefox/i.test(navigator.userAgent) },
         );
         return client.playbackInfo(session.userId, item.Id, profile, {
           startTicks: restartTicks.current,
           audioStreamIndex: audioSel === null ? undefined : audioSel,
           subtitleStreamIndex: probe ? null : burnSel === null ? undefined : burnSel,
           directPlay: audioSel === null && burnSel === null && !lowered ? undefined : false,
+          allowVideoStreamCopy: copyOk,
         });
       })
       .then((info) => {
@@ -589,9 +604,13 @@ export function Player({
           const sel = pickInitialSubtitle(subs, loadSubtitleLang(), source.DefaultSubtitleStreamIndex);
           setSubSel(sel);
           const burn = sel >= 0 && subs[sel].burnIn ? subs[sel].index : null;
-          if (want !== null || burn !== null || probe) {
+          const copyNow = !(sel >= 0 && !subs[sel].burnIn);
+          // A wrong copy guess only matters when the file cannot direct play (then the server remuxes or transcodes).
+          const copyMatters = copyNow !== copyOk && !source.SupportsDirectPlay;
+          if (want !== null || burn !== null || probe || copyMatters) {
             if (want !== null) setAudioSel(want);
             if (burn !== null) setBurnSel(burn);
+            setCopyOk(copyNow);
             setProbe(false);
             return;
           }
@@ -605,6 +624,7 @@ export function Player({
             playSessionId: info.PlaySessionId,
             audioStreamIndex: audioSel !== null && audioSel !== defaultAudio ? audioSel : undefined,
             subtitleStreamIndex: burnSel === null ? undefined : burnSel,
+            allowVideoStreamCopy: copyOk,
             maxHeight: fixed && fixed.maxHeight ? fixed.maxHeight : undefined,
             maxWidth: fixed && fixed.maxWidth ? fixed.maxWidth : undefined,
           });
@@ -620,6 +640,7 @@ export function Player({
           source,
           audioIndex: chosen,
           startTicks: restartTicks.current,
+          copyAllowed: copyOk && burnSel === null,
         });
       })
       .catch(() => {
@@ -628,7 +649,7 @@ export function Player({
     return () => {
       cancelled = true;
     };
-  }, [client, session, item.Id, audioSel, burnSel, probe, qualitySel, requery, isLocal]);
+  }, [client, session, item.Id, audioSel, burnSel, probe, copyOk, qualitySel, requery, safe, isLocal]);
 
   // A download: everything is on the device, so the stream is the saved playlist and no server is asked.
   useEffect(() => {
@@ -645,6 +666,7 @@ export function Player({
       source: { Id: assets.mediaSourceId },
       audioIndex: null,
       startTicks: restartTicks.current,
+      copyAllowed: false,
     });
   }, [isLocal, assets, item.Id]);
 
@@ -727,10 +749,24 @@ export function Player({
       seekToStart();
       void el.play().catch(() => undefined); // blocked autoplay: stays paused, the big play button starts it
     };
+    // A failure before the first frame is retried once with the safe profile (same start, restartTicks); later ones show the error.
+    let started = false;
+    const onStarted = () => {
+      started = true;
+    };
+    el.addEventListener('playing', onStarted);
+    const fail = () => {
+      if (destroyed) return;
+      if (shouldRetrySafe({ safe, started })) {
+        setBuffering(true);
+        setLoaded(null);
+        setSafe(true);
+      } else setError(true);
+    };
     // Native playback has no other way to report a failure; without this the spinner never ends.
     const onError = () => {
       if (el.error && el.error.code === 1) return; // MEDIA_ERR_ABORTED: we changed the source ourselves
-      setError(true);
+      fail();
     };
     if (loaded.selection.hls && el.canPlayType(HLS_MIME) === '') {
       import('hls.js')
@@ -743,7 +779,7 @@ export function Player({
           const instance = new Hls({ startPosition: startSeconds > 0 ? startSeconds : -1 });
           hls = instance;
           instance.on(Hls.Events.ERROR, (_event, data) => {
-            if (data.fatal) setError(true);
+            if (data.fatal) fail();
           });
           // The first segment fixes the shift. `startPosition` was in video time, so once the shift is known seek to
           // where the resume point really is. Only the first event: the user cannot have seeked before any data.
@@ -772,9 +808,10 @@ export function Player({
       destroyed = true;
       el.removeEventListener('loadedmetadata', onMeta);
       el.removeEventListener('error', onError);
+      el.removeEventListener('playing', onStarted);
       if (hls) hls.destroy();
     };
-  }, [loaded, isLocal]);
+  }, [loaded, isLocal, safe]);
 
   // Progress reporting: start once playing, every 10 s, on pause/play/seek, stopped exactly once.
   useEffect(() => {

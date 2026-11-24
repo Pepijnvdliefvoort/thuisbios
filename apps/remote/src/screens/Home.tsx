@@ -54,14 +54,10 @@ export function Home() {
       <Row title="Recently added shows" items={shows.data || []} shape="poster" />
       <Row title="Movies" items={library.data || []} shape="poster" />
       {!allDone && all.every((r) => !r.data) ? (
-        desktop ? (
-          <>
-            <RowSkeleton shape="thumb" />
-            <RowSkeleton shape="poster" />
-          </>
-        ) : (
-          <p class="hint">Loading...</p>
-        )
+        <>
+          <RowSkeleton shape="thumb" />
+          <RowSkeleton shape="poster" />
+        </>
       ) : null}
       {allEmpty ? (
         <p class="empty">{all.every((r) => r.error) ? "Couldn't load your library. Check the connection." : 'Nothing here yet.'}</p>
