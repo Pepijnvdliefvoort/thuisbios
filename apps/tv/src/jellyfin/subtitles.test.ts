@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  hasOnlyImageSubtitles,
   listSubtitles,
   nextSubtitle,
   pickInitialSubtitle,
@@ -12,7 +11,7 @@ import type { MediaSource } from './types';
 const src = (streams: MediaSource['MediaStreams']): MediaSource => ({ Id: 's', MediaStreams: streams });
 
 describe('listSubtitles', () => {
-  it('keeps text subtitles only and builds labels', () => {
+  it('lists text and image subtitles and builds labels', () => {
     const list = listSubtitles(
       src([
         { Type: 'Video' },
@@ -24,23 +23,16 @@ describe('listSubtitles', () => {
       ]),
     );
     expect(list).toEqual([
-      { index: 2, label: 'English - SRT', lang: 'eng', isDefault: false, isForced: false },
-      { index: 3, label: 'Forced', lang: '', isDefault: false, isForced: true },
-      { index: 4, label: 'nld', lang: 'nld', isDefault: true, isForced: false },
-      { index: 6, label: 'Subtitle 4', lang: '', isDefault: false, isForced: false },
+      { index: 2, label: 'English - SRT', lang: 'eng', isDefault: false, isForced: false, burnIn: false },
+      { index: 3, label: 'Forced', lang: '', isDefault: false, isForced: true, burnIn: false },
+      { index: 4, label: 'nld', lang: 'nld', isDefault: true, isForced: false, burnIn: false },
+      { index: 5, label: 'PGS (burned in)', lang: '', isDefault: false, isForced: false, burnIn: true },
+      { index: 6, label: 'Subtitle 5', lang: '', isDefault: false, isForced: false, burnIn: false },
     ]);
   });
 
   it('returns an empty list without streams', () => {
     expect(listSubtitles({ Id: 's' })).toEqual([]);
-  });
-});
-
-describe('hasOnlyImageSubtitles', () => {
-  it('is true only when all subtitles are image based', () => {
-    expect(hasOnlyImageSubtitles(src([{ Type: 'Subtitle', IsTextSubtitleStream: false }]))).toBe(true);
-    expect(hasOnlyImageSubtitles(src([{ Type: 'Subtitle' }]))).toBe(false);
-    expect(hasOnlyImageSubtitles(src([{ Type: 'Video' }]))).toBe(false);
   });
 });
 
@@ -58,19 +50,23 @@ describe('subtitleVttUrl', () => {
 });
 
 describe('pickInitialSubtitle', () => {
-  const t = (isDefault: boolean, isForced: boolean) => ({ index: 0, label: '', lang: '', isDefault, isForced });
+  const t = (isDefault: boolean, isForced: boolean, burnIn = false) => ({ index: 0, label: '', lang: '', isDefault, isForced, burnIn });
   it('prefers forced, then default, then first, else -1', () => {
     expect(pickInitialSubtitle([t(true, false), t(false, true)])).toBe(1);
     expect(pickInitialSubtitle([t(false, false), t(true, false)])).toBe(1);
     expect(pickInitialSubtitle([t(false, false), t(false, false)])).toBe(0);
     expect(pickInitialSubtitle([])).toBe(-1);
   });
+  it('never picks an image track', () => {
+    expect(pickInitialSubtitle([t(true, true, true), t(false, false)])).toBe(1);
+    expect(pickInitialSubtitle([t(true, true, true), t(false, false, true)])).toBe(-1);
+  });
 });
 
 describe('cycling and label', () => {
   const list = [
-    { index: 2, label: 'English', lang: 'eng', isDefault: false, isForced: false },
-    { index: 3, label: 'Dutch', lang: 'nld', isDefault: false, isForced: false },
+    { index: 2, label: 'English', lang: 'eng', isDefault: false, isForced: false, burnIn: false },
+    { index: 3, label: 'Dutch', lang: 'nld', isDefault: false, isForced: false, burnIn: false },
   ];
   it('cycles Off -> 0 -> 1 -> Off', () => {
     expect(nextSubtitle(2, -1)).toBe(0);

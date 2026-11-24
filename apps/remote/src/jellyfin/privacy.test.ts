@@ -24,6 +24,8 @@ function fake(all: BaseItem[]) {
     library: vi.fn(async (_u: string, _t: string, n?: number) => (n ? all.slice(0, n) : all)),
     search: vi.fn(async (_u: string, _t: string, n: number) => all.slice(0, n)),
     similar: vi.fn(async (_u: string, _i: string, n: number) => all.slice(0, n)),
+    recentlyWatched: vi.fn(async (_u: string, n: number) => all.slice(0, n)),
+    genreTitles: vi.fn(async (_u: string, _g: string, n: number) => all.slice(0, n)),
     personTitles: vi.fn(async (_u: string, _p: string) => all),
     boxSetItems: vi.fn(async (_u: string, _b: string) => all),
     boxSets: vi.fn(async () => [] as BaseItem[]),
@@ -71,6 +73,16 @@ describe('withPrivacyFilter', () => {
     expect(client.nextUp).toHaveBeenLastCalledWith('u', 13, 'ser');
     await filtered.similar('u', 'i', 10);
     expect(client.similar).toHaveBeenLastCalledWith('u', 'i', 13);
+  });
+
+  it('filters recently watched titles and genre rows, also those of a private series', async () => {
+    const all = [item('p1'), item('a'), item('e1', { Type: 'Episode', SeriesId: 'ps' }), item('b'), item('e2', { Type: 'Episode', SeriesId: 'x' })];
+    const { client, api } = fake(all);
+    const filtered = withPrivacyFilter(api, set());
+    expect((await filtered.recentlyWatched('u', 3)).map((i) => i.Id)).toEqual(['a', 'b', 'e2']);
+    expect(client.recentlyWatched).toHaveBeenCalledWith('u', 6);
+    expect((await filtered.genreTitles('u', 'Drama', 2)).map((i) => i.Id)).toEqual(['a', 'b']);
+    expect(client.genreTitles).toHaveBeenCalledWith('u', 'Drama', 5);
   });
 
   it('caps the extra items at 500', async () => {

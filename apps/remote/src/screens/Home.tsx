@@ -4,6 +4,8 @@ import { PullSpinner } from '../components/PullSpinner';
 import { Row } from '../components/Row';
 import { RowSkeleton } from '../components/Skeleton';
 import { Spotlight } from '../components/Spotlight';
+import { BECAUSE_ROWS, daySeed, GENRE_ROWS, MIN_ROW_ITEMS, pickGenres, recommendations, ROW_LIMIT, watchedSources } from '../jellyfin/homeRows';
+import type { BaseItem } from '../jellyfin/types';
 import { spotlightItems } from '../jellyfin/spotlight';
 import { useDesktop } from '../useDesktop';
 import { recentResumes, withoutResumed } from '../jellyfin/resume';
@@ -14,6 +16,17 @@ import { usePullToRefresh } from '../usePullToRefresh';
 /** Delay before refreshing after playback ends: the player's final Stopped report must reach Jellyfin first. */
 const REFRESH_AFTER_PLAYBACK_MS = 2000;
 
+/** A titled row that is loaded separately (a genre or "Because you watched"). */
+interface TitleRow {
+  key: string;
+  title: string;
+  items: BaseItem[];
+}
+
+/** Runs `load` for a row; a failing request drops that row instead of the whole set. */
+const rowOrNull = (load: () => Promise<TitleRow>): Promise<TitleRow | null> => load().catch(() => null);
+const shown = (rows: (TitleRow | null)[]): TitleRow[] => rows.filter((r): r is TitleRow => !!r && r.items.length >= MIN_ROW_ITEMS);
+
 export function Home() {
   const { client, session, playbackEnded, libraryChanged } = useApp();
   const desktop = useDesktop();
@@ -23,6 +36,27 @@ export function Home() {
   const movies = useAsync(() => client.latest(u, 'Movie', 16), [client, u]);
   const shows = useAsync(() => client.latest(u, 'Series', 16), [client, u]);
   const library = useAsync(() => client.library(u, 'Movie', 30), [client, u]);
+  const genreRows = useAsync(async () => {
+    const [movieGenres, seriesGenres] = await Promise.all([client.genres(u, 'Movie'), client.genres(u, 'Series')]);
+    // Twice as many candidates as rows: niche genres with too few titles are skipped.
+    const picked = pickGenres([...new Set([...movieGenres, ...seriesGenres])], GENRE_ROWS * 2, daySeed(new Date()));
+    const rows = shown(await Promise.all(picked.map((g) => rowOrNull(async () => ({ key: `genre-${g}`, title: g, items: await client.genreTitles(u, g, ROW_LIMIT) })))));
+    return rows.slice(0, GENRE_ROWS);
+  }, [client, u]);
+  const becauseRows = useAsync(async () => {
+    const sources = watchedSources(await client.recentlyWatched(u, 20), BECAUSE_ROWS);
+    return shown(
+      await Promise.all(
+        sources.map((s) =>
+          rowOrNull(async () => ({
+            key: `because-${s.id}`,
+            title: `Because you watched ${s.name}`,
+            items: recommendations(await client.similar(u, s.id, ROW_LIMIT + 4), s.id).slice(0, ROW_LIMIT),
+          })),
+        ),
+      ),
+    );
+  }, [client, u]);
   const firstRun = useRef(true);
   useEffect(() => {
     if (firstRun.current) {
@@ -32,11 +66,12 @@ export function Home() {
     const timer = setTimeout(() => {
       void resume.reload();
       void nextUp.reload();
+      void becauseRows.reload();
     }, REFRESH_AFTER_PLAYBACK_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playbackEnded, libraryChanged]);
-  const all = [resume, nextUp, movies, shows, library];
+  const all = [resume, nextUp, movies, shows, genreRows, becauseRows, library];
   const allDone = all.every((r) => !r.loading);
   const pageRef = useRef<HTMLDivElement>(null);
   const pull = usePullToRefresh(pageRef, () => Promise.all(all.map((r) => r.reload())));
@@ -54,6 +89,11 @@ export function Home() {
       <Row title="Next up" items={withoutResumed(nextUp.data || [], resume.data || [])} shape="thumb" />
       <Row title="Recently added movies" items={movies.data || []} shape="poster" />
       <Row title="Recently added shows" items={shows.data || []} shape="poster" />
+      {rowAt(becauseRows.data, 0)}
+      {rowAt(genreRows.data, 0)}
+      {rowAt(genreRows.data, 1)}
+      {rowAt(becauseRows.data, 1)}
+      {rowAt(genreRows.data, 2)}
       <Row title="Movies" items={library.data || []} shape="poster" />
       {!allDone && all.every((r) => !r.data) ? (
         <>
@@ -66,4 +106,10 @@ export function Home() {
       ) : null}
     </div>
   );
+}
+
+/** The `index`th loaded row as a poster row, or nothing when there is none. */
+function rowAt(rows: TitleRow[] | null, index: number) {
+  const row = rows && rows[index];
+  return row ? <Row key={row.key} title={row.title} items={row.items} shape="poster" /> : null;
 }
