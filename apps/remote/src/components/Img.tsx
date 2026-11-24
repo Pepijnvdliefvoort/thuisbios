@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 
 /**
  * Lazy image on a dark placeholder. `src` may be a list of candidates: when one fails to load the next is tried.
@@ -21,13 +21,33 @@ export function Img({
   const [state, setState] = useState({ key, failed: 0 });
   const failed = state.key === key ? state.failed : 0;
   const current = list[failed];
+  // The image fades in once loaded. A cached image may finish before onLoad is attached, so check on mount.
+  const [loadedSrc, setLoadedSrc] = useState('');
+  const ref = useRef<HTMLImageElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && el.complete && el.naturalWidth > 0) setLoadedSrc(current || '');
+  }, [current]);
   const fail = () => {
     setState({ key, failed: failed + 1 });
     if (failed + 1 >= list.length && onExhausted) onExhausted();
   };
   return (
     <span class={`img ${cls}`}>
-      {current ? <img key={current} src={current} alt={alt} draggable={false} loading="lazy" decoding="async" onError={fail} /> : null}
+      {current ? (
+        <img
+          key={current}
+          ref={ref}
+          class={loadedSrc === current ? 'loaded' : undefined}
+          src={current}
+          alt={alt}
+          draggable={false}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoadedSrc(current)}
+          onError={fail}
+        />
+      ) : null}
     </span>
   );
 }
