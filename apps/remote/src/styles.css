@@ -582,6 +582,13 @@ input:focus { outline: none; border-color: var(--accent); }
   transform-origin: top left; transform: translateX(100vw) rotate(90deg);
   --st-t: var(--safe-right); --st-b: var(--safe-left); --st-l: var(--safe-top); --st-r: var(--safe-bottom);
 }
+/* Sheets opened inside the stage turn with it. The stage is a size container, so the fixed backdrop fills the stage, not the screen.
+   It is only ~400px tall in landscape: cap the height, scroll if needed and keep it a centred bottom sheet. */
+.player-stage .sheet-backdrop:not(.menu) { justify-content: center; }
+.player-stage .sheet-backdrop:not(.menu) .sheet {
+  max-width: 480px; max-height: 100%; overflow-y: auto;
+  padding: 16px max(var(--gutter), var(--st-r)) calc(var(--st-b) + 12px) max(var(--gutter), var(--st-l));
+}
 .player-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; pointer-events: none; }
 .player-video-host { position: absolute; inset: 0; pointer-events: none; }
 .player-tap { position: absolute; inset: 0; }
