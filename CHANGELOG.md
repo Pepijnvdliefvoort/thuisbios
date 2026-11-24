@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.4.4...v1.5.0) (2026-11-24)
+
+
+### Features
+
+* **remote:** give the desktop Home a full makeover ([#276](https://github.com/Pepijnvdliefvoort/thuisbios/issues/276)) ([471f9d0](https://github.com/Pepijnvdliefvoort/thuisbios/commit/471f9d01082464bb17209238e1576c6bc28b0fff))
+* **remote:** pick the film version that fits the device ([#274](https://github.com/Pepijnvdliefvoort/thuisbios/issues/274)) ([e028c9a](https://github.com/Pepijnvdliefvoort/thuisbios/commit/e028c9a05bf5b381cc44cb4dd4e3234d5aa5602a))
+* **remote:** tidy phone details page with one play button and icon actions ([#277](https://github.com/Pepijnvdliefvoort/thuisbios/issues/277)) ([280117b](https://github.com/Pepijnvdliefvoort/thuisbios/commit/280117b8691739baf6b49d20433a4a801868b04b))
+
+
+### Bug Fixes
+
+* **remote:** keep watch together playback smooth while staying in sync ([#275](https://github.com/Pepijnvdliefvoort/thuisbios/issues/275)) ([41155fb](https://github.com/Pepijnvdliefvoort/thuisbios/commit/41155fb0bdb7023bf3cc1f975619ffb89219063a))
+
 ## [1.4.4](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.4.3...v1.4.4) (2026-11-24)
 
 
