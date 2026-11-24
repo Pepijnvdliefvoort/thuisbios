@@ -64,7 +64,7 @@ Regenerate them with `node scripts/screenshots/capture.mjs`, see [scripts/screen
 
 Phone and desktop app (`apps/remote`):
 
-- Home, search, library with sort and filter, collections, "More like this" and trailers.
+- Home (with genre and "Because you watched" rows), search, library with sort and filter, collections, "More like this" and trailers.
 - Details with cast and crew, seasons and episodes, watched marks, and title requests.
 - Own player: resume, audio tracks, subtitles with timing, quality, skip intro, next episode, scrub previews.
 - Offline downloads that play without a network and sync progress back.

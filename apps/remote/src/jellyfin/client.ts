@@ -85,6 +85,10 @@ export interface JellyfinClient {
   library(userId: string, type: MediaType, limit?: number, view?: LibraryView): Promise<BaseItem[]>;
   /** Genre names used by the items of one type, of one library when `parentId` is given. */
   genres(userId: string, type: MediaType, parentId?: string): Promise<string[]>;
+  /** Fully watched movies and episodes, most recently watched first. Episodes carry `SeriesId` and `SeriesName`. */
+  recentlyWatched(userId: string, limit: number): Promise<BaseItem[]>;
+  /** Movies and shows of one genre in random order. */
+  genreTitles(userId: string, genre: string, limit: number): Promise<BaseItem[]>;
   search(userId: string, term: string, limit: number): Promise<BaseItem[]>;
   /** Titles like `itemId` (Jellyfin's "similar items"). */
   similar(userId: string, itemId: string, limit: number): Promise<BaseItem[]>;
@@ -228,6 +232,14 @@ export function createClient(options: ClientOptions): JellyfinClient {
       );
       return r.Items.map((g) => g.Name).filter(Boolean);
     },
+    recentlyWatched: (userId, limit) =>
+      items(
+        `${user(userId)}/Items?Filters=IsPlayed&Recursive=true&IncludeItemTypes=Movie,Episode&SortBy=DatePlayed&SortOrder=Descending&Limit=${limit}&Fields=${LIST_FIELDS}&EnableImages=false`,
+      ),
+    genreTitles: (userId, genre, limit) =>
+      items(
+        `${user(userId)}/Items?Genres=${enc(genre)}&IncludeItemTypes=Movie,Series&Recursive=true&SortBy=Random&Limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+      ),
     search: (userId, term, limit) =>
       items(
         `${user(userId)}/Items?searchTerm=${enc(term)}&IncludeItemTypes=Movie,Series,Episode&Recursive=true&Limit=${limit}&Fields=${LIST_FIELDS},ProviderIds&${IMAGE_QUERY}`,
