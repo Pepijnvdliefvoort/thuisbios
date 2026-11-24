@@ -82,3 +82,12 @@ export function metaParts(item: BaseItem): string[] {
   if (item.CommunityRating) parts.push(`★ ${item.CommunityRating.toFixed(1)}`);
   return parts;
 }
+
+/** Whether the user saved this title to My list (a Jellyfin favorite). */
+export const isInList = (item: BaseItem): boolean => !!(item.UserData && item.UserData.IsFavorite);
+
+/** Only movies and series can be saved to My list. */
+export const canAddToList = (item: BaseItem): boolean => item.Type === 'Movie' || item.Type === 'Series';
+
+/** The label of the My list button. */
+export const myListLabel = (inList: boolean): string => (inList ? '\u2713 In my list' : '+ My list');

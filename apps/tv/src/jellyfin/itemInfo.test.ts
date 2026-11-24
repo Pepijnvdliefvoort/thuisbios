@@ -5,8 +5,11 @@ import {
   episodeSubtitle,
   formatHms,
   formatRuntime,
+  canAddToList,
   hasResume,
+  isInList,
   metaParts,
+  myListLabel,
   playerTitle,
   progressFraction,
   resumeSeconds,
@@ -96,5 +99,21 @@ describe('metaParts', () => {
     ]);
     expect(metaParts({ Id: 's', Name: 'S', Type: 'Series', ChildCount: 3 })).toEqual(['3 seasons']);
     expect(metaParts({ Id: 'x', Name: 'x' })).toEqual([]);
+  });
+});
+
+describe('my list', () => {
+  it('reads the favorite flag', () => {
+    expect(isInList({ Id: '1', Name: 'A' } as BaseItem)).toBe(false);
+    expect(isInList({ Id: '1', Name: 'A', UserData: { IsFavorite: true } } as BaseItem)).toBe(true);
+  });
+  it('allows movies and series only', () => {
+    expect(canAddToList({ Id: '1', Name: 'A', Type: 'Movie' } as BaseItem)).toBe(true);
+    expect(canAddToList({ Id: '1', Name: 'A', Type: 'Series' } as BaseItem)).toBe(true);
+    expect(canAddToList({ Id: '1', Name: 'A', Type: 'Episode' } as BaseItem)).toBe(false);
+  });
+  it('labels the button', () => {
+    expect(myListLabel(false)).toContain('My list');
+    expect(myListLabel(true)).toContain('In my list');
   });
 });

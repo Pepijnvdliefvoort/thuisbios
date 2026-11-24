@@ -5,7 +5,7 @@ import { Tile, TILE } from '../components/Tile';
 import type { JellyfinClient } from '../jellyfin/client';
 import { artFor, artUrl } from '../jellyfin/art';
 import { resolveSeriesPlay } from '../jellyfin/seriesPlay';
-import { episodeLabel, formatHms, formatRuntime, hasResume, resumeSeconds } from '../jellyfin/itemInfo';
+import { canAddToList, episodeLabel, formatHms, formatRuntime, hasResume, isInList, myListLabel, resumeSeconds } from '../jellyfin/itemInfo';
 import type { BaseItem, Session } from '../jellyfin/types';
 import { tileWindow, trackOffset, type GridState } from '../nav/focusGrid';
 import { useGridNav } from '../nav/useGridNav';
@@ -97,7 +97,16 @@ export function DetailsScreen({ client, session, item, memo, onPlay, onBack }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, session.userId, item.Id, seasonId]);
 
-  const buttons = isSeries ? (nextEp === null ? 0 : 1) : hasResume(item) ? 2 : 1;
+  const playButtons = isSeries ? (nextEp === null ? 0 : 1) : hasResume(item) ? 2 : 1;
+  const listable = canAddToList(item);
+  const buttons = playButtons + (listable ? 1 : 0);
+  // The tapped state shows at once and is reverted when the call fails.
+  const [inList, setInList] = useState(isInList(item));
+  const toggleList = () => {
+    const next = !inList;
+    setInList(next);
+    client.setInList(session.userId, item.Id, next).catch(() => setInList(!next));
+  };
   const grid = useGridNav(isSeries ? [buttons, seasons.length, episodes.length] : [buttons], {
     initial: memo.grid,
     onChange: (state) => {
@@ -156,6 +165,11 @@ export function DetailsScreen({ client, session, item, memo, onPlay, onBack }: P
           {!isSeries && !hasResume(item) && (
             <button data-focusable data-row={0} data-col={0} class="hbtn primary" onClick={() => onPlay(item, 0)}>
               Play
+            </button>
+          )}
+          {listable && (
+            <button data-focusable data-row={0} data-col={playButtons} class="hbtn" onClick={toggleList}>
+              {myListLabel(inList)}
             </button>
           )}
         </div>

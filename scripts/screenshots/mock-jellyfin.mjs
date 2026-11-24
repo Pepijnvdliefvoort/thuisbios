@@ -418,6 +418,12 @@ const hlsMedia = () => [
   '#EXT-X-ENDLIST', '',
 ].join('\n');
 
+// My list: a few titles start as favorites, so the Home row shows up.
+for (const id of ['film-02', 'film-07', 'series-b', 'film-10']) {
+  const it = items.get(id);
+  if (it) it.UserData = { ...it.UserData, IsFavorite: true };
+}
+
 // ---------- HTTP ----------
 
 const userData = (it) => it.UserData || {};
@@ -446,6 +452,8 @@ function queryItems(q) {
     const key = { 'PremiereDate,ProductionYear,SortName': 'ProductionYear', 'CommunityRating,SortName': 'CommunityRating', 'Runtime,SortName': 'RunTimeTicks', 'DateCreated,SortName': 'created' }[sort];
     if (key) list.sort((a, b) => (desc ? -1 : 1) * ((a[key] ?? 0) - (b[key] ?? 0)));
   }
+  if ((q.get('Filters') || '').includes('IsFavorite')) list = list.filter((i) => userData(i).IsFavorite);
+  if ((q.get('Filters') || '').includes('IsPlayed')) list = list.filter((i) => userData(i).Played);
   if ((q.get('Filters') || '').includes('IsUnplayed')) list = list.filter((i) => !userData(i).Played);
   const personIds = (q.get('PersonIds') || '').split(',').filter(Boolean);
   if (personIds.length) list = list.filter((i) => (i.people || []).some((p) => personIds.includes(p.Id)));
@@ -1043,6 +1051,37 @@ function createSyncPlay() {
   return { route, upgrade, session };
 }
 
+// ---------- chapters ----------
+
+const CHAPTER_NAMES = ['Opening', 'The Arrival', 'First Clues', 'A Change of Plans', 'The Long Night', 'Turning Point', 'The Reckoning', 'Aftermath'];
+
+/** The item's Chapters field (movies and episodes), spread over the runtime: 8 for a film, 6 for a shorter item. */
+function chaptersOf(it) {
+  const total = (it.RunTimeTicks || 0) / TICKS;
+  if (!total || (it.Type !== 'Movie' && it.Type !== 'Episode')) return undefined;
+  const count = total > 3600 ? 8 : 6;
+  const r = rng(`${it.Id}-chapters`);
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    // Even spacing with a little jitter; the first chapter starts at 0.
+    const start = i === 0 ? 0 : Math.round(((i + (r() - 0.5) * 0.4) / count) * total);
+    out.push({ StartPositionTicks: start * TICKS, Name: CHAPTER_NAMES[i], ImageTag: `ch${i}`, ImageDateModified: '2024-01-01T00:00:00.0000000Z' });
+  }
+  return out;
+}
+
+/** A generated 16:9 chapter still (SVG) with the chapter number. */
+function chapterImage(it, n, width) {
+  const w = width || 320;
+  const h = Math.round((w * 9) / 16);
+  const hue = Math.floor(rng(it.Id)() * 360) + n * 23;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 320 180">
+<rect width="320" height="180" fill="${hsl(hue, 50, 26)}"/>
+<circle cx="${80 + ((n * 53) % 160)}" cy="70" r="40" fill="${hsl(hue + 40, 60, 58, 0.55)}"/>
+<text x="160" y="160" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" font-size="30" font-weight="700" fill="#fff">${n + 1}</text>
+</svg>`;
+}
+
 export function startMock({ port = 8097, quickConnectAuthenticated = process.env.MOCK_QC_AUTHENTICATED === '1', quiet = false } = {}) {
   const secrets = new Set();
   const syncPlay = createSyncPlay();
@@ -1152,6 +1191,8 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       const withPeople = fields.split(',').includes('People') && it.people;
       const out = { ...strip(it), ...(withPeople ? { People: it.people } : {}), ...(withSources ? { MediaSources: [{ Id: it.Id, MediaStreams: STREAMS }] } : {}) };
       if (fields.includes('Trickplay')) out.Trickplay = trickplayOf(it);
+      // Like Jellyfin, Chapters only come with Fields=Chapters.
+      if (fields.split(',').includes('Chapters')) out.Chapters = chaptersOf(it);
       return json(out);
     }
     if ((m = /^\/Users\/[^/]+\/PlayedItems\/([^/]+)$/.exec(path))) {
@@ -1160,9 +1201,17 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       const hit = (i) => i.Id === m[1] || i.SeasonId === m[1] || (i.Type === 'Episode' && i.SeriesId === m[1]);
       for (const i of items.values()) {
         if (!hit(i)) continue;
-        i.UserData = played ? { ...i.UserData, Played: true, PlaybackPositionTicks: 0, LastPlayedDate: new Date().toISOString() } : { PlaybackPositionTicks: 0, Played: false };
+        i.UserData = played ? { ...i.UserData, Played: true, PlaybackPositionTicks: 0, LastPlayedDate: new Date().toISOString() } : { PlaybackPositionTicks: 0, Played: false, ...(i.UserData && i.UserData.IsFavorite ? { IsFavorite: true } : {}) };
       }
       return json({ Played: played });
+    }
+    if ((m = /^\/Users\/[^/]+\/FavoriteItems\/([^/]+)$/.exec(path))) {
+      // My list: favorites are kept in memory only.
+      const i = items.get(m[1]);
+      if (!i) return send(404, { error: 'not found' });
+      const favorite = req.method !== 'DELETE';
+      i.UserData = { ...i.UserData, IsFavorite: favorite };
+      return json({ IsFavorite: favorite });
     }
     if ((m = /^\/MediaSegments\/([^/]+)$/.exec(path))) {
       // One intro in the first two minutes, so the Skip intro button can be shown.
@@ -1199,6 +1248,12 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
       const it = items.get(m[1]);
       if (!it || !TRICKPLAY_WIDTHS.includes(Number(m[2]))) return send(404, { error: 'not found' });
       return send(200, trickplaySheet(it, Number(m[2]), Number(m[3])), 'image/svg+xml');
+    }
+    if ((m = /^\/Items\/([^/]+)\/Images\/Chapter\/(\d+)$/.exec(path))) {
+      const it = items.get(m[1]);
+      const list = it && chaptersOf(it);
+      if (!list || !list[Number(m[2])]) return send(404, { error: 'not found' });
+      return send(200, chapterImage(it, Number(m[2]), parseInt(q.get('maxWidth') || '', 10) || 0), 'image/svg+xml');
     }
     if ((m = /^\/Items\/([^/]+)\/Images\/(Primary|Backdrop|Thumb|Logo)(?:\/\d+)?$/.exec(path))) {
       const it = items.get(m[1]);

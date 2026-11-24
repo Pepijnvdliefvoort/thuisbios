@@ -43,10 +43,13 @@ export function withPrivacyFilter(client: JellyfinClient, set: PrivateSet): Jell
     cacheKey: `${client.cacheKey || ''}hide:${set.ids.size}`,
     resume: (userId, limit) => page(limit, undefined, (n) => client.resume(userId, n as number)),
     nextUp: (userId, limit, seriesId) => page(limit, undefined, (n) => client.nextUp(userId, n as number, seriesId)),
+    myList: (userId, limit) => page(limit, undefined, (n) => client.myList(userId, n as number)),
     latest: (userId, type, limit) => page(limit, type, (n) => client.latest(userId, type, n as number)),
     library: (userId, type, limit, view) => page(limit, type, (n) => client.library(userId, type, n, view)),
     search: (userId, term, limit) => page(limit, undefined, (n) => client.search(userId, term, n as number)),
     similar: (userId, itemId, limit) => page(limit, undefined, (n) => client.similar(userId, itemId, n as number)),
+    recentlyWatched: (userId, limit) => page(limit, undefined, (n) => client.recentlyWatched(userId, n as number)),
+    genreTitles: (userId, genre, limit) => page(limit, undefined, (n) => client.genreTitles(userId, genre, n as number)),
     personTitles: async (userId, personId) => visible(await client.personTitles(userId, personId)),
     boxSetItems: async (userId, boxSetId) => visible(await client.boxSetItems(userId, boxSetId)),
     genres: async (userId, type) => {

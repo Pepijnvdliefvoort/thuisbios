@@ -23,6 +23,8 @@ export interface UserData {
   PlaybackPositionTicks?: number;
   PlayedPercentage?: number;
   Played?: boolean;
+  /** True when the title is in My list. */
+  IsFavorite?: boolean;
   LastPlayedDate?: string;
 }
 
@@ -87,9 +89,19 @@ export interface BaseItem {
   RemoteTrailers?: { Url?: string; Name?: string }[];
   /** Only present when requested with Fields=Trickplay: scrub preview tile sheets per media source and width. */
   Trickplay?: Record<string, Record<string, TrickplayInfo>>;
+  /** Only present when requested with Fields=Chapters. */
+  Chapters?: ChapterInfo[];
 }
 
 /** One width of scrub preview tile sheets (see jellyfin/trickplay.ts). */
+/** A chapter as Jellyfin sends it. */
+export interface ChapterInfo {
+  StartPositionTicks: number;
+  Name?: string;
+  ImageTag?: string;
+  ImageDateModified?: string;
+}
+
 export interface TrickplayInfo {
   Width: number;
   Height: number;

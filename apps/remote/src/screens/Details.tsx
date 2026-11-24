@@ -17,6 +17,7 @@ import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from 
 import type { BaseItem } from '../jellyfin/types';
 import { primePlayerVideo } from '../playerVideo';
 import { resolveStart } from '../offline/startPosition';
+import { canAddToList, isInList, myListToggle } from '../jellyfin/myList';
 import { allWatched, isWatched, watchedToggle, type WatchedScope } from '../jellyfin/watched';
 import { useAsync, useRegisterReload, type Reloaders } from '../useAsync';
 import { useDesktop } from '../useDesktop';
@@ -112,7 +113,7 @@ function DetailsSkeleton() {
 }
 
 function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: Reloaders; refresh: () => Promise<unknown> }) {
-  const { client, session, tv, toast, openItem, playHere, downloads, offline, syncplay } = useApp();
+  const { client, session, tv, toast, openItem, playHere, downloads, offline, refreshLibrary, syncplay } = useApp();
   const desktop = useDesktop();
   const isSeries = item.Type === 'Series';
   const isEpisode = item.Type === 'Episode';
@@ -144,6 +145,26 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
   const startTogether = async () => {
     primePlayerVideo(); // inside the tap, before anything async (iOS)
     if (playItem && !syncplay.busy && (await syncplay.create(playItem, serverResume))) playHere(playItem, serverResume, true);
+  };
+
+  // My list works like the watched toggle: the tap shows at once and is dropped when the item reloads or the call fails.
+  const [listPending, setListPending] = useState<boolean | null>(null);
+  const inList = listPending !== null ? listPending : isInList(item);
+  const listToggle = myListToggle(inList);
+  const toggleList = async () => {
+    const next = listToggle.next;
+    setListPending(next);
+    try {
+      if (next) await client.addToList(session.userId, item.Id);
+      else await client.removeFromList(session.userId, item.Id);
+    } catch {
+      toast("Couldn't update My list");
+      setListPending(null);
+      return;
+    }
+    await refresh();
+    setListPending(null);
+    refreshLibrary();
   };
 
   const send = async (action: Promise<boolean>) => {
@@ -226,6 +247,16 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
           <Icon name={watched ? 'watched' : 'unwatched'} size={20} /> {toggle.label}
         </button>
       </div>
+      {canAddToList(item) && !offline ? (
+        <button
+          type="button"
+          class={inList ? 'btn secondary is-listed' : 'btn secondary'}
+          aria-pressed={inList}
+          onClick={() => void toggleList()}
+        >
+          <Icon name={listToggle.icon} size={20} /> {listToggle.label}
+        </button>
+      ) : null}
       {noTv && !desktop ? <p class="hint small">No TV connected, so this plays on your phone.</p> : null}
     </div>
   );

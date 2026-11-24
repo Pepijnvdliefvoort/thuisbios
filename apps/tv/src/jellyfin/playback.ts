@@ -14,6 +14,8 @@ export interface StreamParams {
   playSessionId?: string;
   /** A non-default audio stream was chosen: the original file would play its default audio, so DirectPlay is skipped. */
   audioStreamIndex?: number;
+  /** An image subtitle to burn in (Jellyfin stream index): only a transcode can do that. Missing or -1 for none. */
+  subtitleStreamIndex?: number;
 }
 
 /** URL for a direct (static) stream of the original file. */
@@ -39,12 +41,15 @@ export function selectPlayMethod(
 ): PlaySelection | null {
   const transcodeUrl = source.TranscodingUrl;
   const audio = params.audioStreamIndex;
+  const sub = params.subtitleStreamIndex !== undefined ? params.subtitleStreamIndex : -1;
+  // Burning in a subtitle re-encodes the picture: only the transcode can do that.
+  if (sub >= 0 && transcodeUrl) return transcodeSelection(transcodeUrl, source, audio, sub);
   // The server has to remux or transcode to play another audio stream than the file's default.
   if (!forceTranscode && audio !== undefined) {
     if (source.SupportsDirectStream && source.DirectStreamUrl) {
       return { method: 'DirectStream', url: withAudioStreamIndex(source.DirectStreamUrl, audio), hls: false };
     }
-    if (transcodeUrl) return transcodeSelection(transcodeUrl, source, audio);
+    if (transcodeUrl) return transcodeSelection(transcodeUrl, source, audio, sub);
   }
   if (!forceTranscode) {
     if (source.SupportsDirectPlay) {
@@ -55,13 +60,37 @@ export function selectPlayMethod(
       return { method: 'DirectStream', url, hls: false };
     }
   }
-  if (transcodeUrl) return transcodeSelection(transcodeUrl, source, audio);
+  if (transcodeUrl) return transcodeSelection(transcodeUrl, source, audio, sub);
   return null;
 }
 
-function transcodeSelection(url: string, source: MediaSource, audio: number | undefined): PlaySelection {
+function transcodeSelection(url: string, source: MediaSource, audio: number | undefined, sub: number): PlaySelection {
   const hls = source.TranscodingSubProtocol === 'hls' || /\.m3u8(\?|$)/i.test(url);
-  return { method: 'Transcode', url: audio === undefined ? url : withAudioStreamIndex(url, audio), hls };
+  // Without a burned-in subtitle the URL must not carry one (text subtitles are drawn by the app).
+  const subUrl = sub >= 0 ? withNoVideoStreamCopy(withSubtitleStreamIndex(url, sub)) : withSubtitleStreamIndex(url, -1);
+  return { method: 'Transcode', url: audio === undefined ? subUrl : withAudioStreamIndex(subUrl, audio), hls };
+}
+
+/**
+ * Makes sure a transcode URL burns in this subtitle stream (replacing any value). With a negative index the
+ * subtitle parameters are removed, so nothing is burned in.
+ */
+export function withSubtitleStreamIndex(url: string, index: number): string {
+  const [path, query = ''] = url.split('?');
+  const kept = query.split('&').filter((pair) => {
+    const key = pair.split('=')[0].toLowerCase();
+    return pair !== '' && key !== 'subtitlestreamindex' && !(index < 0 && key === 'subtitlemethod');
+  });
+  if (index >= 0) kept.push(`SubtitleStreamIndex=${index}`);
+  return kept.length > 0 ? `${path}?${kept.join('&')}` : path;
+}
+
+/** Forces AllowVideoStreamCopy=false on a transcode URL (replacing any value): burning in needs a re-encode. */
+export function withNoVideoStreamCopy(url: string): string {
+  const [path, query = ''] = url.split('?');
+  const kept = query.split('&').filter((pair) => pair !== '' && pair.split('=')[0].toLowerCase() !== 'allowvideostreamcopy');
+  kept.push('AllowVideoStreamCopy=false');
+  return `${path}?${kept.join('&')}`;
 }
 
 /** Makes sure a stream URL asks for this audio stream (the server normally adds it itself; this is the safety net). */

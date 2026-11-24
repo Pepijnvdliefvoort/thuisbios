@@ -3,12 +3,13 @@ import { Icon } from '../components/Icon';
 import { TogetherSheet } from '../components/TogetherSheet';
 import { usePlayerSync } from '../syncplay/usePlayerSync';
 import { PlayerControls } from '../components/PlayerControls';
-import { useScrubSource } from '../components/ScrubPreview';
+import { useScrubInfo } from '../components/ScrubPreview';
 import { NextEpisodeCard } from '../components/NextEpisodeCard';
 import { useApp } from '../context';
 import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscreen';
 import { artUrl } from '../jellyfin/art';
 import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
+import { useMediaSession } from '../mediaSession';
 import { getPlayerVideo, releasePlayerVideo } from '../playerVideo';
 import { playerKeyAction, stepVolume } from '../playerKeys';
 import { tapSide, type TapSide } from '../tapSide';
@@ -166,7 +167,16 @@ export function Player({
   const rotated = portrait && coarse;
   const mouse = useFinePointer();
   // Preview frames while scrubbing; they come from the server, so a download played offline has none.
-  const scrubSource = useScrubSource(client, session.userId, session.token, item.Id, loaded ? loaded.mediaSourceId : null, mouse ? 220 : 160, online);
+  const { source: scrubSource, chapters } = useScrubInfo(
+    client,
+    session.userId,
+    session.token,
+    item.Id,
+    loaded ? loaded.mediaSourceId : null,
+    mouse ? 220 : 160,
+    online,
+    ticksToSeconds(item.RunTimeTicks || 0),
+  );
   // Our own controls.
   const [paused, setPaused] = useState(true);
   const [buffering, setBuffering] = useState(true);
@@ -1003,6 +1013,28 @@ export function Player({
           onNext: () => (sync.active ? sync.next(shouldMarkPlayedOnSkip(plan, now)) : next && switchTo(next, shouldMarkPlayedOnSkip(plan, now))),
         }
       : undefined;
+  useMediaSession({
+    video: () => video.current,
+    item,
+    serverUrl: client.serverUrl,
+    getPosition: () => {
+      const el = video.current;
+      return el ? toMedia(el.currentTime) : 0;
+    },
+    getDuration: () => duration,
+    onPlay: () => {
+      const el = video.current;
+      if (el && el.paused) togglePlay();
+    },
+    onPause: () => {
+      const el = video.current;
+      if (el && !el.paused) togglePlay();
+    },
+    onSeekBy: skipBy,
+    onSeekTo: seekTo,
+    onPrevious: episodeNav && episodeNav.hasPrevious ? episodeNav.onPrevious : undefined,
+    onNext: episodeNav && episodeNav.hasNext ? episodeNav.onNext : undefined,
+  });
   // Where the countdown started: when the position entered the card zone (playing, seeking or resuming).
   const armed = useRef<{ at: number | null; last: number | null }>({ at: null, last: null });
   armed.current = { at: nextArmedAt(plan, armed.current.at, armed.current.last, now), last: now };
@@ -1161,6 +1193,7 @@ export function Player({
             together={sync.together ? { count: sync.together.participants.length, onOpen: () => setTogetherOpen(true) } : undefined}
             onInteract={interact}
             scrubSource={scrubSource}
+            chapters={chapters}
             desktop={
               mouse
                 ? {
