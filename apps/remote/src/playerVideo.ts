@@ -1,5 +1,3 @@
-import { enableAutoPip } from './pip';
-
 /**
  * The one `<video>` element of the whole app, shared by every Player mount.
  *
@@ -18,9 +16,9 @@ export function getPlayerVideo(): HTMLVideoElement {
     el.setAttribute('webkit-playsinline', '');
     el.autoplay = true;
     el.preload = 'auto';
-    // Picture-in-picture stays allowed (never `disablePictureInPicture`), and WebKit may float it when the app is left.
-    el.removeAttribute('disablepictureinpicture');
-    enableAutoPip(el);
+    // The browser must not offer its own floating video.
+    el.disablePictureInPicture = true;
+    el.setAttribute('disablepictureinpicture', '');
     shared = el;
   }
   return shared;

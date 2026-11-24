@@ -48,9 +48,6 @@ export function buildMetadata(item: BaseItem, serverUrl: string): SessionMetadat
 }
 
 /** Registers an action handler (null removes it); never throws, as unsupported actions throw on some browsers. */
-/** Chrome's automatic picture-in-picture when the tab is left; not in every lib typing and unknown (throws) elsewhere. */
-export const ENTER_PIP_ACTION = 'enterpictureinpicture' as MediaSessionAction;
-
 export function safeSetHandler(action: MediaSessionAction, handler: MediaSessionActionHandler | null): void {
   try {
     if (!mediaSessionSupported()) return;
@@ -93,8 +90,6 @@ export interface MediaSessionOptions {
   /** Only set when there is an adjacent episode; otherwise the button is hidden. */
   onPrevious?: () => void;
   onNext?: () => void;
-  /** Only set where picture-in-picture works: lets Chrome float the video by itself when the tab is left. */
-  onEnterPip?: () => void | Promise<void>;
 }
 
 /** Lock-screen, notification and media-key controls for the local player. */
@@ -103,7 +98,6 @@ export function useMediaSession(opts: MediaSessionOptions): void {
   ref.current = opts;
   const hasPrevious = !!opts.onPrevious;
   const hasNext = !!opts.onNext;
-  const hasPip = !!opts.onEnterPip;
   const itemId = opts.item.Id;
 
   // Metadata follows the item.
@@ -140,12 +134,6 @@ export function useMediaSession(opts: MediaSessionOptions): void {
       safeSetHandler('nexttrack', null);
     };
   }, [hasPrevious, hasNext]);
-
-  useEffect(() => {
-    // The promise is returned so Chrome sees the request finish inside the action.
-    safeSetHandler(ENTER_PIP_ACTION, hasPip ? () => (ref.current.onEnterPip ? ref.current.onEnterPip() : undefined) : null);
-    return () => safeSetHandler(ENTER_PIP_ACTION, null);
-  }, [hasPip]);
 
   // Playback state and position follow the video element.
   useEffect(() => {

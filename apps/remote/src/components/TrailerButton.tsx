@@ -68,7 +68,7 @@ function TrailerSheet({ id, title, onClose }: { id: string; title: string; onClo
           <iframe
             src={youtubeEmbedUrl(id)}
             title={`${title} trailer`}
-            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allow="autoplay; encrypted-media; fullscreen"
             allowFullScreen
             referrerPolicy="strict-origin-when-cross-origin"
           />

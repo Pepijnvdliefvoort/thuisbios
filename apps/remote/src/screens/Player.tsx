@@ -10,7 +10,6 @@ import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscree
 import { artUrl } from '../jellyfin/art';
 import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
 import { useMediaSession } from '../mediaSession';
-import { enterPip, enterPipWhenHidden, exitPip, isInPip, onPipChange, PIP_PENDING, pipSupported } from '../pip';
 import { getPlayerVideo, releasePlayerVideo } from '../playerVideo';
 import { playerKeyAction, stepVolume } from '../playerKeys';
 import { tapSide, type TapSide } from '../tapSide';
@@ -131,7 +130,6 @@ export function Player({
   item,
   startTicks,
   local = false,
-  background = false,
   onBack,
   onPlayEpisode,
 }: {
@@ -139,12 +137,6 @@ export function Player({
   startTicks: number;
   /** Play the finished download of this item from the device instead of asking Jellyfin. */
   local?: boolean;
-  /**
-   * Floating in picture-in-picture while another screen is shown: the whole UI is hidden and inert, but the shared
-   * video stays in the DOM and keeps playing and reporting. Back then means "stop for good", and the end of the
-   * video stops instead of autoplaying the next episode.
-   */
-  background?: boolean;
   onBack: () => void;
   /** Plays another episode (autoplay, or the previous/next buttons) in place of this one, from its start. */
   onPlayEpisode: (episode: BaseItem) => void;
@@ -295,15 +287,6 @@ export function Player({
     },
     [],
   );
-
-  // Moving to the background keeps playing but is otherwise leaving: no fullscreen, no free rotation.
-  useEffect(() => {
-    if (background) exitLandscapeFullscreen();
-  }, [background]);
-  const backgroundRef = useRef(background);
-  backgroundRef.current = background;
-  const onBackRef = useRef(onBack);
-  onBackRef.current = onBack;
 
   // Media events and the poster go on the shared element by hand (it is not part of our JSX). The handlers are
   // re-read from `media` on every event so they see the current state.
@@ -533,60 +516,6 @@ export function Player({
       chooseSubtitle(Math.min(first, tracks.length - 1));
     }
   };
-  // Picture in picture: float the video and, from the player screen, land in the app with it still playing.
-  const pipOk = pipSupported(getPlayerVideo());
-  // Set while a PiP request from the button may still complete: iOS can enter PiP after enterPip gave up waiting.
-  const pipAsked = useRef(false);
-  const pipAskTimer = useRef<number | undefined>(undefined);
-  const pipEntered = () => {
-    if (!pipAsked.current) return;
-    pipAsked.current = false;
-    window.clearTimeout(pipAskTimer.current);
-    if (!backgroundRef.current) onBackRef.current();
-  };
-  const pipEnteredRef = useRef(pipEntered);
-  pipEnteredRef.current = pipEntered;
-  const togglePipFromUi = async () => {
-    const el = video.current;
-    if (!el) return;
-    if (isInPip(el)) {
-      await exitPip(el);
-      return;
-    }
-    // enterPip must be called synchronously inside the tap (no await before it): WebKit and Chrome both want the gesture.
-    pipAsked.current = true;
-    window.clearTimeout(pipAskTimer.current);
-    const result = await enterPip(el);
-    if (result.ok || isInPip(el)) {
-      pipEntered();
-      return;
-    }
-    // A late entry (reported after the wait) is still handled by the listener below for a few seconds.
-    pipAskTimer.current = window.setTimeout(() => (pipAsked.current = false), 10000);
-    // No toast for a mere timeout: iOS may still be animating in.
-    if (result.reason !== PIP_PENDING) {
-      // The browser refused (no stream yet, policy): say so, with a short code, instead of looking like a dead button.
-      toast(`Picture in picture isn't available right now (${result.reason})`);
-    }
-  };
-  useEffect(() => {
-    const el = video.current;
-    if (!el) return;
-    const off = onPipChange(el, (inPip) => {
-      if (inPip) pipEnteredRef.current();
-    });
-    return () => {
-      off();
-      window.clearTimeout(pipAskTimer.current);
-    };
-  }, []);
-  // Leaving the app or minimising the browser while playing: float the video where the browser lets a page do that
-  // without a tap (usually it does not; then `autopictureinpicture` and the MediaSession action do the job).
-  useEffect(() => {
-    const el = video.current;
-    if (!el) return;
-    return enterPipWhenHidden(el, () => !backgroundRef.current && !el.paused && !el.ended && pipSupported(el));
-  }, []);
   const onKey = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement | null;
     if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
@@ -617,14 +546,12 @@ export function Player({
         return toggleFullscreen();
       case 'subtitles':
         return toggleSubtitles();
-      case 'pip':
-        return void togglePipFromUi();
     }
   };
   const onKeyRef = useRef(onKey);
   onKeyRef.current = onKey;
   useEffect(() => {
-    if (!mouse || background) return;
+    if (!mouse) return;
     const down = (e: KeyboardEvent) => onKeyRef.current(e);
     // Firefox presses a focused button on the key release; keydown's preventDefault does not stop that.
     const up = (e: KeyboardEvent) => {
@@ -637,7 +564,7 @@ export function Player({
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
     };
-  }, [mouse, background]);
+  }, [mouse]);
   useEffect(() => {
     const el = video.current;
     if (!mouse || !el) return;
@@ -1022,11 +949,7 @@ export function Player({
     if (!el) return;
     return () => {
       if (advancing.current) el.pause();
-      else {
-        // Closing a floating player (or starting another playback over it) ends PiP before the stream goes.
-        if (isInPip(el)) void exitPip(el);
-        releasePlayerVideo(el);
-      }
+      else releasePlayerVideo(el);
     };
   }, []);
 
@@ -1065,8 +988,6 @@ export function Player({
    */
   const advance = (early: boolean): boolean => {
     if (advancing.current) return true;
-    // Floating behind other screens: the end of the video is the end (there is no screen to hand over to).
-    if (backgroundRef.current) return false;
     if (sync.active) {
       // The group moves everybody on (the server ignores the second request when several devices ask at once).
       if (!sync.hasNext || cancelled) return false;
@@ -1084,7 +1005,7 @@ export function Player({
   planRef.current = plan;
   // The buttons work with autoplay cancelled; only a next pressed in the credits counts the episode as watched.
   const episodeNav =
-    item.Type === 'Episode' && !background
+    item.Type === 'Episode'
       ? {
           hasPrevious: sync.active ? sync.hasPrevious : !!previous,
           hasNext: sync.active ? sync.hasNext : !!next,
@@ -1113,12 +1034,6 @@ export function Player({
     onSeekTo: seekTo,
     onPrevious: episodeNav && episodeNav.hasPrevious ? episodeNav.onPrevious : undefined,
     onNext: episodeNav && episodeNav.hasNext ? episodeNav.onNext : undefined,
-    onEnterPip: pipOk
-      ? () => {
-          const el = video.current;
-          return el ? void enterPip(el) : undefined;
-        }
-      : undefined,
   });
   // Where the countdown started: when the position entered the card zone (playing, seeking or resuming).
   const armed = useRef<{ at: number | null; last: number | null }>({ at: null, last: null });
@@ -1221,7 +1136,7 @@ export function Player({
   const label = item.Type === 'Episode' ? [item.SeriesName, episodeLabel(item)].filter(Boolean).join(' · ') : '';
   const subtitleText = subSel >= 0 && tracks[subSel] && !tracks[subSel].burnIn ? activeCueText(cues, now - subOffset / 1000) : '';
   return (
-    <div class={'player' + (background ? ' is-background' : '')} aria-hidden={background ? 'true' : undefined}>
+    <div class="player">
       {error ? (
         <div class="player-error">
           <button type="button" class="back" onClick={onBack} aria-label="Back">
@@ -1275,7 +1190,6 @@ export function Player({
             onSelectAudio={chooseAudio}
             onBusy={setBusy}
             episodeNav={episodeNav}
-            pip={pipOk ? { onToggle: () => void togglePipFromUi() } : undefined}
             together={sync.together ? { count: sync.together.participants.length, onOpen: () => setTogetherOpen(true) } : undefined}
             onInteract={interact}
             scrubSource={scrubSource}
