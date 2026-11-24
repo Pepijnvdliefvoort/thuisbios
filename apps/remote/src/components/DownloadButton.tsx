@@ -6,6 +6,7 @@ import { estimateBytes, estimateLabel, QUALITY_PRESETS, type DownloadQuality } f
 import { loadDownloadQuality, saveDownloadQuality } from '../storage';
 import { useScrollLock } from '../useScrollLock';
 import { useDesktop } from '../useDesktop';
+import { ActionTile } from './ActionTile';
 import { Icon } from './Icon';
 import { ConfirmButton, MenuSheet } from './MenuSheet';
 
@@ -30,6 +31,23 @@ export function ProgressRing({ value, size = 22 }: { value: number; size?: numbe
       />
     </svg>
   );
+}
+
+/** Very short status for a phone tile. */
+function tileLabel(entry: DownloadEntry | undefined): string {
+  if (!entry) return 'Download';
+  switch (entry.state) {
+    case 'done':
+      return 'Downloaded';
+    case 'downloading':
+      return `${percentOf(entry)}%`;
+    case 'queued':
+      return 'Waiting';
+    case 'paused':
+      return 'Paused';
+    default:
+      return 'Failed';
+  }
 }
 
 /** Short status for the button label and screen readers. */
@@ -127,7 +145,7 @@ export function DownloadActionsSheet({ entry, onClose }: { entry: DownloadEntry;
  * downloaded) and opens the quality sheet or the actions sheet. `variant="icon"` is the small round one on
  * episode rows. Renders nothing on a desktop, where downloads are not offered.
  */
-export function DownloadButton({ item, variant = 'button' }: { item: BaseItem; variant?: 'button' | 'icon' }) {
+export function DownloadButton({ item, variant = 'button' }: { item: BaseItem; variant?: 'button' | 'icon' | 'tile' }) {
   const { downloads } = useApp();
   const desktop = useDesktop();
   const [sheet, setSheet] = useState<'quality' | 'actions' | null>(null);
@@ -135,21 +153,16 @@ export function DownloadButton({ item, variant = 'button' }: { item: BaseItem; v
   const entry = downloads.get(item.Id);
   const label = downloadLabel(entry);
   const glyph = !entry ? (
-    <Icon name="download" size={variant === 'icon' ? 22 : 20} />
+    <Icon name="download" size={variant === 'button' ? 20 : 22} />
   ) : entry.state === 'done' ? (
-    <Icon name="downloadDone" size={variant === 'icon' ? 22 : 20} />
+    <Icon name="downloadDone" size={variant === 'button' ? 20 : 22} />
   ) : entry.state === 'failed' ? (
-    <Icon name="info" size={variant === 'icon' ? 22 : 20} />
+    <Icon name="info" size={variant === 'button' ? 20 : 22} />
   ) : (
     <ProgressRing value={entryProgress(entry)} size={variant === 'icon' ? 24 : 22} />
   );
-  const cls = variant === 'icon' ? `ep-dl${entry ? ` ${entry.state}` : ''}` : `btn secondary dl-btn${entry ? ` ${entry.state}` : ''}`;
-  return (
+  const sheets = (
     <>
-      <button type="button" class={cls} aria-label={variant === 'icon' ? `${label}: ${item.Name}` : undefined} onClick={() => setSheet(entry ? 'actions' : 'quality')}>
-        {glyph}
-        {variant === 'button' ? <span>{label}</span> : null}
-      </button>
       {sheet === 'quality' ? (
         <QualitySheet
           title={`Download ${item.Name}`}
@@ -162,6 +175,26 @@ export function DownloadButton({ item, variant = 'button' }: { item: BaseItem; v
         />
       ) : null}
       {sheet === 'actions' && entry ? <DownloadActionsSheet entry={entry} onClose={() => setSheet(null)} /> : null}
+    </>
+  );
+  if (variant === 'tile') {
+    return (
+      <>
+        <ActionTile label={tileLabel(entry)} ariaLabel={label} class={entry ? `dl-tile ${entry.state}` : 'dl-tile'} onClick={() => setSheet(entry ? 'actions' : 'quality')}>
+          {glyph}
+        </ActionTile>
+        {sheets}
+      </>
+    );
+  }
+  const cls = variant === 'icon' ? `ep-dl${entry ? ` ${entry.state}` : ''}` : `btn secondary dl-btn${entry ? ` ${entry.state}` : ''}`;
+  return (
+    <>
+      <button type="button" class={cls} aria-label={variant === 'icon' ? `${label}: ${item.Name}` : undefined} onClick={() => setSheet(entry ? 'actions' : 'quality')}>
+        {glyph}
+        {variant === 'button' ? <span>{label}</span> : null}
+      </button>
+      {sheets}
     </>
   );
 }

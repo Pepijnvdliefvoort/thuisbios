@@ -284,6 +284,8 @@ input:focus { outline: none; border-color: var(--accent); }
 .details-skel-phone .skel-chip { width: 52px; height: 16px; }
 .details-skel-phone .skel-chip.wide { width: 84px; }
 .details-skel-phone .skel-button { width: 100%; height: 48px; border-radius: var(--radius); background: rgba(255, 255, 255, 0.14); }
+.details-skel-phone .skel-tiles { display: flex; justify-content: space-between; padding: 0 6px; }
+.details-skel-phone .skel-circle { width: 48px; height: 48px; border-radius: 50%; }
 .details-skel-phone .skel-line { width: 100%; height: 14px; }
 .details-skel-phone .skel-line.mid { width: 85%; }
 .details-skel-phone .skel-line.short { width: 55%; }
@@ -325,6 +327,44 @@ input:focus { outline: none; border-color: var(--accent); }
 .btn.is-listed .icon { color: #6fcf8e; }
 .next-ep { color: var(--muted); font-size: 14px; }
 .overview { padding: 12px var(--gutter) 0; color: #d6d6de; }
+
+/* Phone details: primary button, resume line, quick-action row, clamped overview */
+.details-actions { display: flex; flex-direction: column; gap: 10px; padding: 16px var(--gutter) 4px; }
+.resume-line { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: -4px; font-size: 13px; color: var(--muted); }
+.resume-bar { flex: 1 1 0; min-width: 24px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
+.resume-bar i { display: block; height: 100%; border-radius: 2px; background: var(--fg); }
+.resume-left { flex: none; white-space: nowrap; }
+.restart-btn {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-left: auto; padding: 0 10px;
+  border-radius: 22px; font-size: 13px; font-weight: 600; color: var(--fg);
+}
+.restart-btn:disabled { opacity: 0.5; }
+.restart-btn .icon { flex: none; }
+.quick-actions { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
+.action-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; min-height: 44px; padding: 4px 0;
+  color: var(--fg); background: none;
+}
+.tile-circle {
+  display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%;
+  background: var(--surface-2); color: var(--fg);
+}
+.tile-circle .icon, .tile-circle .dl-ring { flex: none; }
+.tile-label { max-width: 100%; padding: 0 2px; font-size: 12px; line-height: 1.2; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.action-tile:disabled { opacity: 0.5; }
+.action-tile.on .tile-circle { background: var(--fg); color: #111; }
+.action-tile.on .tile-label { color: var(--fg); }
+.action-tile.dl-tile.failed .tile-circle { color: #ff8a80; }
+.overview-wrap { display: flex; flex-direction: column; align-items: flex-start; }
+.overview.clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+.overview-toggle { min-height: 44px; padding: 0 var(--gutter); font-size: 14px; font-weight: 600; color: var(--fg); }
+@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .action-tile, .restart-btn { transition: transform 0.12s ease-out; }
+  .action-tile:active:not(:disabled), .restart-btn:active:not(:disabled) { transform: scale(0.95); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .action-tile, .restart-btn { transition: none; }
+}
 .genres { padding: 8px var(--gutter) 0; color: var(--muted); font-size: 14px; }
 .episodes { padding: 20px 0 0; }
 .episodes h2 { font-size: 18px; padding: 0 var(--gutter); }
@@ -1488,6 +1528,14 @@ button.rs-row:active { background: var(--surface-2); }
     background: var(--glass-fill); border: var(--glass-edge); box-shadow: var(--glass-highlight);
     -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
   }
+
+  /* Details: quick-action tiles and the From start button */
+  html.ios-glass .tile-circle,
+  html.ios-glass .restart-btn {
+    background: var(--glass-fill); border: var(--glass-edge); box-shadow: var(--glass-highlight);
+    -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  }
+  html.ios-glass .action-tile.on .tile-circle { background: var(--fg); color: #111; }
 
   /* Details: back button */
   html.ios-glass .back {
