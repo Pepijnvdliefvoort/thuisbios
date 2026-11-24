@@ -1247,19 +1247,19 @@ export function Player({
               onCancel={() => setCancelled(true)}
             />
           )}
+          {togetherOpen && sync.together ? (
+            <TogetherSheet
+              name={sync.together.name}
+              participants={sync.together.participants}
+              onLeave={() => {
+                setTogetherOpen(false);
+                sync.leave();
+              }}
+              onClose={() => setTogetherOpen(false)}
+            />
+          ) : null}
         </div>
       )}
-      {togetherOpen && sync.together ? (
-        <TogetherSheet
-          name={sync.together.name}
-          participants={sync.together.participants}
-          onLeave={() => {
-            setTogetherOpen(false);
-            sync.leave();
-          }}
-          onClose={() => setTogetherOpen(false)}
-        />
-      ) : null}
     </div>
   );
 }
