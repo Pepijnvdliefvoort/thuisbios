@@ -10,7 +10,7 @@ import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscree
 import { artUrl } from '../jellyfin/art';
 import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
 import { useMediaSession } from '../mediaSession';
-import { enterPip, enterPipWhenHidden, exitPip, isInPip, pipSupported } from '../pip';
+import { enterPip, enterPipWhenHidden, exitPip, isInPip, onPipChange, PIP_PENDING, pipSupported } from '../pip';
 import { getPlayerVideo, releasePlayerVideo } from '../playerVideo';
 import { playerKeyAction, stepVolume } from '../playerKeys';
 import { tapSide, type TapSide } from '../tapSide';
@@ -302,6 +302,8 @@ export function Player({
   }, [background]);
   const backgroundRef = useRef(background);
   backgroundRef.current = background;
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
 
   // Media events and the poster go on the shared element by hand (it is not part of our JSX). The handlers are
   // re-read from `media` on every event so they see the current state.
@@ -533,6 +535,17 @@ export function Player({
   };
   // Picture in picture: float the video and, from the player screen, land in the app with it still playing.
   const pipOk = pipSupported(getPlayerVideo());
+  // Set while a PiP request from the button may still complete: iOS can enter PiP after enterPip gave up waiting.
+  const pipAsked = useRef(false);
+  const pipAskTimer = useRef<number | undefined>(undefined);
+  const pipEntered = () => {
+    if (!pipAsked.current) return;
+    pipAsked.current = false;
+    window.clearTimeout(pipAskTimer.current);
+    if (!backgroundRef.current) onBackRef.current();
+  };
+  const pipEnteredRef = useRef(pipEntered);
+  pipEnteredRef.current = pipEntered;
   const togglePipFromUi = async () => {
     const el = video.current;
     if (!el) return;
@@ -541,14 +554,32 @@ export function Player({
       return;
     }
     // enterPip must be called synchronously inside the tap (no await before it): WebKit and Chrome both want the gesture.
-    await enterPip(el);
-    if (isInPip(el)) {
-      if (!backgroundRef.current) onBack();
-    } else {
-      // The browser refused (no stream yet, policy): say so instead of looking like a dead button.
-      toast("Picture in picture isn't available right now");
+    pipAsked.current = true;
+    window.clearTimeout(pipAskTimer.current);
+    const result = await enterPip(el);
+    if (result.ok || isInPip(el)) {
+      pipEntered();
+      return;
+    }
+    // A late entry (reported after the wait) is still handled by the listener below for a few seconds.
+    pipAskTimer.current = window.setTimeout(() => (pipAsked.current = false), 10000);
+    // No toast for a mere timeout: iOS may still be animating in.
+    if (result.reason !== PIP_PENDING) {
+      // The browser refused (no stream yet, policy): say so, with a short code, instead of looking like a dead button.
+      toast(`Picture in picture isn't available right now (${result.reason})`);
     }
   };
+  useEffect(() => {
+    const el = video.current;
+    if (!el) return;
+    const off = onPipChange(el, (inPip) => {
+      if (inPip) pipEnteredRef.current();
+    });
+    return () => {
+      off();
+      window.clearTimeout(pipAskTimer.current);
+    };
+  }, []);
   // Leaving the app or minimising the browser while playing: float the video where the browser lets a page do that
   // without a tap (usually it does not; then `autopictureinpicture` and the MediaSession action do the job).
   useEffect(() => {
@@ -1085,7 +1116,7 @@ export function Player({
     onEnterPip: pipOk
       ? () => {
           const el = video.current;
-          return el ? enterPip(el) : undefined;
+          return el ? void enterPip(el) : undefined;
         }
       : undefined,
   });

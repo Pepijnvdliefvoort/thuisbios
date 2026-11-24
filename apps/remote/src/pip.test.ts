@@ -44,50 +44,79 @@ describe('pipSupported', () => {
   });
 });
 
+const wk = (el: HTMLVideoElement, ok = true) => {
+  const set = vi.fn(() => {
+    if (!ok) return;
+    (el as unknown as Loose).webkitPresentationMode = 'picture-in-picture';
+    el.dispatchEvent(new Event('webkitpresentationmodechanged'));
+  });
+  Object.assign(el, { webkitSupportsPresentationMode: () => true, webkitSetPresentationMode: set, webkitPresentationMode: 'inline' });
+  return set;
+};
+
 describe('enter and exit', () => {
-  it('prefers the standard API', async () => {
+  it('calls WebKit synchronously, before any await, even when the standard API exists', async () => {
     setDoc({ pictureInPictureEnabled: true });
     const request = vi.fn().mockResolvedValue({});
+    const el = video({ requestPictureInPicture: request });
+    const set = wk(el);
+    const p = enterPip(el);
+    expect(set).toHaveBeenCalledWith('picture-in-picture'); // already called, nothing awaited yet
+    expect(request).not.toHaveBeenCalled();
+    expect(await p).toEqual({ ok: true });
+    expect(request).not.toHaveBeenCalled();
+  });
+  it('uses the standard API when WebKit is unavailable', async () => {
+    setDoc({ pictureInPictureEnabled: true });
+    const request = vi.fn(() => {
+      setDoc({ pictureInPictureElement: el });
+      return Promise.resolve({});
+    });
+    const el = video({ requestPictureInPicture: request });
+    expect(await enterPip(el)).toEqual({ ok: true });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+  it('treats a late enterpictureinpicture event as success', async () => {
+    vi.useFakeTimers();
+    const el = video();
     const set = vi.fn();
-    const el = video({ requestPictureInPicture: request, webkitSupportsPresentationMode: () => true, webkitSetPresentationMode: set });
-    await enterPip(el);
-    expect(request).toHaveBeenCalled();
-    expect(set).not.toHaveBeenCalled();
+    Object.assign(el, { webkitSupportsPresentationMode: () => true, webkitSetPresentationMode: set, webkitPresentationMode: 'inline' });
+    const p = enterPip(el);
+    await vi.advanceTimersByTimeAsync(2500);
+    (el as unknown as Loose).webkitPresentationMode = 'picture-in-picture';
+    el.dispatchEvent(new Event('enterpictureinpicture'));
+    expect(await p).toEqual({ ok: true });
+    vi.useRealTimers();
   });
-  it('falls back to WebKit and resolves on the mode change', async () => {
-    const set = vi.fn(() => {
-      (el as unknown as Loose).webkitPresentationMode = 'picture-in-picture';
-      el.dispatchEvent(new Event('webkitpresentationmodechanged'));
-    });
-    const el = video({ webkitSupportsPresentationMode: () => true, webkitSetPresentationMode: set, webkitPresentationMode: 'inline' });
-    await enterPip(el);
-    expect(set).toHaveBeenCalledWith('picture-in-picture');
-    expect(isInPip(el)).toBe(true);
+  it('reports webkit-unchanged when still inline after the wait, and pending when unknown', async () => {
+    vi.useFakeTimers();
+    const el = video();
+    wk(el, false);
+    const p = enterPip(el);
+    await vi.advanceTimersByTimeAsync(3100);
+    expect(await p).toEqual({ ok: false, reason: 'webkit-unchanged' });
+    const el2 = video({ webkitSupportsPresentationMode: () => true, webkitSetPresentationMode: vi.fn() });
+    const p2 = enterPip(el2);
+    await vi.advanceTimersByTimeAsync(3100);
+    expect(await p2).toEqual({ ok: false, reason: 'pending' });
+    vi.useRealTimers();
   });
-  it('falls back to WebKit when the standard API refuses on a WebKit element', async () => {
+  it('reports reason codes', async () => {
+    expect(await enterPip(video())).toEqual({ ok: false, reason: 'unsupported' });
     setDoc({ pictureInPictureEnabled: true });
-    const set = vi.fn(() => {
-      (el as unknown as Loose).webkitPresentationMode = 'picture-in-picture';
-      el.dispatchEvent(new Event('webkitpresentationmodechanged'));
-    });
-    const el = video({
-      requestPictureInPicture: vi.fn().mockRejectedValue(new Error('refused')),
+    const rejected = video({ requestPictureInPicture: vi.fn().mockRejectedValue(Object.assign(new Error('x'), { name: 'NotAllowedError' })) });
+    expect(await enterPip(rejected)).toEqual({ ok: false, reason: 'std-rejected:NotAllowedError' });
+    expect(await enterPip(video({ requestPictureInPicture: vi.fn(), readyState: 0 }))).toEqual({ ok: false, reason: 'no-metadata' });
+    const threw = video({
       webkitSupportsPresentationMode: () => true,
-      webkitSetPresentationMode: set,
-      webkitPresentationMode: 'inline',
+      webkitSetPresentationMode: () => {
+        throw Object.assign(new Error('x'), { name: 'InvalidStateError' });
+      },
     });
-    await enterPip(el);
-    expect(set).toHaveBeenCalledWith('picture-in-picture');
-    expect(isInPip(el)).toBe(true);
+    expect(await enterPip(threw)).toEqual({ ok: false, reason: 'webkit-threw:InvalidStateError' });
   });
-  it('never rejects when the browser refuses', async () => {
-    setDoc({ pictureInPictureEnabled: true });
-    const el = video({ requestPictureInPicture: vi.fn().mockRejectedValue(new Error('no gesture')) });
-    await expect(enterPip(el)).resolves.toBeUndefined();
-  });
-  it('does nothing without support', async () => {
-    await expect(enterPip(video())).resolves.toBeUndefined();
-    await expect(exitPip(video())).resolves.toBeUndefined();
+  it('returns ok when already floating', async () => {
+    expect(await enterPip(video({ webkitPresentationMode: 'picture-in-picture' }))).toEqual({ ok: true });
   });
   it('exits through the document, or WebKit', async () => {
     const el = video();
