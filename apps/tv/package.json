@@ -23,7 +23,7 @@
     "@vitejs/plugin-legacy": "^8.2.4",
     "acorn": "^8.19.0",
     "jsdom": "^31.0.1",
-    "terser": "^5.51.2",
+    "terser": "^5.51.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"
