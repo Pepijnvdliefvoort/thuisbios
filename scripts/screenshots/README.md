@@ -10,6 +10,11 @@ Jellyfin server, so no real movie or show ever appears. All content is generic p
   transcode, so the phone app's offline downloads can be tried. It also accepts the resume-position endpoint the phone uses to sync offline progress; with `MOCK_LOG=1` it prints every write request. Nothing is written to the repository.
   `MOCK_PRIVATE=1` adds a library named "Prive" with three placeholder films ("Private Title One" to "Three"), to try the
   phone app's "hide a private library" switch and the TV screensaver skipping it. Without it the mock is unchanged.
+  It also speaks Jellyfin's SyncPlay (watch together): `/SyncPlay/*`, `GET /GetUtcTime` and a hand-written WebSocket on
+  `/socket` (sends `ForceKeepAlive`, accepts `KeepAlive`), with in-memory groups and the Idle / Waiting / Paused / Playing
+  states of the real server. Every device (the `DeviceId` of the socket query or the Authorization header) is one
+  participant named `Alex (<Device> <last 4 of the device id>)`, so two browser tabs can watch together. Simplified: no
+  group wait timeout, no shuffle/repeat or queue editing, and a device whose socket stays closed for 5 seconds leaves its group.
 - `capture.mjs`: starts the mock, takes the screenshots with Playwright and shrinks the PNGs.
 - `banner.html`: the banner, rendered by `capture.mjs` to `docs/images/banner.png`.
 - `optimize.py`: optional PNG shrinker (needs Python with Pillow).

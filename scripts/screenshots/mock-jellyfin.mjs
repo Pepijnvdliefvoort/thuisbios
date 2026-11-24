@@ -7,7 +7,7 @@
 // Options (env): MOCK_QC_AUTHENTICATED=1 makes Quick Connect approve the TV at once.
 //                MOCK_PRIVATE=1 adds a "Prive" library with three placeholder films (to try hiding a private library).
 import { createServer } from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -520,8 +520,532 @@ function trickplaySheet(it, width, sheet) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * TRICKPLAY_TILES}" height="${h * TRICKPLAY_TILES}" viewBox="0 0 ${width * TRICKPLAY_TILES} ${h * TRICKPLAY_TILES}">${cells.join('')}</svg>`;
 }
 
+// ---------- SyncPlay (watch together) ----------
+//
+// An in-memory port of Jellyfin's SyncPlay: groups with Idle / Waiting / Paused / Playing states, the REST calls under
+// /SyncPlay, GET /GetUtcTime and the WebSocket on /socket that carries SyncPlayGroupUpdate and SyncPlayCommand messages.
+// Sessions are identified by device id (the socket query or the DeviceId of the Authorization header). Every device
+// is a participant named "Alex (<Device> <last 4 of the device id>)", so two tabs of one browser stay distinguishable.
+// Simplified against Jellyfin: no group wait timeout, no shuffle or repeat requests, no per-user library access checks,
+// and a socket that stays closed for 5 seconds takes its device out of the group (a real server ends the session later).
+
+const GUID_EMPTY = '00000000-0000-0000-0000-000000000000';
+const SP_DEFAULT_PING = 500; // ms, also the minimum delay between Unpause and the moment playback starts
+const SP_MAX_PING = 10_000;
+const SP_TIME_SYNC_OFFSET = 2000; // ms of clock difference tolerated in a Ready request
+const SP_MAX_PLAYBACK_OFFSET = 500; // ms a client may be off the group position
+const SP_MAX_CATCH_UP_OFFSET = 60_000;
+const SOCKET_LEAVE_GRACE_MS = 5000;
+const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+const iso = (ms) => new Date(ms).toISOString();
+const msToTicks = (ms) => Math.round(ms * 10_000);
+
+/** Reads the key="value" pairs of a MediaBrowser authorization header. */
+function authParams(req) {
+  const raw = req.headers.authorization || req.headers['x-emby-authorization'] || '';
+  const out = {};
+  for (const m of raw.matchAll(/(\w+)="([^"]*)"/g)) out[m[1]] = m[2];
+  return out;
+}
+
+/** Writes one unmasked WebSocket text frame. */
+function wsFrame(text) {
+  const payload = Buffer.from(text);
+  const n = payload.length;
+  const head = n < 126 ? Buffer.from([0x81, n]) : n < 65536 ? Buffer.from([0x81, 126, n >> 8, n & 255]) : Buffer.concat([Buffer.from([0x81, 127]), (() => { const b = Buffer.alloc(8); b.writeBigUInt64BE(BigInt(n)); return b; })()]);
+  return Buffer.concat([head, payload]);
+}
+
+/** The SyncPlay group state machine; mirrors Jellyfin's Group and its four group states. */
+function createSyncPlay() {
+  const sessions = new Map(); // deviceId -> { id, name, fallbackName, group }
+  const sockets = new Map(); // deviceId -> Set of sockets
+  const leaveTimers = new Map();
+  const groups = new Map(); // groupId -> group
+
+  function session(deviceId, device) {
+    let s = sessions.get(deviceId);
+    const name = `Alex (${device ? device + ' ' : ''}${deviceId.slice(-4)})`;
+    if (!s) sessions.set(deviceId, (s = { id: deviceId, name, hasDevice: Boolean(device), group: null }));
+    else if (device && !s.hasDevice && !s.group) Object.assign(s, { name, hasDevice: true });
+    return s;
+  }
+
+  const write = (deviceId, message) => {
+    const frame = wsFrame(JSON.stringify({ MessageId: randomUUID(), ...message }));
+    for (const sock of sockets.get(deviceId) || []) sock.write(frame);
+  };
+
+  // ----- sending -----
+  const targets = (g, from, filter) =>
+    [...g.members.entries()]
+      .filter(([id, m]) => (filter === 'current' ? id === from.id : filter === 'others' ? id !== from.id : filter === 'ready' ? !m.buffering : true))
+      .map(([id]) => id);
+  const sendUpdate = (g, from, filter, Type, Data) => targets(g, from, filter).forEach((id) => write(id, { MessageType: 'SyncPlayGroupUpdate', Data: { GroupId: g.id, Type, Data } }));
+  const sendCommand = (g, from, filter, command) => targets(g, from, filter).forEach((id) => write(id, { MessageType: 'SyncPlayCommand', Data: command }));
+  const newCommand = (g, Command) => ({
+    GroupId: g.id,
+    PlaylistItemId: g.queue[g.index]?.PlaylistItemId || GUID_EMPTY,
+    When: iso(g.lastActivity),
+    PositionTicks: g.positionTicks,
+    Command,
+    EmittedAt: iso(Date.now()),
+  });
+  const sendStateUpdate = (g, state, reason, from) => sendUpdate(g, from, 'all', 'StateUpdate', { State: state.type, Reason: reason });
+  const queueUpdate = (g, Reason) => {
+    const playing = g.state.type === 'Playing';
+    return {
+      Reason,
+      LastUpdate: iso(g.lastChange),
+      Playlist: g.queue.map((q) => ({ ItemId: q.ItemId, PlaylistItemId: q.PlaylistItemId })),
+      PlayingItemIndex: g.index,
+      StartPositionTicks: g.positionTicks + (playing ? Math.max(msToTicks(Date.now() - g.lastActivity), 0) : 0),
+      IsPlaying: playing,
+      ShuffleMode: 'Sorted',
+      RepeatMode: 'RepeatNone',
+    };
+  };
+
+  // ----- group helpers (Group.cs) -----
+  const info = (g) => ({ GroupId: g.id, GroupName: g.name, State: g.state.type, Participants: [...new Set([...g.members.keys()].map((id) => sessions.get(id).name))], LastUpdatedAt: iso(Date.now()) });
+  const highestPing = (g) => (g.members.size ? Math.max(...[...g.members.values()].map((m) => m.ping)) : SP_DEFAULT_PING);
+  const isBuffering = (g) => [...g.members.values()].some((m) => m.buffering && !m.ignoreWait);
+  const setBuffering = (g, s, v) => {
+    const m = g.members.get(s.id);
+    if (m) m.buffering = v;
+  };
+  const setAllBuffering = (g, v) => g.members.forEach((m) => (m.buffering = v));
+  const sanitize = (g, ticks) => Math.min(Math.max(Number(ticks) || 0, 0), g.runTimeTicks);
+  const restartItem = (g) => {
+    g.positionTicks = 0;
+    g.lastActivity = Date.now();
+  };
+  const setItem = (g, index) => {
+    g.index = index;
+    g.runTimeTicks = items.get(g.queue[index].ItemId)?.RunTimeTicks || 0;
+    g.lastChange = Date.now();
+    restartItem(g);
+  };
+  const setPlayQueue = (g, ids, position, startTicks) => {
+    if (!Array.isArray(ids) || ids.length === 0 || !(position >= 0 && position < ids.length) || !ids.every((id) => items.has(id))) return false;
+    g.queue = ids.map((ItemId) => ({ ItemId, PlaylistItemId: randomUUID() }));
+    setItem(g, position);
+    g.positionTicks = sanitize(g, startTicks);
+    return true;
+  };
+  const nextItem = (g) => (g.index + 1 < g.queue.length ? (setItem(g, g.index + 1), true) : false);
+  const previousItem = (g) => (g.index > 0 ? (setItem(g, g.index - 1), true) : false);
+  /** Moves the position on to now and freezes it (a pause). A negative elapsed time means playback has not started yet. */
+  const freezePosition = (g) => {
+    const now = Date.now();
+    g.positionTicks += Math.max(msToTicks(now - g.lastActivity), 0);
+    g.lastActivity = now;
+  };
+
+  // ----- states: each takes (g, state, request, prevType, session) and mirrors the C# HandleRequest overloads -----
+  const mkState = (type, props = {}) => ({ type, resumePlaying: false, initialState: null, positionJumped: false, ignoreBuffering: false, ...props });
+  const enter = (g, type, req, prevType, s, props) => {
+    g.state = mkState(type, props);
+    return handle(g, g.state, req, prevType, s);
+  };
+  const restoreState = (g, prevType) => (g.state = mkState(prevType === 'Playing' || prevType === 'Paused' ? prevType : 'Idle'));
+  const REASON = { Play: 'Play', Unpause: 'Unpause', Pause: 'Pause', Stop: 'Stop', Seek: 'Seek', Buffer: 'Buffer', Ready: 'Ready', NextItem: 'NextItem', PreviousItem: 'PreviousItem' };
+
+  function handle(g, st, req, prev, s) {
+    switch (st.type) {
+      case 'Idle': return idle(g, st, req, prev, s);
+      case 'Waiting': return waiting(g, st, req, prev, s);
+      case 'Paused': return paused(g, st, req, prev, s);
+      default: return playing(g, st, req, prev, s);
+    }
+  }
+
+  function idle(g, st, req, prev, s) {
+    const stop = () => sendCommand(g, s, prev !== 'Idle' ? 'all' : 'current', newCommand(g, 'Stop'));
+    if (req.type === 'Play' || req.type === 'Unpause' || req.type === 'NextItem' || req.type === 'PreviousItem') return enter(g, 'Waiting', req, 'Idle', s);
+    if (req.type === 'Pause' || req.type === 'Stop' || req.type === 'Seek' || req.type === 'Buffer' || req.type === 'Ready') stop();
+  }
+
+  function paused(g, st, req, prev, s) {
+    switch (req.type) {
+      case 'Play': case 'Seek': case 'Buffer': case 'NextItem': case 'PreviousItem': return enter(g, 'Waiting', req, 'Paused', s);
+      case 'Unpause': return enter(g, 'Playing', req, 'Paused', s);
+      case 'Stop': return enter(g, 'Idle', req, 'Paused', s);
+      case 'Pause':
+        if (prev !== 'Paused') {
+          freezePosition(g);
+          sendCommand(g, s, 'all', newCommand(g, 'Pause'));
+          sendStateUpdate(g, st, req.type, s);
+        } else sendCommand(g, s, 'current', newCommand(g, 'Pause'));
+        break;
+      case 'Ready':
+        if (prev === 'Paused') sendCommand(g, s, 'current', newCommand(g, 'Pause'));
+        else if (prev === 'Waiting') {
+          sendCommand(g, s, 'all', newCommand(g, 'Pause'));
+          sendStateUpdate(g, st, req.type, s);
+        }
+        break;
+    }
+  }
+
+  function playing(g, st, req, prev, s) {
+    switch (req.type) {
+      case 'Play': case 'Seek': case 'NextItem': case 'PreviousItem': return enter(g, 'Waiting', req, 'Playing', s);
+      case 'Buffer': return st.ignoreBuffering ? undefined : enter(g, 'Waiting', req, 'Playing', s);
+      case 'Pause': return enter(g, 'Paused', req, 'Playing', s);
+      case 'Stop': return enter(g, 'Idle', req, 'Playing', s);
+      case 'Unpause':
+        if (prev !== 'Playing') {
+          // Start in the near future so every client can receive the command first.
+          g.lastActivity = Date.now() + Math.max(highestPing(g) * 2, SP_DEFAULT_PING);
+          sendCommand(g, s, 'all', newCommand(g, 'Unpause'));
+          sendStateUpdate(g, st, req.type, s);
+        } else sendCommand(g, s, 'current', newCommand(g, 'Unpause'));
+        break;
+      case 'Ready':
+        if (prev === 'Playing') sendCommand(g, s, 'current', newCommand(g, 'Unpause'));
+        else if (prev === 'Waiting') sendStateUpdate(g, st, req.type, s);
+        break;
+    }
+  }
+
+  function waiting(g, st, req, prev, s) {
+    if (!st.initialState) st.initialState = prev;
+    switch (req.type) {
+      case 'Play': {
+        st.resumePlaying = true;
+        const ok = setPlayQueue(g, req.queue, req.position, req.startTicks);
+        st.positionJumped = ok;
+        if (!ok) return restoreState(g, prev);
+        sendUpdate(g, s, 'all', 'PlayQueue', queueUpdate(g, 'NewPlaylist'));
+        setAllBuffering(g, true);
+        break;
+      }
+      case 'Unpause':
+        if (prev === 'Idle') {
+          st.resumePlaying = true;
+          restartItem(g);
+          st.positionJumped = true;
+          sendUpdate(g, s, 'all', 'PlayQueue', queueUpdate(g, 'NewPlaylist'));
+          setAllBuffering(g, true);
+        } else if (st.resumePlaying) {
+          // An Unpause while waiting forces playback to start, ignoring clients that are not ready.
+          setAllBuffering(g, false);
+          return enter(g, 'Playing', req, 'Waiting', s, { ignoreBuffering: true });
+        } else {
+          st.resumePlaying = true; // the group goes to Playing once everyone is ready
+          sendStateUpdate(g, st, req.type, s);
+        }
+        break;
+      case 'Pause':
+        st.resumePlaying = false;
+        sendStateUpdate(g, st, req.type, s);
+        break;
+      case 'Stop': return enter(g, 'Idle', req, 'Waiting', s);
+      case 'Seek':
+        if (prev === 'Playing') st.resumePlaying = true;
+        else if (prev === 'Paused') st.resumePlaying = false;
+        g.positionTicks = sanitize(g, req.ticks);
+        g.lastActivity = Date.now();
+        st.positionJumped = true;
+        sendCommand(g, s, 'all', newCommand(g, 'Seek'));
+        setAllBuffering(g, true);
+        sendStateUpdate(g, st, req.type, s);
+        break;
+      case 'Buffer': {
+        if (req.playlistItemId !== g.queue[g.index]?.PlaylistItemId) {
+          // The client plays another item: tell it which one.
+          sendUpdate(g, s, 'current', 'PlayQueue', queueUpdate(g, 'SetCurrentItem'));
+          setBuffering(g, s, true);
+          return;
+        }
+        if (prev === 'Playing') {
+          st.resumePlaying = true;
+          setBuffering(g, s, true);
+          freezePosition(g);
+          sendCommand(g, s, 'ready', newCommand(g, 'Pause'));
+        } else if (prev === 'Paused') {
+          st.resumePlaying = false;
+          setBuffering(g, s, true);
+          sendCommand(g, s, 'current', newCommand(g, 'Pause'));
+        } else if (prev === 'Waiting') {
+          setBuffering(g, s, true);
+          if (!st.resumePlaying) sendCommand(g, s, 'current', newCommand(g, 'Pause'));
+        }
+        sendStateUpdate(g, st, req.type, s);
+        break;
+      }
+      case 'Ready': return waitingReady(g, st, req, s);
+      case 'NextItem': case 'PreviousItem': {
+        st.resumePlaying = true;
+        if (req.playlistItemId !== g.queue[g.index]?.PlaylistItemId) return;
+        const ok = req.type === 'NextItem' ? nextItem(g) : previousItem(g);
+        st.positionJumped = ok;
+        if (!ok) return restoreState(g, prev);
+        sendUpdate(g, s, 'all', 'PlayQueue', queueUpdate(g, req.type));
+        setAllBuffering(g, true);
+        break;
+      }
+    }
+  }
+
+  function waitingReady(g, st, req, s) {
+    if (req.playlistItemId !== g.queue[g.index]?.PlaylistItemId) {
+      sendUpdate(g, s, 'current', 'PlayQueue', queueUpdate(g, 'SetCurrentItem'));
+      setBuffering(g, s, true);
+      return;
+    }
+    // Estimate where the client is now from the position it reported at `When`.
+    const now = Date.now();
+    let elapsedMs = now - req.when;
+    if (Math.abs(elapsedMs) > SP_TIME_SYNC_OFFSET || !req.isPlaying) elapsedMs = 0;
+    const requestTicks = sanitize(g, req.positionTicks);
+    const clientTicks = requestTicks + msToTicks(elapsedMs);
+    let delayTicks = g.positionTicks - clientTicks;
+    const maxPlaybackTicks = msToTicks(SP_MAX_PLAYBACK_OFFSET);
+    if (st.resumePlaying) {
+      const maxTicks = req.isPlaying && !st.positionJumped ? msToTicks(SP_MAX_CATCH_UP_OFFSET) : maxPlaybackTicks;
+      if (Math.abs(delayTicks) > maxTicks) {
+        // The client got lost in time: send it to the group position.
+        setBuffering(g, s, true);
+        sendCommand(g, s, 'current', newCommand(g, 'Seek'));
+        sendStateUpdate(g, st, req.type, s);
+        return;
+      }
+      setBuffering(g, s, false);
+      if (isBuffering(g)) {
+        // Others are still buffering: this client pauses when it is ready.
+        const command = newCommand(g, 'Pause');
+        command.When = iso(now + delayTicks / 10_000);
+        sendCommand(g, s, 'current', command);
+      } else {
+        const pingTicks = msToTicks(highestPing(g) * 2);
+        if (delayTicks > pingTicks) {
+          // A client that was buffering is catching up: the others resume once it has.
+          g.lastActivity = now + delayTicks / 10_000;
+          sendCommand(g, s, req.isPlaying ? 'others' : 'all', newCommand(g, 'Unpause'));
+        } else {
+          delayTicks = Math.max(pingTicks, msToTicks(SP_DEFAULT_PING));
+          g.lastActivity = now + delayTicks / 10_000;
+          sendCommand(g, s, 'all', newCommand(g, 'Unpause'));
+        }
+        return enter(g, 'Playing', req, 'Waiting', s);
+      }
+    } else {
+      if (Math.abs(g.positionTicks - requestTicks) > maxPlaybackTicks) {
+        setBuffering(g, s, true);
+        sendCommand(g, s, 'current', newCommand(g, 'Seek'));
+        sendStateUpdate(g, st, req.type, s);
+        return;
+      }
+      setBuffering(g, s, false);
+      if (!isBuffering(g)) {
+        g.state = mkState('Paused');
+        if (st.initialState === 'Playing') paused(g, g.state, { type: 'Pause' }, 'Waiting', s);
+        else if (st.initialState === 'Paused') paused(g, g.state, req, 'Waiting', s);
+      }
+    }
+  }
+
+  // ----- session level (SyncPlayManager) -----
+  const notInGroup = (s) => write(s.id, { MessageType: 'SyncPlayGroupUpdate', Data: { GroupId: GUID_EMPTY, Type: 'NotInGroup', Data: '' } });
+
+  function sessionJoined(g, s) {
+    const st = g.state;
+    if (st.type === 'Idle') sendCommand(g, s, 'current', newCommand(g, 'Stop'));
+    else if (st.type === 'Waiting' || st.type === 'Paused' || st.type === 'Playing') {
+      // A new member makes the group wait for it, like Jellyfin does.
+      const wasPlaying = st.type === 'Playing';
+      const w = (g.state = mkState('Waiting', { initialState: st.type }));
+      if (wasPlaying) {
+        w.resumePlaying = true;
+        freezePosition(g);
+      } else if (st.type === 'Waiting') Object.assign(w, { resumePlaying: st.resumePlaying, initialState: st.initialState, positionJumped: st.positionJumped });
+      sendUpdate(g, s, 'current', 'PlayQueue', queueUpdate(g, 'NewPlaylist'));
+      setBuffering(g, s, true);
+      sendCommand(g, s, 'ready', newCommand(g, 'Pause'));
+    }
+  }
+
+  function sessionLeaving(g, s) {
+    const st = g.state;
+    if (st.type !== 'Waiting') return;
+    setBuffering(g, s, false);
+    if (isBuffering(g)) return;
+    if (st.resumePlaying) {
+      g.state = mkState('Playing');
+      playing(g, g.state, { type: 'Unpause' }, 'Waiting', s);
+    } else g.state = mkState('Paused');
+  }
+
+  function joinGroup(s, g) {
+    if (s.group && s.group !== g) leave(s);
+    if (s.group === g) {
+      sendUpdate(g, s, 'current', 'GroupJoined', info(g));
+      return;
+    }
+    s.group = g;
+    g.members.set(s.id, { ping: SP_DEFAULT_PING, buffering: false, ignoreWait: false });
+    sendUpdate(g, s, 'current', 'GroupJoined', info(g));
+    sendUpdate(g, s, 'others', 'UserJoined', s.name);
+    sessionJoined(g, s);
+  }
+
+  function leave(s) {
+    const g = s.group;
+    if (!g) return notInGroup(s);
+    sessionLeaving(g, s);
+    g.members.delete(s.id);
+    s.group = null;
+    // The leaver is no longer a member, so address it directly.
+    write(s.id, { MessageType: 'SyncPlayGroupUpdate', Data: { GroupId: g.id, Type: 'GroupLeft', Data: g.id } });
+    sendUpdate(g, s, 'all', 'UserLeft', s.name);
+    if (g.members.size === 0) groups.delete(g.id);
+  }
+
+  function createGroup(s, name) {
+    if (s.group) leave(s);
+    const g = { id: randomUUID(), name, state: mkState('Idle'), members: new Map(), queue: [], index: -1, runTimeTicks: 0, positionTicks: 0, lastActivity: Date.now(), lastChange: Date.now() };
+    groups.set(g.id, g);
+    s.group = g;
+    g.members.set(s.id, { ping: SP_DEFAULT_PING, buffering: false, ignoreWait: false });
+    sendUpdate(g, s, 'current', 'GroupJoined', info(g));
+    sessionJoined(g, s);
+    return info(g);
+  }
+
+  function request(s, req) {
+    if (!s.group) return notInGroup(s);
+    handle(s.group, s.group.state, req, s.group.state.type, s);
+  }
+
+  /** Handles /SyncPlay/* and /GetUtcTime; returns false for any other path. `reply` has json(body) and empty(). */
+  function route(method, path, body, s, reply) {
+    const received = Date.now();
+    if (path === '/GetUtcTime') return reply.json({ RequestReceptionTime: iso(received), ResponseTransmissionTime: iso(Date.now()) }), true;
+    let m = /^\/SyncPlay\/(\w+)$/.exec(path);
+    if (!m) return false;
+    const name = m[1];
+    if (method === 'GET' && name === 'List') return reply.json([...groups.values()].map(info)), true;
+    if (method === 'GET') {
+      const g = groups.get(name);
+      return g ? reply.json(info(g)) : reply.notFound(), true;
+    }
+    if (method !== 'POST') return false;
+    const rid = body.PlaylistItemId;
+    const ready = () => ({ when: Date.parse(body.When) || Date.now(), positionTicks: body.PositionTicks, isPlaying: Boolean(body.IsPlaying), playlistItemId: rid });
+    switch (name) {
+      case 'New': return reply.json(createGroup(s, String(body.GroupName || '').trim() || 'Group')), true;
+      case 'Join': {
+        const g = groups.get(body.GroupId);
+        if (!g) write(s.id, { MessageType: 'SyncPlayGroupUpdate', Data: { GroupId: GUID_EMPTY, Type: 'GroupDoesNotExist', Data: '' } });
+        else joinGroup(s, g);
+        break;
+      }
+      case 'Leave': leave(s); break;
+      case 'SetNewQueue': request(s, { type: 'Play', queue: body.PlayingQueue, position: Number(body.PlayingItemPosition) || 0, startTicks: body.StartPositionTicks }); break;
+      case 'Pause': case 'Unpause': case 'Stop': request(s, { type: name }); break;
+      case 'Seek': request(s, { type: 'Seek', ticks: body.PositionTicks }); break;
+      case 'Buffering': request(s, { type: 'Buffer', ...ready() }); break;
+      case 'Ready': request(s, { type: 'Ready', ...ready() }); break;
+      case 'NextItem': case 'PreviousItem': request(s, { type: name, playlistItemId: rid }); break;
+      case 'SetIgnoreWait': {
+        const member = s.group?.members.get(s.id);
+        if (member) member.ignoreWait = Boolean(body.IgnoreWait);
+        else if (!s.group) notInGroup(s);
+        break;
+      }
+      case 'Ping': {
+        const member = s.group?.members.get(s.id);
+        if (member) member.ping = Math.min(Math.max(Number(body.Ping) || 0, 0), SP_MAX_PING);
+        else if (!s.group) notInGroup(s);
+        break;
+      }
+      default: return false;
+    }
+    return reply.empty(), true;
+  }
+
+  // ----- WebSocket (RFC 6455, just enough: text frames in and out, ping, close) -----
+  function upgrade(req, socket) {
+    const url = new URL(req.url, 'http://mock');
+    const key = req.headers['sec-websocket-key'];
+    if (url.pathname.replace(/\/+$/, '') !== '/socket' || !key) return socket.destroy();
+    const deviceId = url.searchParams.get('deviceId') || url.searchParams.get('DeviceId') || 'mock-device';
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${createHash('sha1').update(key + WS_GUID).digest('base64')}\r\n\r\n`);
+    socket.setNoDelay(true);
+    session(deviceId);
+    if (!sockets.has(deviceId)) sockets.set(deviceId, new Set());
+    sockets.get(deviceId).add(socket);
+    clearTimeout(leaveTimers.get(deviceId));
+    socket.write(wsFrame(JSON.stringify({ MessageType: 'ForceKeepAlive', Data: 60 })));
+
+    let buf = Buffer.alloc(0);
+    let fragments = [];
+    const close = () => {
+      const set = sockets.get(deviceId);
+      set?.delete(socket);
+      socket.destroy();
+      if (set && set.size === 0) {
+        // Give a reloading page time to reconnect before its device leaves the group.
+        const timer = setTimeout(() => {
+          const s = sessions.get(deviceId);
+          if (s?.group && !(sockets.get(deviceId)?.size > 0)) leave(s);
+        }, SOCKET_LEAVE_GRACE_MS);
+        timer.unref();
+        leaveTimers.set(deviceId, timer);
+      }
+    };
+    socket.on('data', (chunk) => {
+      buf = Buffer.concat([buf, chunk]);
+      for (;;) {
+        if (buf.length < 2) return;
+        const op = buf[0] & 0x0f;
+        const fin = (buf[0] & 0x80) !== 0;
+        const masked = (buf[1] & 0x80) !== 0;
+        let len = buf[1] & 0x7f;
+        let off = 2;
+        if (len === 126) {
+          if (buf.length < 4) return;
+          len = buf.readUInt16BE(2);
+          off = 4;
+        } else if (len === 127) {
+          if (buf.length < 10) return;
+          len = Number(buf.readBigUInt64BE(2));
+          off = 10;
+        }
+        if (len > 1_000_000) return close();
+        if (buf.length < off + (masked ? 4 : 0) + len) return;
+        const mask = masked ? buf.subarray(off, off + 4) : null;
+        const data = Buffer.from(buf.subarray(off + (masked ? 4 : 0), off + (masked ? 4 : 0) + len));
+        if (mask) for (let i = 0; i < data.length; i++) data[i] ^= mask[i & 3];
+        buf = buf.subarray(off + (masked ? 4 : 0) + len);
+        if (op === 8) {
+          socket.write(Buffer.from([0x88, 0]));
+          return close();
+        }
+        if (op === 9) socket.write(Buffer.concat([Buffer.from([0x8a, data.length]), data.subarray(0, 125)]));
+        else if (op === 1 || op === 0) {
+          fragments.push(data);
+          if (fin) {
+            const text = Buffer.concat(fragments).toString('utf8');
+            fragments = [];
+            // KeepAlive and any other client message needs no answer.
+            if (process.env.MOCK_LOG === '1') process.stderr.write(`[mock-jellyfin] socket ${deviceId} ${text.slice(0, 200)}\n`);
+          }
+        }
+      }
+    });
+    socket.on('close', close);
+    socket.on('error', close);
+  }
+
+  return { route, upgrade, session };
+}
+
 export function startMock({ port = 8097, quickConnectAuthenticated = process.env.MOCK_QC_AUTHENTICATED === '1', quiet = false } = {}) {
   const secrets = new Set();
+  const syncPlay = createSyncPlay();
   const server = createServer((req, res) => {
     const url = new URL(req.url, 'http://mock');
     const path = decodeURIComponent(url.pathname).replace(/\/+$/, '') || '/';
@@ -554,6 +1078,23 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
         if (process.env.MOCK_LOG === '1') process.stderr.write(`[mock-jellyfin] user data ${m[1]} ${JSON.stringify(data)}\n`);
         if (i) i.UserData = { ...i.UserData, ...(data.PlaybackPositionTicks !== undefined ? { PlaybackPositionTicks: data.PlaybackPositionTicks } : {}), LastPlayedDate: new Date().toISOString() };
         empty();
+      });
+      return;
+    }
+    if (path === '/GetUtcTime' || path.startsWith('/SyncPlay/')) {
+      let body = '';
+      req.on('data', (c) => (body += c));
+      req.on('end', () => {
+        let data = {};
+        try {
+          data = JSON.parse(body || '{}');
+        } catch {
+          // ignore a broken body
+        }
+        const auth = authParams(req);
+        const s = syncPlay.session(auth.DeviceId || q.get('deviceId') || q.get('DeviceId') || 'mock-device', auth.Device);
+        const handled = syncPlay.route(req.method, path, data, s, { json, empty, notFound: () => send(404, { error: 'not found' }) });
+        if (!handled) send(404, { error: 'not found' });
       });
       return;
     }
@@ -674,8 +1215,8 @@ export function startMock({ port = 8097, quickConnectAuthenticated = process.env
     process.stderr.write(`[mock-jellyfin] unhandled ${req.method} ${req.url}\n`);
     return json(/\/Items|\/Shows/.test(path) ? { Items: [], TotalRecordCount: 0 } : {});
   });
-  // The TV opens a WebSocket; the mock has none, so refuse it and let the app retry quietly.
-  server.on('upgrade', (req, socket) => socket.destroy());
+  // The WebSocket on /socket carries SyncPlay messages; the TV only reads the keep-alive request from it.
+  server.on('upgrade', (req, socket) => syncPlay.upgrade(req, socket));
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, () => {
