@@ -4,7 +4,7 @@ import type { BaseItem } from '../jellyfin/types';
 import { currentQueueItem } from './group';
 import { secondsToTicks, ticksToSeconds, type SyncCommand } from './protocol';
 import { canChangePlaybackRate } from './rate';
-import { DRIFT_CHECK_INTERVAL_MS, checkDrift, scheduleCommand, type SyncAction } from './sync';
+import { DRIFT_CHECK_INTERVAL_MS, checkDrift, nextSeekLead, scheduleCommand, seekBackoffMs, type SyncAction } from './sync';
 
 /** After a correction of our own the video's buffering events are not reported (the group would stall for nothing). */
 const QUIET_MS = 1500;
@@ -13,6 +13,8 @@ const SEEK_READY_FALLBACK_MS = 2000;
 /** A stream restart that never produced a new stream (nothing changed) is answered with Ready after this long. */
 const RESTART_FALLBACK_MS = 6000;
 const DRIFT_TICK_MS = 1000;
+/** A stall (waiting/seeking) must last this long before the group is told we are buffering; short hitches stay local. */
+const BUFFERING_REPORT_DELAY_MS = 1000;
 
 export interface PlayerSyncOptions {
   video: { current: HTMLVideoElement | null };
@@ -79,6 +81,10 @@ export function usePlayerSync(o: PlayerSyncOptions): PlayerSync {
   const lastPid = useRef('');
   const timers = useRef<number[]>([]);
   const readyTimer = useRef<number | undefined>(undefined);
+  const bufferTimer = useRef<number | undefined>(undefined);
+  const driftSeeks = useRef(0); // consecutive drift seeks without a check that found us in sync
+  const seekLead = useRef(0); // learned seek latency, ms
+  const awaitResidual = useRef(false); // the next drift check measures where the last drift seek landed
   const canRate = useRef(
     canChangePlaybackRate({ userAgent: navigator.userAgent, platform: navigator.platform, maxTouchPoints: navigator.maxTouchPoints }),
   );
@@ -143,7 +149,9 @@ export function usePlayerSync(o: PlayerSyncOptions): PlayerSync {
           // A group seek is answered with Ready (by the media events; this covers the case none fires).
           seekPending.current = true;
           quietUntil.current = 0;
-          bufferingRef.current = false;
+          // Buffering stays set (not reported: the server already waits) so the seek's media events report Ready.
+          bufferingRef.current = true;
+          window.clearTimeout(bufferTimer.current);
           window.clearTimeout(readyTimer.current);
           readyTimer.current = window.setTimeout(() => {
             if (seekPending.current && !el.seeking && el.readyState >= 3) {
@@ -196,13 +204,28 @@ export function usePlayerSync(o: PlayerSyncOptions): PlayerSync {
   useEffect(() => {
     const el = o.video.current;
     if (!el || !active) return;
+    const isStalled = () => el.seeking || el.readyState < 3;
     const stalled = () => {
       const l = live.current;
-      if (!l.o.ownStream.current || !l.pid || bufferingRef.current || Date.now() < quietUntil.current) return;
-      bufferingRef.current = true;
-      l.syncplay.reportBuffering(status(el));
+      if (!l.o.ownStream.current || !l.pid || bufferingRef.current || bufferTimer.current !== undefined) return;
+      // Only a stall that lasts is reported: pausing the whole group for a hitch would be worse than the hitch.
+      const delay = Math.max(BUFFERING_REPORT_DELAY_MS, quietUntil.current - Date.now());
+      bufferTimer.current = window.setTimeout(() => {
+        bufferTimer.current = undefined;
+        const n = live.current;
+        if (!n.active || !n.pid || bufferingRef.current || !n.o.ownStream.current) return;
+        if (!isStalled() || Date.now() < quietUntil.current) return;
+        bufferingRef.current = true;
+        n.syncplay.reportBuffering(status(el));
+      }, delay);
+    };
+    const cancelStall = () => {
+      if (isStalled()) return;
+      window.clearTimeout(bufferTimer.current);
+      bufferTimer.current = undefined;
     };
     const ready = () => {
+      cancelStall();
       if (Date.now() >= quietUntil.current) maybeReady();
     };
     const started = () => {
@@ -214,6 +237,8 @@ export function usePlayerSync(o: PlayerSyncOptions): PlayerSync {
     for (const type of ['canplay', 'playing', 'seeked']) el.addEventListener(type, ready);
     el.addEventListener('playing', started);
     return () => {
+      window.clearTimeout(bufferTimer.current);
+      bufferTimer.current = undefined;
       el.removeEventListener('waiting', onWaiting);
       el.removeEventListener('seeking', onWaiting);
       for (const type of ['canplay', 'playing', 'seeked']) el.removeEventListener(type, ready);
@@ -224,6 +249,9 @@ export function usePlayerSync(o: PlayerSyncOptions): PlayerSync {
   // The queue entry or the stream changed: a stream that is already playable has no event left to say so.
   useEffect(() => {
     if (!active || !pid) return;
+    driftSeeks.current = 0;
+    seekLead.current = 0;
+    awaitResidual.current = false;
     const el = o.video.current;
     if (el && lastPid.current && lastPid.current !== pid && cur && cur.itemId === o.item.Id) {
       // The queue was replaced by the same item: start over from its start position.
@@ -256,17 +284,34 @@ export function usePlayerSync(o: PlayerSyncOptions): PlayerSync {
       const now = Date.now();
       if (el.paused || el.seeking || bufferingRef.current || now < blockDriftUntil.current) return;
       if (now - playStartedAt.current < DRIFT_CHECK_INTERVAL_MS) return;
-      const r = checkDrift({
+      const input = {
         lastUnpause: c,
         offsetMs: l.syncplay.offsetMs(),
         nowMs: now,
         positionSec: l.o.toMedia(el.currentTime),
         canChangeRate: canRate.current,
-      });
-      if (!r.action) return;
-      blockDriftUntil.current = now + r.blockMs;
-      if (r.action.type === 'rate') perform(r.action, c);
-      else if (r.action.type === 'seek') quietSeek(el, r.action.position);
+        leadMs: seekLead.current,
+      };
+      let r = checkDrift(input);
+      if (awaitResidual.current) {
+        // First check after a drift seek: how far off did it land? Learn from it, then decide with the new lead.
+        awaitResidual.current = false;
+        seekLead.current = nextSeekLead(seekLead.current, r.diffMs);
+        r = checkDrift({ ...input, leadMs: seekLead.current });
+      }
+      if (!r.action) {
+        driftSeeks.current = 0;
+        return;
+      }
+      if (r.action.type === 'rate') {
+        blockDriftUntil.current = now + r.blockMs;
+        perform(r.action, c);
+      } else if (r.action.type === 'seek') {
+        driftSeeks.current += 1;
+        blockDriftUntil.current = now + seekBackoffMs(driftSeeks.current);
+        awaitResidual.current = true;
+        quietSeek(el, r.action.position);
+      }
     }, DRIFT_TICK_MS);
     return () => window.clearInterval(id);
   }, [active]);
@@ -293,6 +338,7 @@ export function usePlayerSync(o: PlayerSyncOptions): PlayerSync {
   useEffect(
     () => () => {
       window.clearTimeout(readyTimer.current);
+      window.clearTimeout(bufferTimer.current);
       clearTimers();
       const l = live.current;
       const el = l.o.video.current;
