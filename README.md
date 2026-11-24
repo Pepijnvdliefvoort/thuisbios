@@ -68,6 +68,7 @@ Phone and desktop app (`apps/remote`):
 - Details with cast and crew, seasons and episodes, watched marks, and title requests (with a notice on Home when a requested title arrives).
 - My list: save movies and series for later from Details; they show as a row on Home (stored as Jellyfin favorites). The TV details page has the same button.
 - Own player: resume, audio tracks, subtitles with timing, quality, skip intro, next episode, scrub previews, chapter markers and list.
+- Lock-screen and notification controls when playing on the phone: play/pause, 10 s skip, previous/next episode, title and artwork.
 - Offline downloads that play without a network and sync progress back.
 - A Jellyfin library named "Prive" or "Private" stays hidden by default; a per-device switch in the account menu shows it.
 - Play on the TV, Now Playing remote (transport, tracks, subtitle timing, chapters) and TV volume.

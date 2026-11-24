@@ -7,6 +7,7 @@ import { useApp } from '../context';
 import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscreen';
 import { artUrl } from '../jellyfin/art';
 import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
+import { useMediaSession } from '../mediaSession';
 import { getPlayerVideo, releasePlayerVideo } from '../playerVideo';
 import { playerKeyAction, stepVolume } from '../playerKeys';
 import { tapSide, type TapSide } from '../tapSide';
@@ -983,6 +984,28 @@ export function Player({
           onNext: () => next && switchTo(next, shouldMarkPlayedOnSkip(plan, now)),
         }
       : undefined;
+  useMediaSession({
+    video: () => video.current,
+    item,
+    serverUrl: client.serverUrl,
+    getPosition: () => {
+      const el = video.current;
+      return el ? toMedia(el.currentTime) : 0;
+    },
+    getDuration: () => duration,
+    onPlay: () => {
+      const el = video.current;
+      if (el && el.paused) togglePlay();
+    },
+    onPause: () => {
+      const el = video.current;
+      if (el && !el.paused) togglePlay();
+    },
+    onSeekBy: skipBy,
+    onSeekTo: seekTo,
+    onPrevious: episodeNav && episodeNav.hasPrevious ? episodeNav.onPrevious : undefined,
+    onNext: episodeNav && episodeNav.hasNext ? episodeNav.onNext : undefined,
+  });
   // Where the countdown started: when the position entered the card zone (playing, seeking or resuming).
   const armed = useRef<{ at: number | null; last: number | null }>({ at: null, last: null });
   armed.current = { at: nextArmedAt(plan, armed.current.at, armed.current.last, now), last: now };
