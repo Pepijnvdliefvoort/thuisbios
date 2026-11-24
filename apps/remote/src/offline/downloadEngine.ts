@@ -8,6 +8,7 @@ import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audi
 import { buildPhoneProfile } from '../jellyfin/phoneProfile';
 import { resolveStreamUrl, withAudioStreamIndex, withMaxSize, withNoVideoStreamCopy, withSubtitleStreamIndex } from '../jellyfin/playback';
 import { listSubtitles, subtitleVttUrl } from '../jellyfin/subtitles';
+import { pickVersionForLevel } from '../jellyfin/versions';
 import type { BaseItem, MediaSource } from '../jellyfin/types';
 import { entryFromItem, isDownloadable, parseIndex, serializeIndex, type DownloadEntry } from './downloadIndex';
 import { INDEX_KEY, initKey, itemJsonKey, itemPrefix, metaKey, planKey, playlistKey, posterKey, segmentKey, segmentsJsonKey, subtitleKey } from './downloadKeys';
@@ -42,7 +43,7 @@ export interface DownloadMeta {
 }
 
 export interface EngineDeps {
-  client: Pick<JellyfinClient, 'serverUrl' | 'playbackInfo' | 'mediaSegments' | 'stopTranscode'>;
+  client: Pick<JellyfinClient, 'serverUrl' | 'playbackInfo' | 'mediaSegments' | 'stopTranscode' | 'mediaSources'>;
   session: { userId: string; token: string };
   deviceId: string;
   store: DownloadStore;
@@ -371,6 +372,7 @@ export class DownloadEngine {
   private async requestInfo(id: string, preset: QualityPreset, audio: number | null): Promise<{ source: MediaSource; playSessionId?: string }> {
     const profile = buildPhoneProfile(this.d.canPlay, preset.bitrate, { height: preset.maxHeight, width: preset.maxWidth }, { safe: true });
     const info = await this.d.client.playbackInfo(this.d.session.userId, id, profile, {
+      mediaSourceId: await this.versionFor(id, preset),
       directPlay: false,
       directStream: false,
       subtitleStreamIndex: -1,
@@ -379,6 +381,16 @@ export class DownloadEngine {
     const source = info.MediaSources[0];
     if (!source || !source.TranscodingUrl) throw new PlanError('The server could not prepare this video for download.');
     return { source, playSessionId: info.PlaySessionId };
+  }
+
+  /** With several versions, the one to convert from: the smallest at or above the preset, so a 1080p download skips the 4K file. */
+  private async versionFor(id: string, preset: QualityPreset): Promise<string | undefined> {
+    try {
+      const versions = await this.d.client.mediaSources(this.d.session.userId, id);
+      return versions.length > 1 ? pickVersionForLevel(versions, preset.maxHeight) || undefined : undefined;
+    } catch (e) {
+      return undefined;
+    }
   }
 
   private async fetchChecked(url: string, what: string, signal: AbortSignal): Promise<Response> {

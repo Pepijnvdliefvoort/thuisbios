@@ -58,6 +58,7 @@ function fakeServer(count: number, opts: { fail?: (url: string) => number | null
   });
   const client = {
     serverUrl: 'http://pc:8096',
+    mediaSources: vi.fn(async () => [source]),
     playbackInfo: vi.fn(async () => ({ MediaSources: [source], PlaySessionId: 'p1' })),
     mediaSegments: vi.fn(async () => [{ type: 'Intro' as const, startTicks: 1, endTicks: 9 }]),
     stopTranscode: vi.fn(async () => undefined),

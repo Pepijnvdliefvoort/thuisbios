@@ -66,19 +66,24 @@ export interface QualityOption {
 }
 
 /**
- * The choices for a source: Auto first, then the levels from the source's own resolution downwards (a 720p film
- * is never offered 1080p). `autoNote` is the resolution that is playing now, shown next to Auto. A source of
- * unknown size gets Auto only, so the menu stays away.
+ * The choices for a source: Auto first, then the levels from the top one downwards (a 720p film is never offered
+ * 1080p). The top level is the source's own, or the highest version's when the film has several (`versions`, the
+ * heights of all its versions), so a phone playing the 1080p version still offers 4K. Every level a version has is
+ * labelled original: picking it plays that file as it is. `autoNote` is the resolution that is playing now, shown
+ * next to Auto. A source of unknown size and no versions gets Auto only, so the menu stays away.
  */
-export function qualityOptions(source: MediaSource, autoNote?: string | null): QualityOption[] {
-  const top = sourceLevel(source);
+export function qualityOptions(source: MediaSource, autoNote?: string | null, versions: { height: number }[] = []): QualityOption[] {
+  const own = sourceLevel(source);
+  const heights = versions.map((v) => v.height);
+  if (own) heights.push(own.height);
   const auto: QualityOption = { id: 'auto', label: autoNote ? `Auto (${autoNote})` : 'Auto' };
-  if (!top) return [auto];
+  if (heights.length === 0) return [auto];
+  const top = Math.max(...heights);
   return [
     auto,
-    ...LEVELS.filter((l) => l.height <= top.height).map((l) => ({
+    ...LEVELS.filter((l) => l.height <= top).map((l) => ({
       id: l.height,
-      label: l.height === top.height ? `${l.label} (original)` : l.label,
+      label: heights.indexOf(l.height) >= 0 ? `${l.label} (original)` : l.label,
     })),
   ];
 }
