@@ -70,6 +70,8 @@ interface Props {
   desktop?: DesktopControls;
   episodeNav?: EpisodeNav;
   pip?: PipControl;
+  /** Watch together: shows the "Together · N" pill in the top bar; `onOpen` opens the group sheet. */
+  together?: { count: number; onOpen(): void };
   /** Preview frames for the scrub bar (server tile sheets); absent offline or when the server has none. */
   scrubSource?: ScrubSource | null;
   /** Chapters of the item (2 or more, else empty): markers on the bar, the name in the tooltip and a list to jump to. */
@@ -281,6 +283,11 @@ export function PlayerControls(p: Props) {
             {p.eyebrow ? <p class="pc-eyebrow">{p.eyebrow}</p> : null}
             <h1>{p.title}</h1>
           </div>
+          {p.together ? (
+            <button type="button" class="pc-together" onClick={p.together.onOpen} aria-label={`Watch together, ${p.together.count} watching`}>
+              <Icon name="group" size={18} /> Together · {p.together.count}
+            </button>
+          ) : null}
         </div>
 
         <div class={'pc-bigplay' + (p.paused ? ' on' : pulse ? ' pulse' : '')} aria-hidden="true">
@@ -429,6 +436,11 @@ export function PlayerControls(p: Props) {
           {p.eyebrow ? <p class="pc-eyebrow">{p.eyebrow}</p> : null}
           <h1>{p.title}</h1>
         </div>
+        {p.together ? (
+          <button type="button" class="pc-together" onClick={p.together.onOpen} aria-label={`Watch together, ${p.together.count} watching`}>
+            <Icon name="group" size={18} /> Together · {p.together.count}
+          </button>
+        ) : null}
       </div>
 
       <div class={'pc-center' + (nav ? ' with-nav' : '')}>

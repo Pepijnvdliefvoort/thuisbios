@@ -141,6 +141,20 @@ html.scroll-locked .scroller { overflow-y: hidden; }
 .btn:disabled { opacity: 0.4; }
 .btn:active:not(:disabled) { transform: scale(0.98); }
 
+/* Watch together: open groups on Home, the indicator in the player and its sheet */
+.together-card { margin: 8px var(--gutter) 4px; display: flex; flex-direction: column; gap: 8px; }
+.together-row { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 6px 8px 6px 14px; background: var(--surface); border-radius: var(--radius); }
+.together-icon { display: flex; flex: none; color: var(--accent); }
+.together-text { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn.together-join { flex: none; width: auto; min-height: 40px; padding: 0 22px; }
+.pc-together {
+  flex: none; margin-left: auto; display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 18px;
+  background: rgba(20, 20, 26, 0.55); border: 1px solid rgba(255, 255, 255, 0.18); color: #fff; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.pc-together:active { transform: scale(0.96); }
+.together-sheet-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.together-sheet-list li { padding: 10px 14px; background: var(--surface-2); border-radius: var(--radius); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Rows and grid */
 .row { margin: 12px 0 20px; }
 .row h2 { font-size: 18px; padding: 0 var(--gutter); margin-bottom: 8px; }
@@ -909,6 +923,10 @@ button.rs-row:active { background: var(--surface-2); }
   .sp-dot:focus-visible { outline-offset: -2px; }
 
   /* Rows: edge to edge, the first card lines up with the content column; arrows are side panels over the art */
+  .together-card { margin: 20px var(--edge) 0; max-width: 560px; }
+  .has-hero .together-card { position: relative; z-index: 1; }
+  .together-row { background: var(--glass); }
+  .pc-desk .pc-together { margin-left: auto; min-height: 40px; padding: 0 16px; font-size: 14px; }
   .row { margin: 28px 0 36px; }
   .has-hero .row { position: relative; z-index: 1; }
   .row h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; padding: 0 var(--edge); margin-bottom: 14px; }

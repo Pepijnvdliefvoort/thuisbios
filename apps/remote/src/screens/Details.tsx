@@ -15,6 +15,7 @@ import { findPlayTarget, resumeTicks } from '../jellyfin/playTarget';
 import { chooseSeasonId } from '../jellyfin/seasons';
 import { episodeLabel, formatRuntime, formatTicksClock, progressFraction } from '../jellyfin/format';
 import type { BaseItem } from '../jellyfin/types';
+import { primePlayerVideo } from '../playerVideo';
 import { resolveStart } from '../offline/startPosition';
 import { canAddToList, isInList, myListToggle } from '../jellyfin/myList';
 import { allWatched, isWatched, watchedToggle, type WatchedScope } from '../jellyfin/watched';
@@ -112,7 +113,7 @@ function DetailsSkeleton() {
 }
 
 function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: Reloaders; refresh: () => Promise<unknown> }) {
-  const { client, session, tv, toast, openItem, playHere, downloads, offline, refreshLibrary } = useApp();
+  const { client, session, tv, toast, openItem, playHere, downloads, offline, refreshLibrary, syncplay } = useApp();
   const desktop = useDesktop();
   const isSeries = item.Type === 'Series';
   const isEpisode = item.Type === 'Episode';
@@ -138,6 +139,12 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
     setPending(toggle.next);
     await setWatched(item.Id, toggle.next);
     setPending(null);
+  };
+
+  // Watch together: a group (Jellyfin SyncPlay) that starts this item from the resume point; it always plays in this app's player.
+  const startTogether = async () => {
+    primePlayerVideo(); // inside the tap, before anything async (iOS)
+    if (playItem && !syncplay.busy && (await syncplay.create(playItem, serverResume))) playHere(playItem, serverResume, true);
   };
 
   // My list works like the watched toggle: the tap shows at once and is dropped when the item reloads or the call fails.
@@ -214,6 +221,11 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
           <Icon name="play" /> {(isSeries ? 'Play next episode' : 'Play') + (here ? '' : ' on TV')}
         </button>
       )}
+      {playItem && !offline ? (
+        <button type="button" class="btn secondary" disabled={syncplay.busy || !!syncplay.group} onClick={() => void startTogether()}>
+          <Icon name="group" size={20} /> Watch together
+        </button>
+      ) : null}
       {isSeries ? null : <DownloadButton item={item} />}
       {isEpisode ? null : <TrailerButton item={item} />}
       {desktop && !noTv ? (
