@@ -75,8 +75,16 @@ export interface JellyfinClient {
   imageUrl(itemId: string, tag: string | undefined, maxHeight: number): string;
   /** Image resized by the server to exactly `width` x `height` (logos are only limited to that box). */
   imageUrlSized(itemId: string, type: ImageKind, tag: string, width: number, height: number): string;
-  /** `audioStreamIndex` asks for another audio stream than the default; that needs a remux or transcode. */
-  playbackInfo(userId: string, itemId: string, forceTranscode: boolean, audioStreamIndex?: number): Promise<PlaybackInfoResponse>;
+  /**
+   * `audioStreamIndex` asks for another audio stream than the default; that needs a remux or transcode.
+   * `burnSubtitleIndex` (an image subtitle) makes the server burn it into the picture: a forced transcode.
+   */
+  playbackInfo(
+    userId: string,
+    itemId: string,
+    forceTranscode: boolean,
+    options?: { audioStreamIndex?: number; burnSubtitleIndex?: number },
+  ): Promise<PlaybackInfoResponse>;
   reportStart(report: PlaybackReport): Promise<void>;
   reportProgress(report: PlaybackReport): Promise<void>;
   reportStopped(report: PlaybackReport): Promise<void>;
@@ -207,9 +215,12 @@ export function createClient(options: ClientOptions): JellyfinClient {
       `${serverUrl}/Items/${encodeURIComponent(itemId)}/Images/Primary?maxHeight=${maxHeight}&quality=80${
         tag ? `&tag=${encodeURIComponent(tag)}` : ''
       }`,
-    playbackInfo: (userId, itemId, forceTranscode, audioStreamIndex) => {
+    playbackInfo: (userId, itemId, forceTranscode, options) => {
+      const audioStreamIndex = options ? options.audioStreamIndex : undefined;
+      const burn = options && options.burnSubtitleIndex !== undefined && options.burnSubtitleIndex >= 0 ? options.burnSubtitleIndex : -1;
       const profile = buildDeviceProfile();
-      const direct = !forceTranscode;
+      // Burning in an image subtitle re-encodes the picture, so only a transcode can serve it.
+      const direct = !forceTranscode && burn < 0;
       // The original file only has its default audio: another stream needs a remux (DirectStream) or a transcode.
       const directPlay = direct && audioStreamIndex === undefined;
       const query = [
@@ -218,8 +229,9 @@ export function createClient(options: ClientOptions): JellyfinClient {
         `EnableDirectPlay=${directPlay}`,
         `EnableDirectStream=${direct}`,
         'EnableTranscoding=true',
-        // The app draws subtitles itself (WebVTT track): never let Jellyfin burn any in.
-        'SubtitleStreamIndex=-1',
+        // Text subtitles are drawn by the app (WebVTT track): only an image subtitle is burned in by Jellyfin.
+        `SubtitleStreamIndex=${burn}`,
+        ...(burn >= 0 ? ['AllowVideoStreamCopy=false'] : []),
         ...(audioStreamIndex !== undefined ? [`AudioStreamIndex=${audioStreamIndex}`] : []),
       ].join('&');
       return request<PlaybackInfoResponse>('POST', `/Items/${encodeURIComponent(itemId)}/PlaybackInfo?${query}`, {
@@ -229,7 +241,8 @@ export function createClient(options: ClientOptions): JellyfinClient {
         EnableDirectStream: direct,
         EnableTranscoding: true,
         AutoOpenLiveStream: false,
-        SubtitleStreamIndex: -1,
+        SubtitleStreamIndex: burn,
+        ...(burn >= 0 ? { AllowVideoStreamCopy: false } : {}),
         ...(audioStreamIndex !== undefined ? { AudioStreamIndex: audioStreamIndex } : {}),
         DeviceProfile: profile,
       });

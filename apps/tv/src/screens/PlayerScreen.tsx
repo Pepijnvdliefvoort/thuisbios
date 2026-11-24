@@ -11,12 +11,12 @@ import {
   type DebugInfo,
 } from '../jellyfin/playback';
 import {
-  hasOnlyImageSubtitles,
   listSubtitles,
   nextSubtitle,
   pickInitialSubtitle,
   subtitleButtonLabel,
   subtitleVttUrl,
+  type SubtitleTrack,
 } from '../jellyfin/subtitles';
 import { formatOffset, shiftVtt } from '../jellyfin/subtitleOffset';
 import { getSubtitleOffset, setSubtitleOffset } from '../storage';
@@ -74,6 +74,8 @@ const PROGRESS_MS = 10000;
 /** Pause, play and seek reports go out at once, but never more often than this. */
 const EVENT_REPORT_MS = 500;
 const REMOTE_NOTE_MS = 1500;
+/** Cycling past image subtitles with the CC button restarts the stream only once the viewer stops pressing. */
+const BURN_DEBOUNCE_MS = 1200;
 
 const MEDIA_KEYS: { [k: string]: MediaKey } = {
   play: 'play',
@@ -101,6 +103,14 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
   const [subSel, setSubSel] = useState(-1);
   // The audio stream asked for by the phone (null = the server's default). Changing it restarts the stream.
   const [audioSel, setAudioSel] = useState<number | null>(null);
+  // The image subtitle the server burns into the picture (Jellyfin stream index; null = none). Changing it restarts the stream.
+  const [burnSel, setBurnSel] = useState<number | null>(null);
+  const burnRef = useRef<number | null>(null);
+  burnRef.current = burnSel;
+  /** Delay before a change of `subSel` is applied to `burnSel`: 0 for the phone, a debounce for the CC button. */
+  const burnDelay = useRef(0);
+  const burnTimer = useRef(0);
+  const subsRef = useRef<SubtitleTrack[]>([]);
   const subPicked = useRef(false);
   /** Jellyfin stream index of the subtitles shown (-1 for none), for the progress reports. */
   const subIndexRef = useRef(-1);
@@ -257,7 +267,10 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
     setStatus('loading');
     startedRef.current = false;
     client
-      .playbackInfo(session.userId, item.Id, forceTranscode, audioSel === null ? undefined : audioSel)
+      .playbackInfo(session.userId, item.Id, forceTranscode, {
+        audioStreamIndex: audioSel === null ? undefined : audioSel,
+        burnSubtitleIndex: burnSel === null ? undefined : burnSel,
+      })
       .then((info) => {
         if (!alive) return;
         const source = info.MediaSources[0];
@@ -268,6 +281,7 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
           deviceId: clientInfo().deviceId,
           playSessionId: info.PlaySessionId,
           audioStreamIndex: audioSel !== null && audioSel !== fileDefault ? audioSel : undefined,
+          subtitleStreamIndex: burnSel === null ? undefined : burnSel,
         };
         const selection = selectPlayMethod(source, params, forceTranscode);
         if (!selection) throw new Error(info.ErrorCode ? `Cannot play: ${info.ErrorCode}` : 'Server offers no playable stream');
@@ -288,17 +302,36 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
     return () => {
       alive = false;
     };
-  }, [client, session, item.Id, forceTranscode, audioSel]);
+  }, [client, session, item.Id, forceTranscode, audioSel, burnSel]);
 
   // Subtitles: fetch the WebVTT text once per track, then attach it as a blob URL (avoids cross-origin
   // <track> issues). The timing offset is applied to the text, so changing it needs no refetch.
   const subs = loaded ? listSubtitles(loaded.source) : [];
-  const imageOnly = loaded ? hasOnlyImageSubtitles(loaded.source) : false;
+  if (loaded) subsRef.current = subs;
   subIndexRef.current = subs[subSel] ? subs[subSel].index : -1;
   // The phone shows the checked subtitle track from the progress reports: send one when it changes.
   useEffect(() => {
     pushProgress.current();
   }, [subSel]);
+  // A chosen image track is burned in by the server (restart); text tracks and Off need no new stream.
+  useEffect(() => {
+    window.clearTimeout(burnTimer.current);
+    const track = subsRef.current[subSel];
+    const want = track && track.burnIn ? track.index : null;
+    if (want === burnRef.current) return;
+    const apply = () => {
+      // The stream restarts with (or without) the burned-in subtitle: resume at the spot we are at.
+      startRef.current = pickPlayback(video.current, lastPlayback.current).seconds;
+      setBurnSel(want);
+    };
+    if (burnDelay.current <= 0) apply();
+    else burnTimer.current = window.setTimeout(apply, burnDelay.current);
+  }, [subSel]);
+  useEffect(() => () => window.clearTimeout(burnTimer.current), []);
+  const pickSub = (sel: number | ((i: number) => number), fromPhone: boolean) => {
+    burnDelay.current = fromPhone ? 0 : BURN_DEBOUNCE_MS;
+    setSubSel(sel);
+  };
   const [vttText, setVttText] = useState<string | null>(null);
   const [subOffset, setSubOffset] = useState(() => getSubtitleOffset(item.Id));
   useEffect(() => setSubOffset(getSubtitleOffset(item.Id)), [item.Id]);
@@ -306,7 +339,7 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
     setVttText(null);
     setNotice('');
     const track = loaded ? subs[subSel] : undefined;
-    if (!loaded || !track) return;
+    if (!loaded || !track || track.burnIn) return;
     let alive = true;
     fetch(subtitleVttUrl(session.serverUrl, item.Id, loaded.source.Id, track.index, session.token))
       .then((r) => {
@@ -434,13 +467,13 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
       return;
     }
     if (command.type === 'subtitleStream') {
-      // -1 is off. An index that is not a text subtitle (image subtitles) cannot be shown.
+      // -1 is off. An image subtitle is burned in by the server (the stream restarts).
       const at = command.index < 0 ? -1 : subs.map((t) => t.index).indexOf(command.index);
       if (command.index >= 0 && at < 0) {
         showRemoteNote('Subtitles n/a');
         return;
       }
-      setSubSel(at);
+      pickSub(at, true);
       showRemoteNote(at < 0 ? 'Subtitles off' : `Subtitles: ${subs[at].label}`);
       return;
     }
@@ -571,7 +604,6 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
   const title = playerTitle(item);
   const chromeClass =
     'chrome' + (controlsVisible ? '' : ' hidden') + (paused ? ' paused' : '') + (state.focus === 'progress' ? ' onbar' : '');
-  const ccDisabled = subs.length === 0 && imageOnly;
 
   return (
     <main class="player">
@@ -725,16 +757,10 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
                 data-focusable
                 data-kind="button"
                 class="ctl pill cc"
-                onClick={() => setSubSel((i) => nextSubtitle(subs.length, i))}
+                onClick={() => pickSub((i) => nextSubtitle(subs.length, i), false)}
               >
                 <CaptionsIcon />
                 <span>{subtitleButtonLabel(subs, subSel).replace('CC: ', '')}</span>
-              </button>
-            )}
-            {ccDisabled && (
-              <button class="ctl pill cc off" disabled title="Image subtitles are not supported yet">
-                <CaptionsIcon />
-                <span>n/a</span>
               </button>
             )}
           </div>
@@ -810,7 +836,7 @@ export function PlayerScreen({ client, session, item, startSeconds, onExit, onRe
         <div class="debug">
           <strong>{item.Name}</strong>
           <div>
-            {d ? `${d.method} | ${d.container} | ${d.video} | ${d.audio} | ${d.resolution} | ${d.bitrate}` : 'Asking the server...'}
+            {d ? `${d.method} | ${d.container} | ${d.video} | ${d.audio} | ${d.resolution} | ${d.bitrate}${burnSel !== null ? ' | burned-in subtitles' : ''}` : 'Asking the server...'}
           </div>
           <div>
             {status} {Math.floor(position)}s {forceTranscode ? '| forced transcode' : ''} | {state.mode}
