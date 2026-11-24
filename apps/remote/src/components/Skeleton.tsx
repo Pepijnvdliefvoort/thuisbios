@@ -1,6 +1,6 @@
 import type { CardShape } from './MediaCard';
 
-/** A grey placeholder block with a moving highlight (styled on desktop only; these are rendered on desktop only). */
+/** A grey placeholder block with a moving highlight (phone and desktop sizes are in styles.css). */
 export function Skeleton({ class: cls = '' }: { class?: string }) {
   return <span class={`skel ${cls}`} aria-hidden="true" />;
 }

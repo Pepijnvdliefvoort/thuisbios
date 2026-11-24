@@ -87,6 +87,17 @@ html.scroll-locked .scroller { overflow-y: hidden; }
   padding: 20px var(--gutter) calc(var(--safe-bottom) + 16px); display: flex; flex-direction: column; gap: 12px;
 }
 .sheet h2 { font-size: 20px; }
+/* Phone: the dim fades in and the sheet slides up (opening only; the volume-style sheets animate themselves, desktop uses dialogs).
+   The dim is a ::before so the backdrop itself never gets an opacity (that would switch off the sheet's backdrop-filter while it runs). */
+@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .sheet-backdrop:not(.volume-backdrop) { background: none; }
+  .sheet-backdrop:not(.volume-backdrop)::before { content: ''; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.6); animation: vol-fade 200ms ease-out backwards; }
+  .sheet-backdrop:not(.volume-backdrop) .sheet { position: relative; animation: sheet-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+}
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop:not(.volume-backdrop)::before, .sheet-backdrop:not(.volume-backdrop) .sheet { animation-duration: 1ms; }
+}
 .tv-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .tv-item {
   display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 14px;
@@ -152,7 +163,9 @@ html.scroll-locked .scroller { overflow-y: hidden; }
 
 .img { display: block; width: 100%; height: 100%; background: var(--surface); overflow: hidden; }
 /* iOS: no image drag or long-press menu, so a press on a poster still scrolls the page. */
-.img img { display: block; width: 100%; height: 100%; object-fit: cover; -webkit-user-drag: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; pointer-events: none; }
+.img img { opacity: 0; transition: opacity 0.25s ease-out; display: block; width: 100%; height: 100%; object-fit: cover; -webkit-user-drag: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; pointer-events: none; }
+.img img.loaded { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .img img { opacity: 1; transition: none; } }
 .progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, 0.25); }
 .progress i { display: block; height: 100%; background: var(--accent); }
 
@@ -208,6 +221,63 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @media (prefers-reduced-motion: reduce) { .toast { animation-duration: 1ms; } }
+
+/* Screen transitions (phone): a new tab or screen fades in with a tiny rise. Opacity goes on the root; the rise goes on its children
+   except the fixed ones (a transform on an ancestor would make it their containing block). fill-mode backwards leaves no transform behind. */
+@keyframes screen-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes screen-rise { from { transform: translateY(6px); } to { transform: translateY(0); } }
+@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  main:not([hidden]), .details, .person-screen, .requests-screen { animation: screen-fade 200ms ease-out backwards; }
+  main:not([hidden]) > :not(.back):not(.ptr), .details > :not(.back):not(.ptr),
+  .person-screen > :not(.back):not(.ptr), .requests-screen > :not(.back):not(.ptr) { animation: screen-rise 200ms ease-out backwards; }
+  .nowplaying { animation: screen-fade 200ms ease-out backwards; }
+  .nowplaying > * { animation: screen-rise 200ms ease-out backwards; }
+}
+@media (prefers-reduced-motion: reduce) {
+  main:not([hidden]), main:not([hidden]) > *, .details, .details > *, .person-screen, .person-screen > *, .requests-screen, .requests-screen > *,
+  .nowplaying, .nowplaying > * { animation-duration: 1ms !important; }
+}
+
+/* Loading skeletons: grey shapes with a highlight that slides across (transform only). Phone sizes here; desktop overrides below. */
+.skel { position: relative; display: block; overflow: hidden; background: rgba(255, 255, 255, 0.07); border-radius: 6px; }
+.skel::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%); animation: skel-shimmer 1.5s ease-in-out infinite;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.07) 50%, rgba(255, 255, 255, 0) 100%);
+}
+@keyframes skel-shimmer { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .skel::after { animation: none; display: none; } }
+.skel-heading { width: 170px; height: 20px; margin: 0 0 10px var(--gutter); }
+.row-skel .row-scroll { overflow: hidden; }
+.skel-card { flex: none; min-width: 0; }
+.skel-card-poster { width: 120px; }
+.skel-card-thumb { width: 240px; }
+.grid .skel-card { width: auto; }
+.skel-art { border-radius: var(--radius); }
+.skel-poster { aspect-ratio: 2 / 3; }
+.skel-thumb { aspect-ratio: 16 / 9; }
+.skel-card .skel-line { width: 80%; height: 12px; margin-top: 8px; }
+.skel-card .skel-line.short { width: 45%; height: 10px; margin-top: 6px; }
+.details-skel-phone .skel-hero { width: 100%; aspect-ratio: 16 / 9; border-radius: 0; }
+.details-skel-phone .skel-body { padding: 16px var(--gutter); display: flex; flex-direction: column; gap: 14px; }
+.details-skel-phone .skel-title { width: 70%; height: 32px; border-radius: 8px; }
+.details-skel-phone .skel-row { display: flex; gap: 12px; }
+.details-skel-phone .skel-chip { width: 52px; height: 16px; }
+.details-skel-phone .skel-chip.wide { width: 84px; }
+.details-skel-phone .skel-button { width: 100%; height: 48px; border-radius: var(--radius); background: rgba(255, 255, 255, 0.14); }
+.details-skel-phone .skel-line { width: 100%; height: 14px; }
+.details-skel-phone .skel-line.mid { width: 85%; }
+.details-skel-phone .skel-line.short { width: 55%; }
+
+/* Press feedback (phone; short transform transitions) */
+@media not all and (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .pill, .ep-open, .tv-item, .lib-chip { transition: transform 0.12s ease-out; }
+  .pill:active, .ep-open:active, .tv-item:active, .lib-chip:active { transform: scale(0.97); }
+  html:not(.ios-glass) .tabbar button .icon { transition: transform 0.12s ease-out; }
+  html:not(.ios-glass) .tabbar button:active:not(:disabled) .icon { transform: scale(0.88); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pill, .ep-open, .tv-item, .lib-chip, .tabbar button .icon { transition: none; }
+}
 
 /* Details */
 .back {
@@ -995,13 +1065,7 @@ button.rs-row:active { background: var(--surface-2); }
   .signin-link { min-height: 36px; margin-top: 12px; transition: color 0.16s ease; }
   .signin-link:hover { color: var(--fg); }
 
-  /* Loading skeletons: grey shapes with a highlight that slides across (transform only) */
-  .skel { position: relative; display: block; overflow: hidden; background: rgba(255, 255, 255, 0.07); border-radius: 6px; }
-  .skel::after {
-    content: ''; position: absolute; inset: 0; transform: translateX(-100%); animation: skel-shimmer 1.5s ease-in-out infinite;
-    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.07) 50%, rgba(255, 255, 255, 0) 100%);
-  }
-  @keyframes skel-shimmer { to { transform: translateX(100%); } }
+  /* Loading skeletons: the base shapes and shimmer are global (phone too); these are the desktop sizes. */
   .skel-heading { width: 220px; height: 24px; margin: 0 0 18px var(--edge); }
   .row-skel .row-scroll { overflow: hidden; }
   .skel-card { flex: none; min-width: 0; }
@@ -1084,7 +1148,6 @@ button.rs-row:active { background: var(--surface-2); }
 }
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
   .wall-col { animation: none; }
-  .skel::after { animation: none; display: none; }
   .signin-link, .signin input, .request, .req-btn, .recent-clear, .recent-chips .lib-chip { transition-duration: 1ms; }
 }
 
