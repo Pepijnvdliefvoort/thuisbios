@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BaseItem } from './jellyfin/types';
 import type { Suggestion, TitleRequest } from './requests';
-import { isRequested, normalizeTitle, notInLibrary, ownOpenRequest } from './searchRequests';
+import { hasAnyRequest, isRequested, normalizeTitle, notInLibrary, ownOpenRequest, requestState } from './searchRequests';
 
 const movie = (title: string, extra: Partial<Suggestion> = {}): Suggestion => ({ title, type: 'movie', ...extra });
 const show = (title: string, extra: Partial<Suggestion> = {}): Suggestion => ({ title, type: 'show', ...extra });
@@ -86,5 +86,25 @@ describe('ownOpenRequest', () => {
     expect(ownOpenRequest(movie('Heat'), [request('Heat', { userId: 'x' })], 'u')).toBeUndefined();
     expect(ownOpenRequest(movie('Heat'), [request('Heat', { status: 'added' })], 'u')).toBeUndefined();
     expect(ownOpenRequest(movie('Heat', { year: 1995 }), [request('Heat', { year: 2000 })], 'u')).toBeUndefined();
+  });
+});
+
+describe('requestState and hasAnyRequest', () => {
+  it('is requested for an open request', () => {
+    expect(requestState(movie('Heat', { tmdbId: '949' }), [request('Heat', { tmdbId: '949' })])).toBe('requested');
+  });
+  it('is added for an added request', () => {
+    expect(requestState(movie('Heat'), [request('Heat', { status: 'added' })])).toBe('added');
+  });
+  it('is none for a dismissed request or no match', () => {
+    expect(requestState(movie('Heat'), [request('Heat', { status: 'dismissed' })])).toBe('none');
+    expect(requestState(movie('Heat'), [request('Ronin')])).toBe('none');
+  });
+  it('lets an open request beat an added one', () => {
+    expect(requestState(movie('Heat'), [request('Heat', { status: 'added' }), request('Heat')])).toBe('requested');
+  });
+  it('hasAnyRequest matches any status', () => {
+    expect(hasAnyRequest(movie('Heat'), [request('Heat', { status: 'dismissed' })])).toBe(true);
+    expect(hasAnyRequest(movie('Heat'), [request('Ronin')])).toBe(false);
   });
 });

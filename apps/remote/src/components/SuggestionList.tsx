@@ -8,14 +8,15 @@ export const suggestionKey = (s: Suggestion): string => `${s.type}:${s.tmdbId ||
 /** Titles found by the lookup that are not in the library, each with a Request button. */
 export function SuggestionList({
   items,
-  isRequested,
+  stateOf,
   busyKey,
   onRequest,
   canWithdraw,
   onWithdraw,
 }: {
   items: Suggestion[];
-  isRequested: (s: Suggestion) => boolean;
+  /** 'requested' shows the (withdrawable) Requested button, 'added' a disabled In library, 'none' the Request button. */
+  stateOf: (s: Suggestion) => 'requested' | 'added' | 'none';
   busyKey: string | null;
   onRequest: (s: Suggestion) => void;
   /** Whether the current user's open request for this suggestion can be withdrawn. */
@@ -26,7 +27,8 @@ export function SuggestionList({
     <ul class="suggest-list">
       {items.map((s) => {
         const key = suggestionKey(s);
-        const done = isRequested(s);
+        const state = stateOf(s);
+        const done = state === 'requested';
         const sub = [s.year ? String(s.year) : '', typeLabel(s.type)].filter(Boolean).join(' · ');
         return (
           <li key={key} class="rs-row suggest-row">
@@ -55,6 +57,10 @@ export function SuggestionList({
                     </span>
                   </>
                 )}
+              </button>
+            ) : state === 'added' ? (
+              <button type="button" class="req-btn requested" disabled>
+                <Icon name="check" size={16} /> In library
               </button>
             ) : done ? (
               <button type="button" class="req-btn requested" disabled>

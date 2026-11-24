@@ -81,6 +81,9 @@ everyone's requests instead: open ones first, with **Added** and **Dismiss** but
 under **Handled** (where **Reopen** undoes a choice). A red number on the Requests tab counts the open
 requests; it is read when the app starts and when you come back to it. Other users get no number.
 
+In Search, a title the owner marked **Added** shows **In library**, and one marked **Dismiss** shows
+**Request** again, so it can be asked for once more. Search reads the latest state with every new search.
+
 The requests are stored in `.thuisbios/requests.json` next to `samsung-tv.json`, never in the project.
 
 Requests need no setup. To get the suggestions with posters, give the app a Jellyfin API key once:
