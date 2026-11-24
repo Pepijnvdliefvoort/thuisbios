@@ -55,8 +55,8 @@ export function TrackPicker({ itemId, variant = 'button' }: { itemId: string; va
 
   const source = { Id: itemId, MediaStreams: streams || [] };
   const audio = listAudio(source);
-  // The TV only shows text subtitles; burned-in image tracks are a phone-player thing.
-  const subs = listSubtitles(source).filter((t) => !t.burnIn);
+  // Image tracks (PGS, dvdsub) are listed too: the TV has the server burn them into the picture (a slower transcode).
+  const subs = listSubtitles(source);
   const audioNow = np && np.audioIndex !== undefined ? np.audioIndex : defaultAudioIndex(audio);
   const subNow = np && np.subtitleIndex !== undefined ? np.subtitleIndex : -1;
 

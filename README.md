@@ -64,17 +64,29 @@ Regenerate them with `node scripts/screenshots/capture.mjs`, see [scripts/screen
 
 Phone and desktop app (`apps/remote`):
 
-- Home, search, library with sort and filter, collections, "More like this" and trailers.
-- Details with cast and crew, seasons and episodes, watched marks, and title requests.
-- Own player: resume, audio tracks, subtitles with timing, quality, skip intro, next episode, scrub previews.
+- Home (with genre and "Because you watched" rows), search, library with sort and filter, collections, "More like this" and trailers.
+- Details with cast and crew, seasons and episodes, watched marks, and title requests (with a notice on Home when a requested title arrives).
+- My list: save movies and series for later from Details; they show as a row on Home (stored as Jellyfin favorites). The TV details page has the same button.
+- Own player: resume, audio tracks, subtitles with timing, quality, skip intro, next episode, scrub previews, chapter markers and list.
+- Lock-screen and notification controls when playing on the phone: play/pause, 10 s skip, previous/next episode, title and artwork.
+- Picture-in-picture: a button in the player floats the video, it floats by itself when you leave the app where the browser supports it, and it keeps playing while you browse.
 - Offline downloads that play without a network and sync progress back.
+- Watch together: start a group from Details and others join from Home. Play, pause, seek and next episode apply to everyone.
+  It uses Jellyfin's SyncPlay, so the Jellyfin apps can join too. An admin may need to allow it for a user
+  (Dashboard > Users > SyncPlay access).
 - A Jellyfin library named "Prive" or "Private" stays hidden by default; a per-device switch in the account menu shows it.
-- Play on the TV, Now Playing remote (transport, tracks, subtitle timing) and TV volume.
+- Play on the TV, Now Playing remote (transport, tracks, subtitle timing, chapters) and TV volume.
 
 TV page (`apps/tv`, Tizen 4.0):
 
 - Connects with a Quick Connect code and QR, shows a screensaver, and plays on command of the phone.
-- Full-screen HTML5 player with subtitles, skip intro and next episode.
+- Full-screen HTML5 player with subtitles, skip intro, next episode and chapter markers.
+
+## Roadmap
+
+Ideas planned for later, not built yet:
+
+- **Who's watching?** profile picker: when the app opens you get profile tiles. Each profile is its own Jellyfin account with its own watch progress, Continue watching, My list and access to the private library. Switch with one tap without a password, with an optional PIN per profile.
 
 ## How it works
 

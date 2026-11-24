@@ -85,6 +85,10 @@ export interface JellyfinClient {
   library(userId: string, type: MediaType, limit?: number, view?: LibraryView): Promise<BaseItem[]>;
   /** Genre names used by the items of one type, of one library when `parentId` is given. */
   genres(userId: string, type: MediaType, parentId?: string): Promise<string[]>;
+  /** Fully watched movies and episodes, most recently watched first. Episodes carry `SeriesId` and `SeriesName`. */
+  recentlyWatched(userId: string, limit: number): Promise<BaseItem[]>;
+  /** Movies and shows of one genre in random order. */
+  genreTitles(userId: string, genre: string, limit: number): Promise<BaseItem[]>;
   search(userId: string, term: string, limit: number): Promise<BaseItem[]>;
   /** Titles like `itemId` (Jellyfin's "similar items"). */
   similar(userId: string, itemId: string, limit: number): Promise<BaseItem[]>;
@@ -106,6 +110,12 @@ export interface JellyfinClient {
   markPlayed(userId: string, itemId: string): Promise<void>;
   /** Marks an item as not watched. On a season or series Jellyfin applies it to every episode. */
   markUnplayed(userId: string, itemId: string): Promise<void>;
+  /** Saves a title to My list (a Jellyfin favorite). */
+  addToList(userId: string, itemId: string): Promise<void>;
+  /** Removes a title from My list. */
+  removeFromList(userId: string, itemId: string): Promise<void>;
+  /** The movies and series in My list, by name. */
+  myList(userId: string, limit: number): Promise<BaseItem[]>;
   /** Saves the resume position of an item without playing it (progress made offline). */
   saveProgress(userId: string, itemId: string, positionTicks: number): Promise<void>;
   /** Intro, outro and similar markers (Jellyfin 10.10+ with a plugin). Any error means no segments. */
@@ -116,7 +126,7 @@ export interface JellyfinClient {
   logout(): Promise<void>;
   /** The audio and subtitle streams of an item's first media source (empty when the server lists none). */
   mediaStreams(userId: string, itemId: string): Promise<MediaStream[]>;
-  /** The item with its scrub preview data (Fields=Trickplay). */
+  /** The item with its scrub preview data and chapters (Fields=Trickplay,Chapters). */
   scrubInfo(userId: string, itemId: string): Promise<BaseItem>;
   /** Asks the server how this phone can play an item; see {@link PlaybackOptions}. */
   playbackInfo(userId: string, itemId: string, profile: DeviceProfile, options?: PlaybackOptions): Promise<PlaybackInfoResponse>;
@@ -228,6 +238,14 @@ export function createClient(options: ClientOptions): JellyfinClient {
       );
       return r.Items.map((g) => g.Name).filter(Boolean);
     },
+    recentlyWatched: (userId, limit) =>
+      items(
+        `${user(userId)}/Items?Filters=IsPlayed&Recursive=true&IncludeItemTypes=Movie,Episode&SortBy=DatePlayed&SortOrder=Descending&Limit=${limit}&Fields=${LIST_FIELDS}&EnableImages=false`,
+      ),
+    genreTitles: (userId, genre, limit) =>
+      items(
+        `${user(userId)}/Items?Genres=${enc(genre)}&IncludeItemTypes=Movie,Series&Recursive=true&SortBy=Random&Limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+      ),
     search: (userId, term, limit) =>
       items(
         `${user(userId)}/Items?searchTerm=${enc(term)}&IncludeItemTypes=Movie,Series,Episode&Recursive=true&Limit=${limit}&Fields=${LIST_FIELDS},ProviderIds&${IMAGE_QUERY}`,
@@ -250,7 +268,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
       ),
     localTrailers: (userId, itemId) => req<BaseItem[]>('GET', `${user(userId)}/Items/${enc(itemId)}/LocalTrailers`),
     scrubInfo: (userId, itemId) =>
-      req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=Trickplay`),
+      req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=Trickplay,Chapters`),
     mediaStreams: async (userId, itemId) => {
       const item = await req<BaseItem>('GET', `${user(userId)}/Items/${enc(itemId)}?Fields=MediaSources,MediaStreams`);
       const source = item.MediaSources && item.MediaSources[0];
@@ -270,6 +288,16 @@ export function createClient(options: ClientOptions): JellyfinClient {
     markUnplayed: async (userId, itemId) => {
       await req<void>('DELETE', `${user(userId)}/PlayedItems/${enc(itemId)}`);
     },
+    addToList: async (userId, itemId) => {
+      await req<void>('POST', `${user(userId)}/FavoriteItems/${enc(itemId)}`);
+    },
+    removeFromList: async (userId, itemId) => {
+      await req<void>('DELETE', `${user(userId)}/FavoriteItems/${enc(itemId)}`);
+    },
+    myList: (userId, limit) =>
+      items(
+        `${user(userId)}/Items?Filters=IsFavorite&IncludeItemTypes=Movie,Series&Recursive=true&SortBy=SortName&SortOrder=Ascending&Limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+      ),
     saveProgress: async (userId, itemId, positionTicks) => {
       const body = { PlaybackPositionTicks: positionTicks };
       try {

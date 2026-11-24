@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { AudioTrack } from '../jellyfin/audio';
+import { chapterAt, markerFractions, type Chapter } from '../jellyfin/chapters';
 import type { QualityId, QualityOption } from '../jellyfin/quality';
 import { formatClock } from '../jellyfin/format';
 import type { SubtitleTrack } from '../jellyfin/subtitles';
 import { scrubFraction } from '../scrub';
 import { Icon } from './Icon';
+import { Img } from './Img';
 import { ScrubPreview, type ScrubSource } from './ScrubPreview';
 
 /** Extras for a mouse: volume, fullscreen and hover time on the scrub bar. Absent on a phone. */
@@ -17,6 +19,11 @@ export interface DesktopControls {
   onVolume(volume: number): void;
   onToggleMute(): void;
   onToggleFullscreen(): void;
+}
+
+/** The picture-in-picture button; only passed where the browser can float the video. */
+export interface PipControl {
+  onToggle(): void;
 }
 
 /** Previous and next episode buttons; only passed for episodes. A missing neighbour (first or last episode) disables its button. */
@@ -62,14 +69,19 @@ interface Props {
   onInteract(): void;
   desktop?: DesktopControls;
   episodeNav?: EpisodeNav;
+  pip?: PipControl;
+  /** Watch together: shows the "Together · N" pill in the top bar; `onOpen` opens the group sheet. */
+  together?: { count: number; onOpen(): void };
   /** Preview frames for the scrub bar (server tile sheets); absent offline or when the server has none. */
   scrubSource?: ScrubSource | null;
+  /** Chapters of the item (2 or more, else empty): markers on the bar, the name in the tooltip and a list to jump to. */
+  chapters?: Chapter[];
 }
 
 /** Streaming-style overlay: top bar, centre buttons and a bottom bar with the scrub bar, the audio and subtitle menu and the quality menu. */
 export function PlayerControls(p: Props) {
   // Which menu is open; only one at a time.
-  const [open, setOpen] = useState<'cc' | 'quality' | null>(null);
+  const [open, setOpen] = useState<'cc' | 'quality' | 'chapters' | null>(null);
   // While dragging: the time under the finger. The video only seeks on release.
   const [preview, setPreview] = useState<number | null>(null);
   // Mouse: the fraction of the bar under the pointer, for the time tooltip.
@@ -80,6 +92,13 @@ export function PlayerControls(p: Props) {
   const scrubEl = useRef<HTMLDivElement>(null);
   const d = p.desktop;
   const nav = p.episodeNav;
+  const pip = p.pip ? (
+    <button type="button" class="pc-btn pc-pip" onClick={p.pip.onToggle} aria-label="Picture in picture">
+      <Icon name="pip" size={d ? 26 : 24} />
+    </button>
+  ) : null;
+  const chapters = p.chapters && p.chapters.length >= 2 ? p.chapters : [];
+  const chapterPanel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!d) return;
@@ -93,6 +112,8 @@ export function PlayerControls(p: Props) {
 
   const total = p.duration > 0 ? p.duration : 0;
   const shown = preview !== null ? preview : p.position;
+  const marks = markerFractions(chapters, total);
+  const currentChapter = chapterAt(chapters, p.position);
   const pct = (seconds: number): string => `${total > 0 ? Math.max(0, Math.min(100, (seconds / total) * 100)) : 0}%`;
 
   const fractionOf = (e: PointerEvent): number =>
@@ -132,6 +153,14 @@ export function PlayerControls(p: Props) {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [open, !!d]);
 
+  // The chapter list opens scrolled to the current chapter.
+  useEffect(() => {
+    const panel = chapterPanel.current;
+    if (open !== 'chapters' || !panel) return;
+    const row = panel.querySelector<HTMLElement>('[aria-checked="true"]');
+    if (row) panel.scrollTop = Math.max(0, row.offsetTop - (panel.clientHeight - row.offsetHeight) / 2);
+  }, [open]);
+
   const tipAt = preview !== null && total > 0 ? preview / total : hover;
 
   // The frame and time above the bar, placed from the bar's layout box (not affected by the stage's turn).
@@ -140,6 +169,7 @@ export function PlayerControls(p: Props) {
     const host = bar && (bar.offsetParent as HTMLElement | null);
     if (tipAt === null || !(total > 0) || !bar || !host) return null;
     const f = Math.max(0, Math.min(1, tipAt));
+    const chapter = chapters[chapterAt(chapters, f * total)];
     return (
       <ScrubPreview
         source={p.scrubSource || null}
@@ -148,11 +178,12 @@ export function PlayerControls(p: Props) {
         y={bar.offsetTop - 4}
         containerWidth={host.offsetWidth}
         thumbWidth={d ? 220 : 160}
+        label={chapter ? chapter.label : undefined}
       />
     );
   };
 
-  const toggleMenu = (menu: 'cc' | 'quality') => {
+  const toggleMenu = (menu: 'cc' | 'quality' | 'chapters') => {
     const next = open === menu ? null : menu;
     setOpen(next);
     p.onBusy(next !== null);
@@ -168,6 +199,10 @@ export function PlayerControls(p: Props) {
   const pickAudio = (index: number) => {
     // The current track needs no restart of the stream.
     if (index !== p.audioSelected) p.onSelectAudio(index);
+    closeMenu();
+  };
+  const pickChapter = (c: Chapter) => {
+    p.onSeek(c.startSec);
     closeMenu();
   };
   const pickQuality = (id: QualityId) => {
@@ -205,6 +240,21 @@ export function PlayerControls(p: Props) {
       </div>
     ) : null;
 
+  const chaptersPanel =
+    open === 'chapters' && chapters.length >= 2 ? (
+      <div class="pc-panel pc-chapters" role="menu" aria-label="Chapters" ref={chapterPanel}>
+        <p class="pc-panel-h">Chapters</p>
+        {chapters.map((c, i) => (
+          <button key={c.index} type="button" role="menuitemradio" aria-checked={currentChapter === i} onClick={() => pickChapter(c)}>
+            <span class="pc-check">{currentChapter === i ? <Icon name="check" size={20} /> : null}</span>
+            {c.image ? <Img class="pc-chap-img" src={c.image} /> : null}
+            <span class="pc-chap-label">{c.label}</span>
+            <span class="pc-chap-time">{formatClock(c.startSec)}</span>
+          </button>
+        ))}
+      </div>
+    ) : null;
+
   const qualityPanel =
     open === 'quality' && showQuality ? (
       <div class="pc-panel" role="menu" aria-label="Quality">
@@ -233,6 +283,11 @@ export function PlayerControls(p: Props) {
             {p.eyebrow ? <p class="pc-eyebrow">{p.eyebrow}</p> : null}
             <h1>{p.title}</h1>
           </div>
+          {p.together ? (
+            <button type="button" class="pc-together" onClick={p.together.onOpen} aria-label={`Watch together, ${p.together.count} watching`}>
+              <Icon name="group" size={18} /> Together · {p.together.count}
+            </button>
+          ) : null}
         </div>
 
         <div class={'pc-bigplay' + (p.paused ? ' on' : pulse ? ' pulse' : '')} aria-hidden="true">
@@ -257,6 +312,9 @@ export function PlayerControls(p: Props) {
             <div class="pc-track">
               <i class="pc-buffered" style={{ width: pct(p.buffered) }} />
               <i class="pc-played" style={{ width: pct(shown) }} />
+              {marks.map((f, i) => (
+                <i key={i} class="pc-mark" style={{ left: `${f * 100}%` }} />
+              ))}
             </div>
             <i class="pc-thumb" style={{ left: pct(shown) }} />
           </div>
@@ -304,6 +362,21 @@ export function PlayerControls(p: Props) {
               </span>
             </div>
             <div class="pc-group">
+              {chapters.length >= 2 ? (
+                <div class="pc-menu">
+                  {chaptersPanel}
+                  <button
+                    type="button"
+                    class="pc-btn"
+                    onClick={() => toggleMenu('chapters')}
+                    aria-label="Chapters"
+                    aria-expanded={open === 'chapters'}
+                    aria-haspopup="menu"
+                  >
+                    <Icon name="chapters" size={26} />
+                  </button>
+                </div>
+              ) : null}
               {showQuality ? (
                 <div class="pc-menu">
                   {qualityPanel}
@@ -332,6 +405,7 @@ export function PlayerControls(p: Props) {
                   <Icon name="bubble" size={26} />
                 </button>
               </div>
+              {pip}
               {d.canFullscreen ? (
                 <button type="button" class="pc-btn" onClick={d.onToggleFullscreen} aria-label={d.fullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
                   <Icon name={d.fullscreen ? 'exitFullscreen' : 'fullscreen'} size={26} />
@@ -362,6 +436,11 @@ export function PlayerControls(p: Props) {
           {p.eyebrow ? <p class="pc-eyebrow">{p.eyebrow}</p> : null}
           <h1>{p.title}</h1>
         </div>
+        {p.together ? (
+          <button type="button" class="pc-together" onClick={p.together.onOpen} aria-label={`Watch together, ${p.together.count} watching`}>
+            <Icon name="group" size={18} /> Together · {p.together.count}
+          </button>
+        ) : null}
       </div>
 
       <div class={'pc-center' + (nav ? ' with-nav' : '')}>
@@ -389,6 +468,7 @@ export function PlayerControls(p: Props) {
       <div class="pc-bottom">
         {ccPanel}
         {qualityPanel}
+        {chaptersPanel}
         {scrubTip()}
         <div class="pc-row">
           <span class="pc-time">{formatClock(shown)}</span>
@@ -408,10 +488,18 @@ export function PlayerControls(p: Props) {
             <div class="pc-track">
               <i class="pc-buffered" style={{ width: pct(p.buffered) }} />
               <i class="pc-played" style={{ width: pct(shown) }} />
+              {marks.map((f, i) => (
+                <i key={i} class="pc-mark" style={{ left: `${f * 100}%` }} />
+              ))}
             </div>
             <i class="pc-thumb" style={{ left: pct(shown) }} />
           </div>
           <span class="pc-time">{total > 0 ? `-${formatClock(total - shown)}` : ''}</span>
+          {chapters.length >= 2 ? (
+            <button type="button" class="pc-btn" onClick={() => toggleMenu('chapters')} aria-label="Chapters" aria-expanded={open === 'chapters'}>
+              <Icon name="chapters" />
+            </button>
+          ) : null}
           {showQuality ? (
             <button type="button" class="pc-btn" onClick={() => toggleMenu('quality')} aria-label="Quality" aria-expanded={open === 'quality'}>
               <Icon name="gear" />
@@ -426,6 +514,7 @@ export function PlayerControls(p: Props) {
           >
             <Icon name="captions" />
           </button>
+          {pip}
         </div>
       </div>
 

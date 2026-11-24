@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
+import { TogetherSheet } from '../components/TogetherSheet';
+import { usePlayerSync } from '../syncplay/usePlayerSync';
 import { PlayerControls } from '../components/PlayerControls';
-import { useScrubSource } from '../components/ScrubPreview';
+import { useScrubInfo } from '../components/ScrubPreview';
 import { NextEpisodeCard } from '../components/NextEpisodeCard';
 import { useApp } from '../context';
 import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscreen';
 import { artUrl } from '../jellyfin/art';
 import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
+import { useMediaSession } from '../mediaSession';
+import { enterPip, exitPip, isInPip, pipSupported } from '../pip';
 import { getPlayerVideo, releasePlayerVideo } from '../playerVideo';
 import { playerKeyAction, stepVolume } from '../playerKeys';
 import { tapSide, type TapSide } from '../tapSide';
@@ -127,6 +131,7 @@ export function Player({
   item,
   startTicks,
   local = false,
+  background = false,
   onBack,
   onPlayEpisode,
 }: {
@@ -134,6 +139,12 @@ export function Player({
   startTicks: number;
   /** Play the finished download of this item from the device instead of asking Jellyfin. */
   local?: boolean;
+  /**
+   * Floating in picture-in-picture while another screen is shown: the whole UI is hidden and inert, but the shared
+   * video stays in the DOM and keeps playing and reporting. Back then means "stop for good", and the end of the
+   * video stops instead of autoplaying the next episode.
+   */
+  background?: boolean;
   onBack: () => void;
   /** Plays another episode (autoplay, or the previous/next buttons) in place of this one, from its start. */
   onPlayEpisode: (episode: BaseItem) => void;
@@ -164,7 +175,16 @@ export function Player({
   const rotated = portrait && coarse;
   const mouse = useFinePointer();
   // Preview frames while scrubbing; they come from the server, so a download played offline has none.
-  const scrubSource = useScrubSource(client, session.userId, session.token, item.Id, loaded ? loaded.mediaSourceId : null, mouse ? 220 : 160, online);
+  const { source: scrubSource, chapters } = useScrubInfo(
+    client,
+    session.userId,
+    session.token,
+    item.Id,
+    loaded ? loaded.mediaSourceId : null,
+    mouse ? 220 : 160,
+    online,
+    ticksToSeconds(item.RunTimeTicks || 0),
+  );
   // Our own controls.
   const [paused, setPaused] = useState(true);
   const [buffering, setBuffering] = useState(true);
@@ -228,11 +248,26 @@ export function Player({
   const subIndex = useRef(-1);
   const stopRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const advancing = useRef(false);
+  // The shared element still holds the previous episode until this player attaches its own stream: ignore its events.
+  const ownStream = useRef(false);
   // Playing a download: how the playback ended, for the watched mark and removing a watched episode.
   const endedRef = useRef(false);
   const markedRef = useRef(false);
   const autoDelete = useRef(false);
   const planRef = useRef<NextEpisodePlan | null>(null);
+  // Watch together: inside a group the controls ask the group and the group drives the video (see syncplay/usePlayerSync.ts).
+  const [togetherOpen, setTogetherOpen] = useState(false);
+  const sync = usePlayerSync({
+    video,
+    item,
+    enabled: !isLocal && !isTrailer,
+    ownStream,
+    advancing,
+    toMedia,
+    toVideo,
+    switchTo: (episode, markPlayed) => switchTo(episode, markPlayed),
+    stream: loaded,
+  });
 
   // Intro markers (empty without the Intro Skipper plugin).
   useEffect(() => {
@@ -260,6 +295,13 @@ export function Player({
     },
     [],
   );
+
+  // Moving to the background keeps playing but is otherwise leaving: no fullscreen, no free rotation.
+  useEffect(() => {
+    if (background) exitLandscapeFullscreen();
+  }, [background]);
+  const backgroundRef = useRef(background);
+  backgroundRef.current = background;
 
   // Media events and the poster go on the shared element by hand (it is not part of our JSX). The handlers are
   // re-read from `media` on every event so they see the current state.
@@ -361,6 +403,7 @@ export function Player({
     if (el && el.currentTime > 0) restartTicks.current = secondsToTicks(toMedia(el.currentTime));
     else restartTicks.current = secondsToTicks(lastTime.current);
     setBuffering(true);
+    sync.noteRestart();
   };
   const chooseAudio = (index: number) => {
     prepareRestart();
@@ -405,7 +448,7 @@ export function Player({
   const controlsUp = shown || keepUp;
   const togglePlay = () => {
     const el = video.current;
-    if (!el) return;
+    if (!el || sync.toggle()) return;
     if (el.paused) void el.play().catch(() => undefined);
     else el.pause();
   };
@@ -414,6 +457,11 @@ export function Player({
     if (!el) return;
     const max = duration > 0 ? duration : seconds;
     const to = Math.max(0, Math.min(max, seconds));
+    if (sync.active) {
+      setNow(to);
+      sync.seek(to);
+      return;
+    }
     el.currentTime = toVideo(to);
     setNow(to);
   };
@@ -435,14 +483,19 @@ export function Player({
   const syncVolume = (el: HTMLVideoElement) => setVol({ volume: el.volume, muted: el.muted });
   media.current = {
     timeUpdate: (el) => {
+      if (!ownStream.current) return;
       const v = el.currentTime;
       const t = Math.max(0, duration > 0 ? Math.min(duration, toMedia(v)) : toMedia(v));
       if (v > 0) lastTime.current = t;
       setNow(t);
     },
     volume: syncVolume,
-    progress: syncBuffered,
-    duration: syncDuration,
+    progress: (el) => {
+      if (ownStream.current) syncBuffered(el);
+    },
+    duration: (el) => {
+      if (ownStream.current) syncDuration(el);
+    },
   };
   const setVolume = (value: number) => {
     const el = video.current;
@@ -478,9 +531,22 @@ export function Player({
       chooseSubtitle(Math.min(first, tracks.length - 1));
     }
   };
+  // Picture in picture: float the video and, from the player screen, land in the app with it still playing.
+  const pipOk = pipSupported(getPlayerVideo());
+  const togglePipFromUi = async () => {
+    const el = video.current;
+    if (!el) return;
+    if (isInPip(el)) {
+      await exitPip(el);
+      return;
+    }
+    await enterPip(el);
+    if (isInPip(el) && !backgroundRef.current) onBack();
+  };
   const onKey = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement | null;
     if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+    if (togetherOpen) return; // the group sheet has the keyboard (Esc closes it)
     const action = playerKeyAction(e);
     if (!action) return;
     if (action.type === 'exit') {
@@ -507,12 +573,14 @@ export function Player({
         return toggleFullscreen();
       case 'subtitles':
         return toggleSubtitles();
+      case 'pip':
+        return void togglePipFromUi();
     }
   };
   const onKeyRef = useRef(onKey);
   onKeyRef.current = onKey;
   useEffect(() => {
-    if (!mouse) return;
+    if (!mouse || background) return;
     const down = (e: KeyboardEvent) => onKeyRef.current(e);
     // Firefox presses a focused button on the key release; keydown's preventDefault does not stop that.
     const up = (e: KeyboardEvent) => {
@@ -525,7 +593,7 @@ export function Player({
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
     };
-  }, [mouse]);
+  }, [mouse, background]);
   useEffect(() => {
     const el = video.current;
     if (!mouse || !el) return;
@@ -731,6 +799,7 @@ export function Player({
           });
           instance.on(Hls.Events.FRAG_BUFFERED, jumpGap);
           instance.loadSource(loaded.url);
+          ownStream.current = true;
           instance.attachMedia(el);
         })
         .catch(() => {
@@ -747,7 +816,8 @@ export function Player({
     }
     const onMeta = () => {
       seekToStart();
-      void el.play().catch(() => undefined); // blocked autoplay: stays paused, the big play button starts it
+      // In a group the group's Unpause starts everybody together.
+      if (!sync.holdStart()) void el.play().catch(() => undefined); // blocked autoplay: stays paused, the big play button starts it
     };
     // A failure before the first frame is retried once with the safe profile (same start, restartTicks); later ones show the error.
     let started = false;
@@ -793,8 +863,9 @@ export function Player({
             }
           });
           instance.loadSource(loaded.url);
+          ownStream.current = true;
           instance.attachMedia(el);
-          el.addEventListener('loadedmetadata', () => void el.play().catch(() => undefined), { once: true });
+          el.addEventListener('loadedmetadata', () => !sync.holdStart() && void el.play().catch(() => undefined), { once: true });
         })
         .catch(() => {
           if (!destroyed) setError(true);
@@ -802,6 +873,7 @@ export function Player({
     } else {
       el.addEventListener('loadedmetadata', onMeta, { once: true });
       el.addEventListener('error', onError);
+      ownStream.current = true;
       el.src = loaded.url;
     }
     return () => {
@@ -906,7 +978,11 @@ export function Player({
     if (!el) return;
     return () => {
       if (advancing.current) el.pause();
-      else releasePlayerVideo(el);
+      else {
+        // Closing a floating player (or starting another playback over it) ends PiP before the stream goes.
+        if (isInPip(el)) void exitPip(el);
+        releasePlayerVideo(el);
+      }
     };
   }, []);
 
@@ -945,6 +1021,14 @@ export function Player({
    */
   const advance = (early: boolean): boolean => {
     if (advancing.current) return true;
+    // Floating behind other screens: the end of the video is the end (there is no screen to hand over to).
+    if (backgroundRef.current) return false;
+    if (sync.active) {
+      // The group moves everybody on (the server ignores the second request when several devices ask at once).
+      if (!sync.hasNext || cancelled) return false;
+      sync.next(early);
+      return true;
+    }
     if (!next || cancelled) return false;
     switchTo(next, early);
     return true;
@@ -956,14 +1040,42 @@ export function Player({
   planRef.current = plan;
   // The buttons work with autoplay cancelled; only a next pressed in the credits counts the episode as watched.
   const episodeNav =
-    item.Type === 'Episode'
+    item.Type === 'Episode' && !background
       ? {
-          hasPrevious: !!previous,
-          hasNext: !!next,
-          onPrevious: () => previous && switchTo(previous, false),
-          onNext: () => next && switchTo(next, shouldMarkPlayedOnSkip(plan, now)),
+          hasPrevious: sync.active ? sync.hasPrevious : !!previous,
+          hasNext: sync.active ? sync.hasNext : !!next,
+          onPrevious: () => (sync.active ? sync.previous() : previous && switchTo(previous, false)),
+          onNext: () => (sync.active ? sync.next(shouldMarkPlayedOnSkip(plan, now)) : next && switchTo(next, shouldMarkPlayedOnSkip(plan, now))),
         }
       : undefined;
+  useMediaSession({
+    video: () => video.current,
+    item,
+    serverUrl: client.serverUrl,
+    getPosition: () => {
+      const el = video.current;
+      return el ? toMedia(el.currentTime) : 0;
+    },
+    getDuration: () => duration,
+    onPlay: () => {
+      const el = video.current;
+      if (el && el.paused) togglePlay();
+    },
+    onPause: () => {
+      const el = video.current;
+      if (el && !el.paused) togglePlay();
+    },
+    onSeekBy: skipBy,
+    onSeekTo: seekTo,
+    onPrevious: episodeNav && episodeNav.hasPrevious ? episodeNav.onPrevious : undefined,
+    onNext: episodeNav && episodeNav.hasNext ? episodeNav.onNext : undefined,
+    onEnterPip: pipOk
+      ? () => {
+          const el = video.current;
+          if (el) void enterPip(el);
+        }
+      : undefined,
+  });
   // Where the countdown started: when the position entered the card zone (playing, seeking or resuming).
   const armed = useRef<{ at: number | null; last: number | null }>({ at: null, last: null });
   armed.current = { at: nextArmedAt(plan, armed.current.at, armed.current.last, now), last: now };
@@ -977,6 +1089,7 @@ export function Player({
     const el = video.current;
     if (!intro || !el) return;
     const end = ticksToSeconds(intro.endTicks);
+    if (sync.active) return seekTo(end);
     el.currentTime = toVideo(end);
     setNow(end);
   };
@@ -1064,7 +1177,7 @@ export function Player({
   const label = item.Type === 'Episode' ? [item.SeriesName, episodeLabel(item)].filter(Boolean).join(' · ') : '';
   const subtitleText = subSel >= 0 && tracks[subSel] && !tracks[subSel].burnIn ? activeCueText(cues, now - subOffset / 1000) : '';
   return (
-    <div class="player">
+    <div class={'player' + (background ? ' is-background' : '')} aria-hidden={background ? 'true' : undefined}>
       {error ? (
         <div class="player-error">
           <button type="button" class="back" onClick={onBack} aria-label="Back">
@@ -1118,8 +1231,11 @@ export function Player({
             onSelectAudio={chooseAudio}
             onBusy={setBusy}
             episodeNav={episodeNav}
+            pip={pipOk ? { onToggle: () => void togglePipFromUi() } : undefined}
+            together={sync.together ? { count: sync.together.participants.length, onOpen: () => setTogetherOpen(true) } : undefined}
             onInteract={interact}
             scrubSource={scrubSource}
+            chapters={chapters}
             desktop={
               mouse
                 ? {
@@ -1154,6 +1270,17 @@ export function Player({
           )}
         </div>
       )}
+      {togetherOpen && sync.together ? (
+        <TogetherSheet
+          name={sync.together.name}
+          participants={sync.together.participants}
+          onLeave={() => {
+            setTogetherOpen(false);
+            sync.leave();
+          }}
+          onClose={() => setTogetherOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

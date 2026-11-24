@@ -88,6 +88,25 @@ describe('client', () => {
     expect(uinit.method).toBe('DELETE');
   });
 
+  it('adds and removes My list titles and lists them', async () => {
+    const fetchFn = vi.fn(async () => ok(undefined));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    await client.addToList('u1', 'm1');
+    const [aurl, ainit] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(aurl).toBe('http://pc/Users/u1/FavoriteItems/m1');
+    expect(ainit.method).toBe('POST');
+    await client.removeFromList('u1', 'm1');
+    const [rurl, rinit] = fetchFn.mock.calls[1] as unknown as [string, RequestInit];
+    expect(rurl).toBe('http://pc/Users/u1/FavoriteItems/m1');
+    expect(rinit.method).toBe('DELETE');
+    const list = vi.fn(async () => ok({ Items: [{ Id: 'm1', Name: 'One' }], TotalRecordCount: 1 }));
+    const c2 = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: list as unknown as typeof fetch });
+    expect((await c2.myList('u1', 30))[0].Id).toBe('m1');
+    const [lurl] = list.mock.calls[0] as unknown as [string];
+    expect(lurl.startsWith('http://pc/Users/u1/Items?Filters=IsFavorite&IncludeItemTypes=Movie,Series&Recursive=true&')).toBe(true);
+    expect(lurl).toContain('Limit=30');
+  });
+
   it('saves a resume position, falling back to the older path', async () => {
     const fetchFn = vi.fn(async () => ok(undefined));
     const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
@@ -149,6 +168,17 @@ describe('client', () => {
     const urls = fetchFn.mock.calls.map((c) => (c as unknown as [string])[0]);
     expect(urls[0]).toContain('IncludeItemTypes=Series&Recursive=true&SortBy=CommunityRating,SortName&SortOrder=Descending&Filters=IsUnplayed&Genres=Drama&Fields=');
     expect(urls[1]).toBe('http://pc/Genres?UserId=u1&IncludeItemTypes=Series&Recursive=true&SortBy=SortName');
+  });
+
+  it('asks for recently watched titles and for the titles of a genre', async () => {
+    const fetchFn = vi.fn(async () => ok({ Items: [{ Id: 'x', Name: 'X' }], TotalRecordCount: 1 }));
+    const client = createClient({ serverUrl: 'http://pc', info, token: 't', fetchFn: fetchFn as unknown as typeof fetch });
+    expect(await client.recentlyWatched('u1', 20)).toEqual([{ Id: 'x', Name: 'X' }]);
+    await client.genreTitles('u1', 'Sci-Fi & Fantasy', 16);
+    const urls = fetchFn.mock.calls.map((c) => (c as unknown as [string])[0]);
+    expect(urls[0].startsWith('http://pc/Users/u1/Items?Filters=IsPlayed&Recursive=true&IncludeItemTypes=Movie,Episode&SortBy=DatePlayed&SortOrder=Descending&Limit=20&Fields=')).toBe(true);
+    expect(urls[0]).toContain('&EnableImages=false');
+    expect(urls[1].startsWith('http://pc/Users/u1/Items?Genres=Sci-Fi%20%26%20Fantasy&IncludeItemTypes=Movie,Series&Recursive=true&SortBy=Random&Limit=16&Fields=')).toBe(true);
   });
 
   it('asks for playback info with the device profile and an optional start position', async () => {

@@ -6,6 +6,7 @@ export type PlayerKeyAction =
   | { type: 'mute' }
   | { type: 'fullscreen' }
   | { type: 'subtitles' }
+  | { type: 'pip' }
   | { type: 'exit' };
 
 /** The parts of a KeyboardEvent the mapping looks at. */
@@ -50,6 +51,9 @@ export function playerKeyAction(e: KeyLike): PlayerKeyAction | null {
     case 'c':
     case 'C':
       return { type: 'subtitles' };
+    case 'p':
+    case 'P':
+      return { type: 'pip' };
     case 'Escape':
       return { type: 'exit' };
     default:

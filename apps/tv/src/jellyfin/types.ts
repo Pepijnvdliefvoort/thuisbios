@@ -30,6 +30,8 @@ export interface UserData {
   PlaybackPositionTicks?: number;
   PlayedPercentage?: number;
   Played?: boolean;
+  /** True when the title is in My list. */
+  IsFavorite?: boolean;
 }
 
 export interface ImageTags {
@@ -66,6 +68,8 @@ export interface BaseItem {
   ParentLogoItemId?: string;
   ParentLogoImageTag?: string;
   UserData?: UserData;
+  /** Only present when requested with `Fields=Chapters`. */
+  Chapters?: { StartPositionTicks: number; Name?: string; ImageTag?: string }[];
 }
 
 export interface ItemsResult {
