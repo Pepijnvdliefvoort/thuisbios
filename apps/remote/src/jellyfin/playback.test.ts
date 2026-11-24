@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildStaticUrl, createThrottle, resolveStreamUrl, selectPlayMethod, withAudioStreamIndex, withMaxSize, withNoVideoStreamCopy, withSubtitleStreamIndex } from './playback';
+import { buildStaticUrl, createThrottle, resolveStreamUrl, selectPlayMethod, withAudioStreamIndex, withMaxSize, withNoVideoStreamCopy, videoCopyAllowed, withSubtitleStreamIndex } from './playback';
 import type { MediaSource } from './types';
 
 const params = { itemId: 'item1', deviceId: 'dev', playSessionId: 'ps' };
@@ -164,5 +164,18 @@ describe('withMaxSize', () => {
     const src: MediaSource = { Id: 'a', TranscodingUrl: '/v/master.m3u8?a=1', TranscodingSubProtocol: 'hls' };
     const sel = selectPlayMethod(src, { itemId: 'i', deviceId: 'd', maxHeight: 720, maxWidth: 1280 });
     expect(sel?.url).toContain('MaxHeight=720&MaxWidth=1280');
+  });
+});
+
+describe('videoCopyAllowed', () => {
+  it('allows copy for hls.js without a text subtitle', () => {
+    expect(videoCopyAllowed({ nativeHls: false, textSubtitleOn: false })).toBe(true);
+  });
+  it('never allows copy with native HLS', () => {
+    expect(videoCopyAllowed({ nativeHls: true, textSubtitleOn: false })).toBe(false);
+    expect(videoCopyAllowed({ nativeHls: true, textSubtitleOn: true })).toBe(false);
+  });
+  it('does not allow copy while a text subtitle is on', () => {
+    expect(videoCopyAllowed({ nativeHls: false, textSubtitleOn: true })).toBe(false);
   });
 });
