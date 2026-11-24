@@ -308,6 +308,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .action-row .btn:first-child { flex: none; }
 .action-row .btn .icon { flex: none; }
 .btn.is-watched .icon { color: #6fcf8e; }
+.btn.is-listed .icon { color: #6fcf8e; }
 .next-ep { color: var(--muted); font-size: 14px; }
 .overview { padding: 12px var(--gutter) 0; color: #d6d6de; }
 .genres { padding: 8px var(--gutter) 0; color: var(--muted); font-size: 14px; }

@@ -30,6 +30,8 @@ export interface UserData {
   PlaybackPositionTicks?: number;
   PlayedPercentage?: number;
   Played?: boolean;
+  /** True when the title is in My list. */
+  IsFavorite?: boolean;
 }
 
 export interface ImageTags {

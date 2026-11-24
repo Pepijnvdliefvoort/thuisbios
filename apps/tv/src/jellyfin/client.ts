@@ -70,6 +70,8 @@ export interface JellyfinClient {
   chapters(userId: string, itemId: string): Promise<NonNullable<BaseItem['Chapters']>>;
   /** Marks an item as watched, so it leaves Resume watching. */
   markPlayed(userId: string, itemId: string): Promise<void>;
+  /** Saves a title to My list (a Jellyfin favorite), or removes it. */
+  setInList(userId: string, itemId: string, inList: boolean): Promise<void>;
   /** Ends this device's session on the server (the token stops working). */
   logout(): Promise<void>;
   imageUrl(itemId: string, tag: string | undefined, maxHeight: number): string;
@@ -204,6 +206,8 @@ export function createClient(options: ClientOptions): JellyfinClient {
     },
     markPlayed: (userId, itemId) =>
       request<void>('POST', `/Users/${encodeURIComponent(userId)}/PlayedItems/${encodeURIComponent(itemId)}`),
+    setInList: (userId, itemId, inList) =>
+      request<void>(inList ? 'POST' : 'DELETE', `/Users/${encodeURIComponent(userId)}/FavoriteItems/${encodeURIComponent(itemId)}`),
     logout: () => request<void>('POST', '/Sessions/Logout'),
     reportCapabilities: () => request<void>('POST', '/Sessions/Capabilities/Full', REMOTE_CAPABILITIES),
     imageUrlSized: (itemId, type, tag, width, height) => {

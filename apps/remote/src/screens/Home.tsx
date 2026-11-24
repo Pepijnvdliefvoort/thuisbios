@@ -33,6 +33,7 @@ export function Home() {
   const u = session.userId;
   const resume = useAsync(() => client.resume(u, 40).then((items) => recentResumes(items, Date.now())), [client, u]);
   const nextUp = useAsync(() => client.nextUp(u, 12), [client, u]);
+  const myList = useAsync(() => client.myList(u, 30), [client, u]);
   const movies = useAsync(() => client.latest(u, 'Movie', 16), [client, u]);
   const shows = useAsync(() => client.latest(u, 'Series', 16), [client, u]);
   const library = useAsync(() => client.library(u, 'Movie', 30), [client, u]);
@@ -66,12 +67,13 @@ export function Home() {
     const timer = setTimeout(() => {
       void resume.reload();
       void nextUp.reload();
+      void myList.reload();
       void becauseRows.reload();
     }, REFRESH_AFTER_PLAYBACK_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playbackEnded, libraryChanged]);
-  const all = [resume, nextUp, movies, shows, genreRows, becauseRows, library];
+  const all = [resume, nextUp, myList, movies, shows, genreRows, becauseRows, library];
   const allDone = all.every((r) => !r.loading);
   const pageRef = useRef<HTMLDivElement>(null);
   const pull = usePullToRefresh(pageRef, () => Promise.all(all.map((r) => r.reload())));
@@ -87,6 +89,7 @@ export function Home() {
       <ArrivedNotice />
       <Row title="Resume watching" items={resume.data || []} shape="thumb" />
       <Row title="Next up" items={withoutResumed(nextUp.data || [], resume.data || [])} shape="thumb" />
+      <Row title="My list" items={myList.data || []} shape="poster" />
       <Row title="Recently added movies" items={movies.data || []} shape="poster" />
       <Row title="Recently added shows" items={shows.data || []} shape="poster" />
       {rowAt(becauseRows.data, 0)}

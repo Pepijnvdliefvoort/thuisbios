@@ -66,6 +66,7 @@ Phone and desktop app (`apps/remote`):
 
 - Home (with genre and "Because you watched" rows), search, library with sort and filter, collections, "More like this" and trailers.
 - Details with cast and crew, seasons and episodes, watched marks, and title requests (with a notice on Home when a requested title arrives).
+- My list: save movies and series for later from Details; they show as a row on Home (stored as Jellyfin favorites). The TV details page has the same button.
 - Own player: resume, audio tracks, subtitles with timing, quality, skip intro, next episode, scrub previews, chapter markers and list.
 - Offline downloads that play without a network and sync progress back.
 - A Jellyfin library named "Prive" or "Private" stays hidden by default; a per-device switch in the account menu shows it.

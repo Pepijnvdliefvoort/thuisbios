@@ -110,6 +110,12 @@ export interface JellyfinClient {
   markPlayed(userId: string, itemId: string): Promise<void>;
   /** Marks an item as not watched. On a season or series Jellyfin applies it to every episode. */
   markUnplayed(userId: string, itemId: string): Promise<void>;
+  /** Saves a title to My list (a Jellyfin favorite). */
+  addToList(userId: string, itemId: string): Promise<void>;
+  /** Removes a title from My list. */
+  removeFromList(userId: string, itemId: string): Promise<void>;
+  /** The movies and series in My list, by name. */
+  myList(userId: string, limit: number): Promise<BaseItem[]>;
   /** Saves the resume position of an item without playing it (progress made offline). */
   saveProgress(userId: string, itemId: string, positionTicks: number): Promise<void>;
   /** Intro, outro and similar markers (Jellyfin 10.10+ with a plugin). Any error means no segments. */
@@ -282,6 +288,16 @@ export function createClient(options: ClientOptions): JellyfinClient {
     markUnplayed: async (userId, itemId) => {
       await req<void>('DELETE', `${user(userId)}/PlayedItems/${enc(itemId)}`);
     },
+    addToList: async (userId, itemId) => {
+      await req<void>('POST', `${user(userId)}/FavoriteItems/${enc(itemId)}`);
+    },
+    removeFromList: async (userId, itemId) => {
+      await req<void>('DELETE', `${user(userId)}/FavoriteItems/${enc(itemId)}`);
+    },
+    myList: (userId, limit) =>
+      items(
+        `${user(userId)}/Items?Filters=IsFavorite&IncludeItemTypes=Movie,Series&Recursive=true&SortBy=SortName&SortOrder=Ascending&Limit=${limit}&Fields=${LIST_FIELDS}&${IMAGE_QUERY}`,
+      ),
     saveProgress: async (userId, itemId, positionTicks) => {
       const body = { PlaybackPositionTicks: positionTicks };
       try {
