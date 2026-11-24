@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'preact/hooks';
 import type { Tab } from '../nav';
 import { OFFLINE_TAB_HINT } from '../offline/offlineMode';
 import { Icon, type IconName } from './Icon';
@@ -28,8 +29,20 @@ export function TabBar({
   offline?: boolean;
 }) {
   const tabs = downloads ? [...TABS, DOWNLOADS_TAB] : TABS;
+  const index = tabs.findIndex((t) => t.id === tab);
+  // The sliding pill only animates after the first paint, so it appears in place on load.
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setArmed(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   return (
-    <nav class="tabbar" aria-label="Main">
+    <nav
+      class="tabbar"
+      aria-label="Main"
+      style={{ '--tab-count': tabs.length, '--tab-index': Math.max(index, 0) }}
+    >
+      <span class={`tab-pill${armed ? ' armed' : ''}${index < 0 ? ' none' : ''}`} aria-hidden="true" />
       {tabs.map((t) => {
         const unavailable = offline && t.id !== 'downloads';
         const count = t.id === 'downloads' && downloads ? downloads.active : 0;
