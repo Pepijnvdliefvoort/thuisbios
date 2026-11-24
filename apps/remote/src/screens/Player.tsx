@@ -17,7 +17,7 @@ import { getDeviceId, loadAudioLang, saveLocalProgress, loadPlayerVolume, loadSu
 import { episodeLabel, secondsToTicks, ticksToSeconds } from '../jellyfin/format';
 import { maxBitrateFor, measureBitrate } from '../jellyfin/bitrate';
 import { buildPhoneProfile, shouldRetrySafe } from '../jellyfin/phoneProfile';
-import { playingResolution, qualityOptions, requestFor, sourceLevel, type QualityId } from '../jellyfin/quality';
+import { AUTO_REENCODE_MAX_HEIGHT, autoCapFor, playingResolution, qualityOptions, requestFor, sourceLevel, type QualityId } from '../jellyfin/quality';
 import { nextArmedAt, nextEpisodeCard, planNextEpisode, shouldMarkPlayedOnSkip, type NextEpisodePlan } from '../jellyfin/nextEpisode';
 import { mpegTsShift } from '../jellyfin/hlsTimeline';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
@@ -41,6 +41,8 @@ import { useViewportPortrait } from '../useViewportPortrait';
 
 /** The picture quality picked in the player. Lives for the app session only: the next episode keeps it, a fresh start is Auto. */
 let sessionQuality: QualityId = 'auto';
+/** What Auto asks for once it has to cap a big picture: the 1080p level. */
+const AUTO_CAP = requestFor(AUTO_REENCODE_MAX_HEIGHT, null);
 
 const PROGRESS_MS = 10000;
 /** Pause, play and seek reports go out at once, but never more often than this. */
@@ -225,6 +227,8 @@ export function Player({
   const [qualitySel, setQualitySel] = useState<QualityId>(sessionQuality);
   /** The source's own level, known after the first answer; a chosen level at or above it means the original. */
   const srcLevel = useRef<number | null>(null);
+  // Auto found that the server would re-encode a picture above 1080p: ask for 1080p instead.
+  const [autoCapped, setAutoCapped] = useState(false);
   /** Bumped to ask again once the source is known and the first request was capped for nothing. */
   const [requery, setRequery] = useState(0);
   /** Set once a stream failed before playing: PlaybackInfo is asked again with the safe profile (no MKV direct play, no fMP4 HLS). */
@@ -409,6 +413,7 @@ export function Player({
     if (id === qualitySel) return;
     prepareRestart();
     sessionQuality = id;
+    setAutoCapped(false);
     setQualitySel(id);
   };
   const chooseSubtitle = (index: number) => {
@@ -607,7 +612,8 @@ export function Player({
     let cancelled = false;
     const canPlay = document.createElement('video');
     const known = srcLevel.current;
-    const fixed = qualitySel === 'auto' ? null : requestFor(qualitySel, known);
+    // A fixed choice is asked for as it is. Auto only gets a cap once it found the server would re-encode a big picture.
+    const fixed = qualitySel === 'auto' ? (autoCapped ? AUTO_CAP : null) : requestFor(qualitySel, known);
     // A level below the source's own size forces a transcode (the profile's size cap would anyway; this is explicit).
     const lowered = !!fixed && !fixed.original && known !== null;
     // Measure the connection first: a mobile link that cannot carry the full bitrate never starts playing.
@@ -618,7 +624,7 @@ export function Player({
         // Once the source's size is known, a level at or above it is the original: direct play stays possible.
         const profile = buildPhoneProfile(
           (mime) => canPlay.canPlayType(mime) !== '',
-          fixed ? fixed.bitrate : maxBitrateFor(bps),
+          fixed ? (qualitySel === 'auto' ? Math.min(maxBitrateFor(bps), fixed.bitrate) : fixed.bitrate) : maxBitrateFor(bps),
           fixed && fixed.maxHeight && fixed.maxWidth ? { height: fixed.maxHeight, width: fixed.maxWidth } : undefined,
           { safe, firefox: /firefox/i.test(navigator.userAgent) },
         );
@@ -663,6 +669,12 @@ export function Player({
             return;
           }
         }
+        // Auto: a picture above 1080p that the server has to re-encode is too much for it in real time. Checked
+        // after the re-asks above, as those can change whether the video is copied.
+        if (source && qualitySel === 'auto' && !autoCapped && autoCapFor(source, { videoCopy: copyOk })) {
+          setAutoCapped(true);
+          return;
+        }
         const chosen = audioSel !== null ? audioSel : defaultAudio;
         const selection =
           source &&
@@ -697,7 +709,7 @@ export function Player({
     return () => {
       cancelled = true;
     };
-  }, [client, session, item.Id, audioSel, burnSel, probe, copyOk, qualitySel, requery, safe, isLocal]);
+  }, [client, session, item.Id, audioSel, burnSel, probe, copyOk, qualitySel, autoCapped, requery, safe, isLocal]);
 
   // A download: everything is on the device, so the stream is the saved playlist and no server is asked.
   useEffect(() => {

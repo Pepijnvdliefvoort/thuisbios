@@ -105,6 +105,23 @@ export function requestFor(id: number, sourceHeight: number | null): QualityRequ
   return { bitrate: level.bitrate, maxHeight: level.height, maxWidth: level.width, original: false };
 }
 
+/** On Auto, a source taller than this is asked for at this height when the server has to re-encode its video. */
+export const AUTO_REENCODE_MAX_HEIGHT = 1080;
+
+/**
+ * The cap Auto puts on a big picture the server would have to re-encode. Converting 4K in real time is more than a
+ * home server manages, so Auto asks for 1080p then (a fixed choice in the menu still gets what was picked). Null
+ * when no cap is needed: the source is not above 1080p or of unknown size, it can direct play or direct stream, or
+ * the video may be copied (`videoCopy`).
+ */
+export function autoCapFor(source: MediaSource, opts: { videoCopy: boolean }): QualityRequest | null {
+  const own = sourceLevel(source);
+  if (!own || own.height <= AUTO_REENCODE_MAX_HEIGHT) return null;
+  if (source.SupportsDirectPlay || source.SupportsDirectStream || opts.videoCopy) return null;
+  const level = LEVELS.filter((l) => l.height === AUTO_REENCODE_MAX_HEIGHT)[0];
+  return { bitrate: level.bitrate, maxHeight: level.height, maxWidth: level.width, original: false };
+}
+
 /**
  * The resolution that is actually playing, for the Auto label: the source's own for direct play or direct stream,
  * the MaxHeight/MaxWidth of the transcoding URL for a transcode. Null when the URL says nothing about size.
