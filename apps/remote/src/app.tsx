@@ -6,6 +6,7 @@ import { TopBar } from './components/TopBar';
 import { HeaderActions } from './components/HeaderActions';
 import { clientInfo } from './clientInfo';
 import { Ctx, type AppContext } from './context';
+import { forgetBitrate, warmBitrate } from './jellyfin/bitrate';
 import { createClient } from './jellyfin/client';
 import { resumeTicks } from './jellyfin/playTarget';
 import type { BaseItem, Session } from './jellyfin/types';
@@ -184,6 +185,26 @@ function Shell({
     window.addEventListener('online', flush);
     return () => window.removeEventListener('online', flush);
   }, [progress]);
+  // Measure the connection speed early so Play rarely waits for it; measure again when the network changes.
+  useEffect(() => {
+    if (!online) return;
+    warmBitrate(baseClient);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') warmBitrate(baseClient);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    // Only some browsers (Android Chrome) have navigator.connection.
+    const connection = (navigator as Navigator & { connection?: EventTarget }).connection;
+    const onChange = () => {
+      forgetBitrate(baseClient.serverUrl);
+      warmBitrate(baseClient);
+    };
+    if (connection && connection.addEventListener) connection.addEventListener('change', onChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      if (connection && connection.removeEventListener) connection.removeEventListener('change', onChange);
+    };
+  }, [baseClient, online]);
   useEffect(() => {
     // Once: delete the retired test cache (see RETIRED_CACHE).
     try {
