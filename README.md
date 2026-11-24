@@ -68,6 +68,9 @@ Phone and desktop app (`apps/remote`):
 - Details with cast and crew, seasons and episodes, watched marks, and title requests.
 - Own player: resume, audio tracks, subtitles with timing, quality, skip intro, next episode, scrub previews.
 - Offline downloads that play without a network and sync progress back.
+- Watch together: start a group from Details and others join from Home. Play, pause, seek and next episode apply to everyone.
+  It uses Jellyfin's SyncPlay, so the Jellyfin apps can join too. An admin may need to allow it for a user
+  (Dashboard > Users > SyncPlay access).
 - A Jellyfin library named "Prive" or "Private" stays hidden by default; a per-device switch in the account menu shows it.
 - Play on the TV, Now Playing remote (transport, tracks, subtitle timing) and TV volume.
 

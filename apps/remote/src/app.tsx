@@ -44,6 +44,7 @@ import { isDesktop, useDesktop } from './useDesktop';
 import { useBottomInset } from './useBottomInset';
 import { useScrollerRefresh } from './useScrollerRefresh';
 import { usePrivateLibrary } from './usePrivateLibrary';
+import { useSyncPlay } from './useSyncPlay';
 import { useTv } from './useTv';
 
 /**
@@ -146,6 +147,7 @@ function Shell({
   };
   const tv = useTv(baseClient, session.userId, getDeviceId(), toast);
   const requests = useRequests(session);
+  const syncplay = useSyncPlay(baseClient, session, toast);
 
   // The download queue lives as long as the app, so progress keeps going while the user browses.
   const engine = useMemo(() => {
@@ -264,6 +266,7 @@ function Shell({
     privacy,
     session,
     tv,
+    syncplay,
     requests,
     downloads,
     playbackEnded,
@@ -292,12 +295,12 @@ function Shell({
       nav.push({ kind: 'nowPlaying' });
     },
     progress,
-    playHere: (item, startTicks) => {
+    playHere: (item, startTicks, remote = false) => {
       // Inside the tap that started playback, so the browser allows fullscreen and the orientation lock.
       // Not on a desktop: the player fills the window and has a fullscreen button.
       if (!isDesktop()) enterLandscapeFullscreen();
       remember();
-      nav.push(playScreen(item, startTicks));
+      nav.push(playScreen(item, startTicks, remote));
     },
     playDownload: async (id) => {
       if (!isDesktop()) enterLandscapeFullscreen();
@@ -321,11 +324,12 @@ function Shell({
   };
 
   // A finished download plays from the device (it saves data); anything else asks Jellyfin. `startTicks` is final here.
-  const playScreen = (item: BaseItem, startTicks: number): Screen => ({
+  // `remote` (watch together) always asks Jellyfin: every member must play the same stream.
+  const playScreen = (item: BaseItem, startTicks: number, remote = false): Screen => ({
     kind: 'player',
     item,
     startTicks,
-    ...(preferLocal(downloads.entries, item.Id) ? { local: true } : {}),
+    ...(!remote && preferLocal(downloads.entries, item.Id) ? { local: true } : {}),
   });
 
   /** The brand: to Home, or back to the top when already there. */
@@ -339,6 +343,7 @@ function Shell({
   };
 
   const signOut = () => {
+    void syncplay.leave();
     void baseClient.logout().catch(() => undefined);
     onSignOut();
   };
@@ -358,7 +363,7 @@ function Shell({
               </header>
             )}
             <main hidden={tab !== 'home'}>
-              {privacyReady ? <Home /> : null}
+              {privacyReady ? <Home active={tab === 'home' && !open} /> : null}
             </main>
             <main hidden={tab !== 'search'}>
               {privacyReady ? <Search /> : null}
@@ -384,7 +389,7 @@ function Shell({
               startTicks={top.startTicks}
               local={top.local}
               onBack={nav.back}
-              onPlayEpisode={(episode) => nav.replace(playScreen(episode, 0))}
+              onPlayEpisode={(episode) => nav.replace(playScreen(episode, 0, syncplay.group !== null))}
             />
           ) : null}
         </div>
