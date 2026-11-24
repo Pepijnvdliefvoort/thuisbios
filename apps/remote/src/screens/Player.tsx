@@ -228,6 +228,8 @@ export function Player({
   const subIndex = useRef(-1);
   const stopRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const advancing = useRef(false);
+  // The shared element still holds the previous episode until this player attaches its own stream: ignore its events.
+  const ownStream = useRef(false);
   // Playing a download: how the playback ended, for the watched mark and removing a watched episode.
   const endedRef = useRef(false);
   const markedRef = useRef(false);
@@ -435,14 +437,19 @@ export function Player({
   const syncVolume = (el: HTMLVideoElement) => setVol({ volume: el.volume, muted: el.muted });
   media.current = {
     timeUpdate: (el) => {
+      if (!ownStream.current) return;
       const v = el.currentTime;
       const t = Math.max(0, duration > 0 ? Math.min(duration, toMedia(v)) : toMedia(v));
       if (v > 0) lastTime.current = t;
       setNow(t);
     },
     volume: syncVolume,
-    progress: syncBuffered,
-    duration: syncDuration,
+    progress: (el) => {
+      if (ownStream.current) syncBuffered(el);
+    },
+    duration: (el) => {
+      if (ownStream.current) syncDuration(el);
+    },
   };
   const setVolume = (value: number) => {
     const el = video.current;
@@ -731,6 +738,7 @@ export function Player({
           });
           instance.on(Hls.Events.FRAG_BUFFERED, jumpGap);
           instance.loadSource(loaded.url);
+          ownStream.current = true;
           instance.attachMedia(el);
         })
         .catch(() => {
@@ -793,6 +801,7 @@ export function Player({
             }
           });
           instance.loadSource(loaded.url);
+          ownStream.current = true;
           instance.attachMedia(el);
           el.addEventListener('loadedmetadata', () => void el.play().catch(() => undefined), { once: true });
         })
@@ -802,6 +811,7 @@ export function Player({
     } else {
       el.addEventListener('loadedmetadata', onMeta, { once: true });
       el.addEventListener('error', onError);
+      ownStream.current = true;
       el.src = loaded.url;
     }
     return () => {
