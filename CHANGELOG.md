@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.2.0...v1.3.0) (2026-11-24)
+
+
+### Features
+
+* **remote:** add subtle motion polish to the phone app ([#232](https://github.com/Pepijnvdliefvoort/thuisbios/issues/232)) ([f7ab7ac](https://github.com/Pepijnvdliefvoort/thuisbios/commit/f7ab7ac62acef644346ccf16a330cc439916a93e))
+* **remote:** slide the glass tab bar highlight between tabs ([#233](https://github.com/Pepijnvdliefvoort/thuisbios/issues/233)) ([184ad4b](https://github.com/Pepijnvdliefvoort/thuisbios/commit/184ad4ba01f8b2047f706f0aa1892643e87a082c))
+
+
+### Performance
+
+* **remote:** direct play MKV and pass HEVC through on iPhone, with a fallback ([#235](https://github.com/Pepijnvdliefvoort/thuisbios/issues/235)) ([07be3ca](https://github.com/Pepijnvdliefvoort/thuisbios/commit/07be3ca6867004a03d705089548d26e2ab169158))
+* **remote:** lighter speed test that is kept for an hour and runs at app start ([#234](https://github.com/Pepijnvdliefvoort/thuisbios/issues/234)) ([f79f341](https://github.com/Pepijnvdliefvoort/thuisbios/commit/f79f34162c8715a8d69dd11a2f62167d3e1d43b2))
+* **remote:** remux instead of re-encode when no subtitles are shown ([#236](https://github.com/Pepijnvdliefvoort/thuisbios/issues/236)) ([8df6e21](https://github.com/Pepijnvdliefvoort/thuisbios/commit/8df6e210ca60aee776cf623a023c799911306001))
+
 ## [1.2.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.1.2...v1.2.0) (2026-11-23)
 
 
