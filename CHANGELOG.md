@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.3](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.4.2...v1.4.3) (2026-11-24)
+
+
+### Bug Fixes
+
+* **remote:** make the scrub bar easy to grab at the start and end ([#264](https://github.com/Pepijnvdliefvoort/thuisbios/issues/264)) ([557c892](https://github.com/Pepijnvdliefvoort/thuisbios/commit/557c892ff7ac496e3f236f8d01e40372e84afde3))
+* **remote:** remove picture-in-picture ([#262](https://github.com/Pepijnvdliefvoort/thuisbios/issues/262)) ([0cb96dd](https://github.com/Pepijnvdliefvoort/thuisbios/commit/0cb96ddc2bdcd2fc53139b375804ba7437884d65))
+* **remote:** show the owner's answer on requested titles in search ([#263](https://github.com/Pepijnvdliefvoort/thuisbios/issues/263)) ([a6f21da](https://github.com/Pepijnvdliefvoort/thuisbios/commit/a6f21daebb8f8ae05d1bac1b21ce04a69bcd33b0))
+* **remote:** stop remuxing the video on iPhone so playback no longer hitches ([#265](https://github.com/Pepijnvdliefvoort/thuisbios/issues/265)) ([d50f1a4](https://github.com/Pepijnvdliefvoort/thuisbios/commit/d50f1a4847fa2176bf3e499c29c43095c19873bd))
+
 ## [1.4.2](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.4.1...v1.4.2) (2026-11-24)
 
 
