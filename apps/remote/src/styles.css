@@ -653,6 +653,8 @@ input:focus { outline: none; border-color: var(--accent); }
 .pc-row { display: flex; align-items: center; gap: 10px; }
 .pc-time { flex: none; min-width: 44px; font-size: 13px; font-variant-numeric: tabular-nums; text-align: center; }
 .pc-scrub { position: relative; flex: 1; height: 44px; touch-action: none; display: flex; align-items: center; }
+/* Touch area past both ends of the bar: at 0 % or 100 % the thumb sits on the bar's edge, so a finger just beside it still grabs it. scrubFraction clamps to 0..1. */
+.pc-scrub::before { content: ''; position: absolute; top: 0; bottom: 0; left: -20px; right: -20px; }
 .pc-track { position: relative; width: 100%; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.25); overflow: hidden; }
 .pc-track i { position: absolute; left: 0; top: 0; bottom: 0; }
 .pc-buffered { background: rgba(255, 255, 255, 0.4); }
