@@ -1531,3 +1531,19 @@ button.rs-row:active { background: var(--surface-2); }
   background: #000; border-radius: 12px; overflow: hidden;
 }
 .trailer-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+/* "Now in the library" notices for titles the user requested (Home) */
+.arrived { display: flex; flex-direction: column; gap: 8px; padding: 8px var(--gutter) 4px; }
+.arrived-card { display: flex; align-items: center; background: var(--surface); border-radius: 12px; border-left: 3px solid var(--ok); }
+.arrived-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 0 10px 12px; text-align: left; color: var(--fg); }
+.arrived-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.arrived-label { font-size: 12px; font-weight: 700; color: var(--ok); }
+.arrived-title { font-weight: 700; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.arrived-close { flex: none; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.arrived-more { color: var(--muted); font-size: 13px; padding: 0 4px; }
+@media (hover: hover) { .arrived-close:hover { color: var(--fg); } }
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .arrived { position: relative; z-index: 1; max-width: 640px; padding-top: 20px; }
+  .arrived-card { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--hairline); border-left: 3px solid var(--ok); border-radius: 14px; }
+  .arrived .req-poster { width: 48px; height: 72px; border-radius: 6px; }
+}

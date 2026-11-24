@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks';
+import { ArrivedNotice } from '../components/ArrivedNotice';
 import { PullSpinner } from '../components/PullSpinner';
 import { Row } from '../components/Row';
 import { RowSkeleton } from '../components/Skeleton';
@@ -48,6 +49,7 @@ export function Home() {
     <div class={desktop ? (hero ? 'page home has-hero' : 'page home') : 'page'} ref={pageRef}>
       <PullSpinner pull={pull} />
       {desktop ? <Spotlight items={slides} pending={spotlightPending} /> : null}
+      <ArrivedNotice />
       <Row title="Resume watching" items={resume.data || []} shape="thumb" />
       <Row title="Next up" items={withoutResumed(nextUp.data || [], resume.data || [])} shape="thumb" />
       <Row title="Recently added movies" items={movies.data || []} shape="poster" />
