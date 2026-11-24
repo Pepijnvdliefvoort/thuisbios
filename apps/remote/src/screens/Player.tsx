@@ -10,7 +10,7 @@ import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscree
 import { artUrl } from '../jellyfin/art';
 import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
 import { useMediaSession } from '../mediaSession';
-import { enterPip, exitPip, isInPip, pipSupported } from '../pip';
+import { enterPip, enterPipWhenHidden, exitPip, isInPip, pipSupported } from '../pip';
 import { getPlayerVideo, releasePlayerVideo } from '../playerVideo';
 import { playerKeyAction, stepVolume } from '../playerKeys';
 import { tapSide, type TapSide } from '../tapSide';
@@ -540,9 +540,22 @@ export function Player({
       await exitPip(el);
       return;
     }
+    // enterPip must be called synchronously inside the tap (no await before it): WebKit and Chrome both want the gesture.
     await enterPip(el);
-    if (isInPip(el) && !backgroundRef.current) onBack();
+    if (isInPip(el)) {
+      if (!backgroundRef.current) onBack();
+    } else {
+      // The browser refused (no stream yet, policy): say so instead of looking like a dead button.
+      toast("Picture in picture isn't available right now");
+    }
   };
+  // Leaving the app or minimising the browser while playing: float the video where the browser lets a page do that
+  // without a tap (usually it does not; then `autopictureinpicture` and the MediaSession action do the job).
+  useEffect(() => {
+    const el = video.current;
+    if (!el) return;
+    return enterPipWhenHidden(el, () => !backgroundRef.current && !el.paused && !el.ended && pipSupported(el));
+  }, []);
   const onKey = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement | null;
     if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
@@ -1072,7 +1085,7 @@ export function Player({
     onEnterPip: pipOk
       ? () => {
           const el = video.current;
-          if (el) void enterPip(el);
+          return el ? enterPip(el) : undefined;
         }
       : undefined,
   });

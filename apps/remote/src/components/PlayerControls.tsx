@@ -110,10 +110,20 @@ export function PlayerControls(p: Props) {
     return () => window.clearTimeout(t);
   }, [p.paused, !!d]);
 
-  const total = p.duration > 0 ? p.duration : 0;
+  const total = p.duration > 0 && isFinite(p.duration) ? p.duration : 0;
   const shown = preview !== null ? preview : p.position;
   const marks = markerFractions(chapters, total);
   const currentChapter = chapterAt(chapters, p.position);
+  // Ticks are a layer of their own over the track (the track clips its fill), taller than the track and light with a
+  // dark edge, so they read on the played (accent) and the unplayed part alike, also on a small phone screen.
+  const markers =
+    marks.length > 0 ? (
+      <div class="pc-marks" aria-hidden="true">
+        {marks.map((f, i) => (
+          <i key={i} class="pc-mark" style={{ left: `${f * 100}%` }} />
+        ))}
+      </div>
+    ) : null;
   const pct = (seconds: number): string => `${total > 0 ? Math.max(0, Math.min(100, (seconds / total) * 100)) : 0}%`;
 
   const fractionOf = (e: PointerEvent): number =>
@@ -312,10 +322,8 @@ export function PlayerControls(p: Props) {
             <div class="pc-track">
               <i class="pc-buffered" style={{ width: pct(p.buffered) }} />
               <i class="pc-played" style={{ width: pct(shown) }} />
-              {marks.map((f, i) => (
-                <i key={i} class="pc-mark" style={{ left: `${f * 100}%` }} />
-              ))}
             </div>
+            {markers}
             <i class="pc-thumb" style={{ left: pct(shown) }} />
           </div>
           {scrubTip()}
@@ -488,10 +496,8 @@ export function PlayerControls(p: Props) {
             <div class="pc-track">
               <i class="pc-buffered" style={{ width: pct(p.buffered) }} />
               <i class="pc-played" style={{ width: pct(shown) }} />
-              {marks.map((f, i) => (
-                <i key={i} class="pc-mark" style={{ left: `${f * 100}%` }} />
-              ))}
             </div>
+            {markers}
             <i class="pc-thumb" style={{ left: pct(shown) }} />
           </div>
           <span class="pc-time">{total > 0 ? `-${formatClock(total - shown)}` : ''}</span>

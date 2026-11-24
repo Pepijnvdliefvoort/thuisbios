@@ -84,6 +84,10 @@ describe('markerFractions', () => {
   it('is empty without a runtime', () => {
     expect(markerFractions([ch(0), ch(10)], 0)).toEqual([]);
   });
+  it('is empty for an infinite or NaN duration (native HLS before the playlist ends)', () => {
+    expect(markerFractions([ch(0), ch(10)], Infinity)).toEqual([]);
+    expect(markerFractions([ch(0), ch(10)], NaN)).toEqual([]);
+  });
 });
 
 describe('chapterImageUrl', () => {

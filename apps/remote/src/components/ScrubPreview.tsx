@@ -5,6 +5,10 @@ import { formatClock, ticksToSeconds } from '../jellyfin/format';
 import { clampTipCenter, pickTrickplay, sheetsNear, sheetUrl, thumbIndex, thumbPlace, thumbStyle, type TrickplaySet } from '../jellyfin/trickplay';
 import type { BaseItem } from '../jellyfin/types';
 
+/** Retries of the scrub info request, and the wait between them (ms). */
+const SCRUB_RETRIES = 2;
+const SCRUB_RETRY_MS = 3000;
+
 /** What the preview needs to draw frames from the server's tile sheets. */
 export interface ScrubSource {
   set: TrickplaySet;
@@ -32,15 +36,22 @@ export function useScrubInfo(
   const [item, setItem] = useState<BaseItem | null>(null);
   useEffect(() => {
     let alive = true;
+    let timer: number | undefined;
     setItem(null);
-    if (enabled && itemId) {
+    // A phone on a flaky mobile network may lose this one request; without a retry the chapters and previews would
+    // be missing for the whole playback with no sign why. Two more tries, a few seconds apart.
+    const load = (left: number) => {
       client
         .scrubInfo(userId, itemId)
         .then((i) => alive && setItem(i))
-        .catch(() => undefined);
-    }
+        .catch(() => {
+          if (alive && left > 0) timer = window.setTimeout(() => load(left - 1), SCRUB_RETRY_MS);
+        });
+    };
+    if (enabled && itemId) load(SCRUB_RETRIES);
     return () => {
       alive = false;
+      window.clearTimeout(timer);
     };
   }, [client, userId, itemId, enabled]);
   const source = useMemo(() => {

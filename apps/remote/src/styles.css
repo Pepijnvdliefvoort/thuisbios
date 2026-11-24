@@ -569,7 +569,9 @@ input:focus { outline: none; border-color: var(--accent); }
 
 /* Player (plays on the phone): full screen, no scrolling. The stage is the landscape canvas. */
 .player { position: fixed; inset: 0; z-index: 20; background: #000; overflow: hidden; }
-.player.is-background { position: fixed; inset: auto; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
+/* Hidden but still rendered: WebKit ends picture-in-picture when the video's element is display:none, so it is 1px and
+   almost transparent instead (never display:none or visibility:hidden). */
+.player.is-background { position: fixed; inset: auto; left: 0; top: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; overflow: hidden; }
 .player-error { padding-top: calc(var(--ui-top) + 60px); }
 .player-stage {
   position: absolute; inset: 0; overflow: hidden; background: #000; container-type: size;
@@ -621,8 +623,9 @@ input:focus { outline: none; border-color: var(--accent); }
 .scrub-time { padding: 3px 9px; border-radius: 8px; background: rgba(20, 20, 26, 0.92); border: 1px solid rgba(255, 255, 255, 0.12); color: #fff; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .nowplaying .scrub { position: relative; }
 /* Chapter ticks over the range track: the native track is inset by half the 16px thumb on each side and is 6px tall, centred in the 44px input. */
-.scrub-marks { position: absolute; left: 8px; right: 8px; top: 19px; height: 6px; pointer-events: none; }
-.scrub-marks i { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: rgba(0, 0, 0, 0.7); }
+.scrub-marks { position: absolute; left: 8px; right: 8px; top: 17px; height: 10px; pointer-events: none; }
+/* Light ticks with a dark edge, taller than the track: they read on the red (played) and the grey part alike. */
+.scrub-marks i { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; border-radius: 1.5px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55); }
 @keyframes scrub-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .scrub-tip { animation-duration: 1ms; } }
 
@@ -657,7 +660,8 @@ input:focus { outline: none; border-color: var(--accent); }
 .pc-track i { position: absolute; left: 0; top: 0; bottom: 0; }
 .pc-buffered { background: rgba(255, 255, 255, 0.4); }
 .pc-played { background: var(--accent); }
-.pc-track i.pc-mark { left: auto; width: 3px; margin-left: -1.5px; background: rgba(0, 0, 0, 0.7); }
+.pc-marks { position: absolute; left: 0; right: 0; top: 50%; height: 10px; margin-top: -5px; pointer-events: none; }
+.pc-mark { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; border-radius: 1.5px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55); }
 .pc-thumb { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--accent); transition: transform 0.15s ease; }
 .pc-scrub.dragging .pc-thumb { transform: scale(1.6); }
 .pc-cc.on { color: var(--accent); }

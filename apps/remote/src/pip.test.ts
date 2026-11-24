@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { enableAutoPip, enterPip, exitPip, isInPip, onPipChange, pipSupported, togglePip } from './pip';
+import { enableAutoPip, enterPip, enterPipWhenHidden, exitPip, isInPip, onPipChange, pipSupported, togglePip } from './pip';
 
 type Loose = Record<string, unknown>;
-const video = (extra: Loose = {}): HTMLVideoElement => Object.assign(document.createElement('video'), extra);
+// jsdom's readyState is a read-only 0; the tests mean a video with its metadata loaded unless they say otherwise.
+const video = (extra: Loose = {}): HTMLVideoElement => {
+  const el = document.createElement('video');
+  Object.defineProperty(el, 'readyState', { value: 4, configurable: true, writable: true });
+  return Object.assign(el, extra);
+};
 const setDoc = (props: Loose) => Object.assign(document, props);
 
 afterEach(() => {
@@ -23,6 +28,11 @@ describe('pipSupported', () => {
     expect(pipSupported(video({ requestPictureInPicture: vi.fn() }))).toBe(false);
     setDoc({ pictureInPictureEnabled: true });
     expect(pipSupported(video({ requestPictureInPicture: vi.fn(), disablePictureInPicture: true }))).toBe(false);
+  });
+  it('is false for the standard API before a stream is loaded', () => {
+    setDoc({ pictureInPictureEnabled: true });
+    expect(pipSupported(video({ requestPictureInPicture: vi.fn(), readyState: 0 }))).toBe(false);
+    expect(pipSupported(video({ requestPictureInPicture: vi.fn(), readyState: 1 }))).toBe(true);
   });
   it('is true with WebKit presentation mode', () => {
     expect(pipSupported(video({ webkitSupportsPresentationMode: () => true, webkitSetPresentationMode: vi.fn() }))).toBe(true);
@@ -50,6 +60,22 @@ describe('enter and exit', () => {
       el.dispatchEvent(new Event('webkitpresentationmodechanged'));
     });
     const el = video({ webkitSupportsPresentationMode: () => true, webkitSetPresentationMode: set, webkitPresentationMode: 'inline' });
+    await enterPip(el);
+    expect(set).toHaveBeenCalledWith('picture-in-picture');
+    expect(isInPip(el)).toBe(true);
+  });
+  it('falls back to WebKit when the standard API refuses on a WebKit element', async () => {
+    setDoc({ pictureInPictureEnabled: true });
+    const set = vi.fn(() => {
+      (el as unknown as Loose).webkitPresentationMode = 'picture-in-picture';
+      el.dispatchEvent(new Event('webkitpresentationmodechanged'));
+    });
+    const el = video({
+      requestPictureInPicture: vi.fn().mockRejectedValue(new Error('refused')),
+      webkitSupportsPresentationMode: () => true,
+      webkitSetPresentationMode: set,
+      webkitPresentationMode: 'inline',
+    });
     await enterPip(el);
     expect(set).toHaveBeenCalledWith('picture-in-picture');
     expect(isInPip(el)).toBe(true);
@@ -116,5 +142,52 @@ describe('enableAutoPip', () => {
     enableAutoPip(el);
     expect((el as unknown as Loose).autoPictureInPicture).toBe(true);
     expect(el.hasAttribute('autopictureinpicture')).toBe(true);
+  });
+});
+
+describe('enterPipWhenHidden', () => {
+  const setVisibility = (state: string) => {
+    Object.defineProperty(document, 'visibilityState', { value: state, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+  afterEach(() => setVisibility('visible'));
+
+  it('floats the video when the page gets hidden while playing', () => {
+    setDoc({ pictureInPictureEnabled: true });
+    const request = vi.fn().mockResolvedValue({});
+    const el = video({ requestPictureInPicture: request });
+    const off = enterPipWhenHidden(el, () => true);
+    setVisibility('visible');
+    expect(request).not.toHaveBeenCalled();
+    setVisibility('hidden');
+    expect(request).toHaveBeenCalledTimes(1);
+    off();
+  });
+  it('does nothing when not playing, already floating, or after unsubscribing', () => {
+    setDoc({ pictureInPictureEnabled: true });
+    const request = vi.fn().mockResolvedValue({});
+    const el = video({ requestPictureInPicture: request });
+    let playing = false;
+    const off = enterPipWhenHidden(el, () => playing);
+    setVisibility('hidden');
+    expect(request).not.toHaveBeenCalled();
+    playing = true;
+    setDoc({ pictureInPictureElement: el });
+    setVisibility('hidden');
+    expect(request).not.toHaveBeenCalled();
+    setDoc({ pictureInPictureElement: null });
+    off();
+    setVisibility('hidden');
+    expect(request).not.toHaveBeenCalled();
+  });
+  it('fails silently and never pauses when the browser refuses', async () => {
+    setDoc({ pictureInPictureEnabled: true });
+    const el = video({ requestPictureInPicture: vi.fn().mockRejectedValue(new Error('no gesture')) });
+    const pause = vi.spyOn(el, 'pause');
+    const off = enterPipWhenHidden(el, () => true);
+    expect(() => setVisibility('hidden')).not.toThrow();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(pause).not.toHaveBeenCalled();
+    off();
   });
 });
