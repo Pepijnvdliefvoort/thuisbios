@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildMetadata, positionStateFor, safeSetHandler, safeSetPositionState } from './mediaSession';
+import { ENTER_PIP_ACTION, buildMetadata, positionStateFor, safeSetHandler, safeSetPositionState } from './mediaSession';
 import type { BaseItem } from './jellyfin/types';
 
 const SERVER = 'http://jf';
@@ -46,6 +46,21 @@ describe('safe wrappers', () => {
   afterEach(() => {
     delete (navigator as unknown as Record<string, unknown>).mediaSession;
     vi.unstubAllGlobals();
+  });
+
+  it('registers and clears the picture-in-picture action, and survives browsers that reject it', () => {
+    vi.stubGlobal('MediaMetadata', class {});
+    const setActionHandler = vi.fn();
+    Object.defineProperty(navigator, 'mediaSession', { value: { setActionHandler }, configurable: true });
+    const handler = () => undefined;
+    safeSetHandler(ENTER_PIP_ACTION, handler);
+    safeSetHandler(ENTER_PIP_ACTION, null);
+    expect(setActionHandler).toHaveBeenNthCalledWith(1, 'enterpictureinpicture', handler);
+    expect(setActionHandler).toHaveBeenNthCalledWith(2, 'enterpictureinpicture', null);
+    setActionHandler.mockImplementation(() => {
+      throw new TypeError('unknown action');
+    });
+    expect(() => safeSetHandler(ENTER_PIP_ACTION, handler)).not.toThrow();
   });
 
   it('do not throw without mediaSession', () => {

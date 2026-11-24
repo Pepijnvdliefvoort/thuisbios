@@ -555,6 +555,7 @@ input:focus { outline: none; border-color: var(--accent); }
 
 /* Player (plays on the phone): full screen, no scrolling. The stage is the landscape canvas. */
 .player { position: fixed; inset: 0; z-index: 20; background: #000; overflow: hidden; }
+.player.is-background { position: fixed; inset: auto; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
 .player-error { padding-top: calc(var(--ui-top) + 60px); }
 .player-stage {
   position: absolute; inset: 0; overflow: hidden; background: #000; container-type: size;

@@ -21,6 +21,11 @@ export interface DesktopControls {
   onToggleFullscreen(): void;
 }
 
+/** The picture-in-picture button; only passed where the browser can float the video. */
+export interface PipControl {
+  onToggle(): void;
+}
+
 /** Previous and next episode buttons; only passed for episodes. A missing neighbour (first or last episode) disables its button. */
 export interface EpisodeNav {
   hasPrevious: boolean;
@@ -64,6 +69,7 @@ interface Props {
   onInteract(): void;
   desktop?: DesktopControls;
   episodeNav?: EpisodeNav;
+  pip?: PipControl;
   /** Preview frames for the scrub bar (server tile sheets); absent offline or when the server has none. */
   scrubSource?: ScrubSource | null;
   /** Chapters of the item (2 or more, else empty): markers on the bar, the name in the tooltip and a list to jump to. */
@@ -84,6 +90,11 @@ export function PlayerControls(p: Props) {
   const scrubEl = useRef<HTMLDivElement>(null);
   const d = p.desktop;
   const nav = p.episodeNav;
+  const pip = p.pip ? (
+    <button type="button" class="pc-btn pc-pip" onClick={p.pip.onToggle} aria-label="Picture in picture">
+      <Icon name="pip" size={d ? 26 : 24} />
+    </button>
+  ) : null;
   const chapters = p.chapters && p.chapters.length >= 2 ? p.chapters : [];
   const chapterPanel = useRef<HTMLDivElement>(null);
 
@@ -387,6 +398,7 @@ export function PlayerControls(p: Props) {
                   <Icon name="bubble" size={26} />
                 </button>
               </div>
+              {pip}
               {d.canFullscreen ? (
                 <button type="button" class="pc-btn" onClick={d.onToggleFullscreen} aria-label={d.fullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
                   <Icon name={d.fullscreen ? 'exitFullscreen' : 'fullscreen'} size={26} />
@@ -490,6 +502,7 @@ export function PlayerControls(p: Props) {
           >
             <Icon name="captions" />
           </button>
+          {pip}
         </div>
       </div>
 

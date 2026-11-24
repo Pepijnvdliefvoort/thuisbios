@@ -8,6 +8,7 @@ import { exitLandscapeFullscreen, supportsElementFullscreen } from '../fullscree
 import { artUrl } from '../jellyfin/art';
 import { defaultAudioIndex, listAudio, pickInitialAudio } from '../jellyfin/audio';
 import { useMediaSession } from '../mediaSession';
+import { enterPip, exitPip, isInPip, pipSupported } from '../pip';
 import { getPlayerVideo, releasePlayerVideo } from '../playerVideo';
 import { playerKeyAction, stepVolume } from '../playerKeys';
 import { tapSide, type TapSide } from '../tapSide';
@@ -128,6 +129,7 @@ export function Player({
   item,
   startTicks,
   local = false,
+  background = false,
   onBack,
   onPlayEpisode,
 }: {
@@ -135,6 +137,12 @@ export function Player({
   startTicks: number;
   /** Play the finished download of this item from the device instead of asking Jellyfin. */
   local?: boolean;
+  /**
+   * Floating in picture-in-picture while another screen is shown: the whole UI is hidden and inert, but the shared
+   * video stays in the DOM and keeps playing and reporting. Back then means "stop for good", and the end of the
+   * video stops instead of autoplaying the next episode.
+   */
+  background?: boolean;
   onBack: () => void;
   /** Plays another episode (autoplay, or the previous/next buttons) in place of this one, from its start. */
   onPlayEpisode: (episode: BaseItem) => void;
@@ -272,6 +280,13 @@ export function Player({
     },
     [],
   );
+
+  // Moving to the background keeps playing but is otherwise leaving: no fullscreen, no free rotation.
+  useEffect(() => {
+    if (background) exitLandscapeFullscreen();
+  }, [background]);
+  const backgroundRef = useRef(background);
+  backgroundRef.current = background;
 
   // Media events and the poster go on the shared element by hand (it is not part of our JSX). The handlers are
   // re-read from `media` on every event so they see the current state.
@@ -495,6 +510,18 @@ export function Player({
       chooseSubtitle(Math.min(first, tracks.length - 1));
     }
   };
+  // Picture in picture: float the video and, from the player screen, land in the app with it still playing.
+  const pipOk = pipSupported(getPlayerVideo());
+  const togglePipFromUi = async () => {
+    const el = video.current;
+    if (!el) return;
+    if (isInPip(el)) {
+      await exitPip(el);
+      return;
+    }
+    await enterPip(el);
+    if (isInPip(el) && !backgroundRef.current) onBack();
+  };
   const onKey = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement | null;
     if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
@@ -524,12 +551,14 @@ export function Player({
         return toggleFullscreen();
       case 'subtitles':
         return toggleSubtitles();
+      case 'pip':
+        return void togglePipFromUi();
     }
   };
   const onKeyRef = useRef(onKey);
   onKeyRef.current = onKey;
   useEffect(() => {
-    if (!mouse) return;
+    if (!mouse || background) return;
     const down = (e: KeyboardEvent) => onKeyRef.current(e);
     // Firefox presses a focused button on the key release; keydown's preventDefault does not stop that.
     const up = (e: KeyboardEvent) => {
@@ -542,7 +571,7 @@ export function Player({
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
     };
-  }, [mouse]);
+  }, [mouse, background]);
   useEffect(() => {
     const el = video.current;
     if (!mouse || !el) return;
@@ -926,7 +955,11 @@ export function Player({
     if (!el) return;
     return () => {
       if (advancing.current) el.pause();
-      else releasePlayerVideo(el);
+      else {
+        // Closing a floating player (or starting another playback over it) ends PiP before the stream goes.
+        if (isInPip(el)) void exitPip(el);
+        releasePlayerVideo(el);
+      }
     };
   }, []);
 
@@ -965,6 +998,8 @@ export function Player({
    */
   const advance = (early: boolean): boolean => {
     if (advancing.current) return true;
+    // Floating behind other screens: the end of the video is the end (there is no screen to hand over to).
+    if (backgroundRef.current) return false;
     if (!next || cancelled) return false;
     switchTo(next, early);
     return true;
@@ -976,7 +1011,7 @@ export function Player({
   planRef.current = plan;
   // The buttons work with autoplay cancelled; only a next pressed in the credits counts the episode as watched.
   const episodeNav =
-    item.Type === 'Episode'
+    item.Type === 'Episode' && !background
       ? {
           hasPrevious: !!previous,
           hasNext: !!next,
@@ -1005,6 +1040,12 @@ export function Player({
     onSeekTo: seekTo,
     onPrevious: episodeNav && episodeNav.hasPrevious ? episodeNav.onPrevious : undefined,
     onNext: episodeNav && episodeNav.hasNext ? episodeNav.onNext : undefined,
+    onEnterPip: pipOk
+      ? () => {
+          const el = video.current;
+          if (el) void enterPip(el);
+        }
+      : undefined,
   });
   // Where the countdown started: when the position entered the card zone (playing, seeking or resuming).
   const armed = useRef<{ at: number | null; last: number | null }>({ at: null, last: null });
@@ -1106,7 +1147,7 @@ export function Player({
   const label = item.Type === 'Episode' ? [item.SeriesName, episodeLabel(item)].filter(Boolean).join(' · ') : '';
   const subtitleText = subSel >= 0 && tracks[subSel] && !tracks[subSel].burnIn ? activeCueText(cues, now - subOffset / 1000) : '';
   return (
-    <div class="player">
+    <div class={'player' + (background ? ' is-background' : '')} aria-hidden={background ? 'true' : undefined}>
       {error ? (
         <div class="player-error">
           <button type="button" class="back" onClick={onBack} aria-label="Back">
@@ -1160,6 +1201,7 @@ export function Player({
             onSelectAudio={chooseAudio}
             onBusy={setBusy}
             episodeNav={episodeNav}
+            pip={pipOk ? { onToggle: () => void togglePipFromUi() } : undefined}
             onInteract={interact}
             scrubSource={scrubSource}
             chapters={chapters}

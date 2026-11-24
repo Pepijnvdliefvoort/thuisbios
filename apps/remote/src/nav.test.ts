@@ -26,7 +26,7 @@ describe('shouldCloseNowPlaying', () => {
 });
 
 describe('replaceTop', () => {
-  const player = (id: string): Screen => ({ kind: 'player', item: { Id: id, Name: id }, startTicks: 0 });
+  const player = (id: string): Screen => ({ kind: 'player', sid: 1, item: { Id: id, Name: id }, startTicks: 0 });
   it('swaps only the top screen', () => {
     const stack: Screen[] = [{ kind: 'details', id: 'show' }, player('e1')];
     expect(replaceTop(stack, player('e2'))).toEqual([{ kind: 'details', id: 'show' }, player('e2')]);

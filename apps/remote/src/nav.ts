@@ -9,7 +9,8 @@ export type Screen = { kind: 'details'; id: string } | { kind: 'nowPlaying' }
   /** An actor or crew member: photo, details and the titles from the library they appear in. */
   | { kind: 'person'; id: string; name: string }
   /** `local`: play the finished download of this item (saved playlist, subtitles and markers) instead of asking Jellyfin. */
-  | { kind: 'player'; item: BaseItem; startTicks: number; local?: boolean };
+  /** `sid`: one playback session; it keeps the Player mounted while it floats in picture-in-picture behind other screens. */
+  | { kind: 'player'; sid: number; item: BaseItem; startTicks: number; local?: boolean };
 
 /** `downloads` is a phone tab only (it has no entry in the desktop top bar). */
 export type Tab = 'home' | 'search' | 'library' | 'downloads';
