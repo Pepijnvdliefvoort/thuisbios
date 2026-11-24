@@ -65,8 +65,21 @@ function setup() {
     if (token === 'down') throw new Error('jellyfin-unreachable');
     return USERS[token] || null;
   });
-  const handler = createRequestsHandler({ filePath: file, whoami, now: () => nowMs, newId: () => `id-${++n}` });
-  return { handler, whoami, advance: (ms: number) => (nowMs += ms) };
+  // Library search answers come from `library`; set `fail` to simulate Jellyfin errors.
+  const library = { items: [] as unknown[], fail: false };
+  const fetchFn = vi.fn(async (_url: unknown, _init?: unknown) => {
+    if (library.fail) throw new Error('boom');
+    return new Response(JSON.stringify({ Items: library.items }), { status: 200 });
+  });
+  const handler = createRequestsHandler({
+    filePath: file,
+    whoami,
+    now: () => nowMs,
+    newId: () => `id-${++n}`,
+    fetchFn: fetchFn as unknown as typeof fetch,
+    jellyfinUrl: 'http://jf',
+  });
+  return { handler, whoami, fetchFn, library, advance: (ms: number) => (nowMs += ms) };
 }
 
 describe('parseCreate', () => {
@@ -262,6 +275,7 @@ describe('requests handler', () => {
     const reopened = await call(handler, 'PATCH', '/api/requests/id-1', 'owner', { status: 'open' });
     expect(reopened.json.status).toBe('open');
     expect(reopened.json.handledAt).toBeUndefined();
+    expect(reopened.json.itemId).toBeUndefined();
     const dismissed = await call(handler, 'PATCH', '/api/requests/id-1', 'owner', { status: 'dismissed' });
     expect(dismissed.json).toMatchObject({ status: 'dismissed', handledAt: expect.any(String) });
   });
@@ -329,5 +343,132 @@ describe('lookup route', () => {
     const off = await call(withLookup('').handler, 'GET', '/api/requests/lookup?q=heat', 'anna');
     expect(off).toMatchObject({ status: 503, json: { error: 'lookup-not-set-up' } });
     expect((await call(withLookup('').handler, 'GET', '/api/requests/lookup?q=heat', 'owner')).status).toBe(200);
+  });
+});
+
+describe('library reconcile on GET', () => {
+  const get = (h: ReturnType<typeof setup>['handler'], who = 'anna') => call(h, 'GET', '/api/requests', who);
+
+  it('marks a request added when the TMDB id is in the library', async () => {
+    const { handler, library, fetchFn } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat', year: 1995, type: 'movie', tmdbId: '949' });
+    library.items = [{ Id: 'x', Name: 'Other', ProviderIds: { Tmdb: '1' } }, { Id: 'jf-1', Name: 'Heat', ProviderIds: { Tmdb: '949' } }];
+    const res = await get(handler);
+    expect(res.json.requests[0]).toMatchObject({ status: 'added', itemId: 'jf-1', handledAt: '2026-01-01T10:00:00.000Z' });
+    expect(res.json.openCount).toBe(0);
+    expect(loadRequests(file)[0]).toMatchObject({ status: 'added', itemId: 'jf-1' });
+    const [url, init] = fetchFn.mock.calls[0] as [string, { headers: { Authorization: string } }];
+    expect(url).toContain('http://jf/Users/u-anna/Items?');
+    expect(url).toContain('IncludeItemTypes=Movie');
+    expect(url).toContain('searchTerm=Heat');
+    expect(init.headers.Authorization).toBe('MediaBrowser Token="anna"');
+  });
+
+  it('matches on the IMDb id when there is no TMDB id', async () => {
+    const { handler, library } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat', imdbId: 'tt0113277' });
+    library.items = [{ Id: 'jf-2', Name: 'Heat', ProviderIds: { Imdb: 'tt0113277' } }];
+    expect((await get(handler)).json.requests[0]).toMatchObject({ status: 'added', itemId: 'jf-2' });
+  });
+
+  it('matches on title and year (plus or minus one) without ids', async () => {
+    const { handler, library, advance } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: ' heat ', year: 1995 });
+    library.items = [{ Id: 'far', Name: 'Heat', ProductionYear: 1986 }];
+    expect((await get(handler)).json.requests[0].status).toBe('open');
+    advance(11 * 60 * 1000);
+    library.items = [{ Id: 'near', Name: 'HEAT', ProductionYear: 1996 }];
+    expect((await get(handler)).json.requests[0]).toMatchObject({ status: 'added', itemId: 'near' });
+  });
+
+  it('does not let a name overrule ids, unless the library items have no ids at all', async () => {
+    const { handler, library, advance } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat', year: 1995, tmdbId: '949' });
+    library.items = [{ Id: 'other', Name: 'Heat', ProductionYear: 1995, ProviderIds: { Tmdb: '1' } }];
+    expect((await get(handler)).json.requests[0].status).toBe('open');
+    advance(11 * 60 * 1000);
+    library.items = [{ Id: 'bare', Name: 'Heat', ProductionYear: 1995, ProviderIds: {} }];
+    expect((await get(handler)).json.requests[0]).toMatchObject({ status: 'added', itemId: 'bare' });
+  });
+
+  it('leaves the request open when nothing matches', async () => {
+    const { handler, library } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat', tmdbId: '949' });
+    library.items = [];
+    const res = await get(handler);
+    expect(res.json.requests[0].status).toBe('open');
+    expect(res.json.openCount).toBe(1);
+  });
+
+  it('ignores Jellyfin errors', async () => {
+    const { handler, library, fetchFn } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat', tmdbId: '949' });
+    library.fail = true;
+    const res = await get(handler);
+    expect(res.status).toBe(200);
+    expect(res.json.requests[0].status).toBe('open');
+    fetchFn.mockResolvedValueOnce(new Response('nope', { status: 500 }));
+    library.fail = false;
+    expect((await get(handler)).status).toBe(200);
+  });
+
+  it('checks a request at most once per 10 minutes', async () => {
+    const { handler, fetchFn, advance } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat', tmdbId: '949' });
+    await get(handler);
+    await get(handler);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    advance(9 * 60 * 1000);
+    await get(handler);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    advance(2 * 60 * 1000);
+    await get(handler);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('only sets itemId on an added request and keeps handledAt', async () => {
+    const { handler, library, advance } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: 'Heat', tmdbId: '949' });
+    advance(1000);
+    await call(handler, 'PATCH', '/api/requests/id-1', 'owner', { status: 'added' });
+    library.items = [{ Id: 'jf-9', Name: 'Heat', ProviderIds: { Tmdb: '949' } }];
+    advance(5000);
+    const res = await get(handler);
+    expect(res.json.requests[0]).toMatchObject({ status: 'added', itemId: 'jf-9', handledAt: '2026-01-01T10:00:01.000Z' });
+  });
+
+  it('does not look up dismissed requests or added ones that have an item id', async () => {
+    const { handler, fetchFn } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: 'A', tmdbId: '1' });
+    await call(handler, 'PATCH', '/api/requests/id-1', 'owner', { status: 'dismissed' });
+    await get(handler);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('lets a non-admin reconcile only their own requests, and an admin everyone', async () => {
+    const { handler, library, fetchFn, advance } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: 'A', tmdbId: '1' });
+    await call(handler, 'POST', '/api/requests', 'ben', { title: 'B', tmdbId: '2' });
+    library.items = [
+      { Id: 'ja', ProviderIds: { Tmdb: '1' } },
+      { Id: 'jb', ProviderIds: { Tmdb: '2' } },
+    ];
+    await get(handler, 'anna');
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(loadRequests(file).map((r) => [r.userName, r.status])).toEqual([['Anna', 'added'], ['Ben', 'open']]);
+    advance(1000);
+    const admin = await get(handler, 'owner');
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(admin.json.requests.map((r: { status: string }) => r.status)).toEqual(['added', 'added']);
+  });
+
+  it('reopening clears the item id', async () => {
+    const { handler, library } = setup();
+    await call(handler, 'POST', '/api/requests', 'anna', { title: 'A', tmdbId: '1' });
+    library.items = [{ Id: 'ja', ProviderIds: { Tmdb: '1' } }];
+    await get(handler);
+    const reopened = await call(handler, 'PATCH', '/api/requests/id-1', 'owner', { status: 'open' });
+    expect(reopened.json.itemId).toBeUndefined();
+    expect(loadRequests(file)[0].itemId).toBeUndefined();
   });
 });
