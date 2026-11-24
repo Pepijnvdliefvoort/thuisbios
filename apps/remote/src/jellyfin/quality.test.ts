@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { levelFor, ORIGINAL_BITRATE, playingResolution, qualityOptions, requestFor, sourceResolutionLabel } from './quality';
+import { autoCapFor, levelFor, ORIGINAL_BITRATE, playingResolution, qualityOptions, requestFor, sourceResolutionLabel } from './quality';
 import type { MediaSource } from './types';
 
 const src = (Height?: number, Width?: number): MediaSource => ({ Id: 'a', MediaStreams: [{ Type: 'Audio', Index: 1 }, { Type: 'Video', Index: 0, Height, Width } as never] });
@@ -68,5 +68,34 @@ describe('playingResolution', () => {
   });
   it('gives null when the URL has no size', () => {
     expect(playingResolution(src(1080, 1920), 'Transcode', '/videos/a/master.m3u8?VideoBitrate=4000000')).toBeNull();
+  });
+});
+
+describe('autoCapFor', () => {
+  const big = (height: number, width: number, flags: Partial<MediaSource> = {}): MediaSource => ({
+    ...src(height, width),
+    SupportsDirectPlay: false,
+    SupportsDirectStream: false,
+    ...flags,
+  });
+  const cap = { bitrate: 10_000_000, maxHeight: 1080, maxWidth: 1920, original: false };
+  it('caps a 4K source the server has to re-encode at 1080p', () => {
+    expect(autoCapFor(big(2160, 3840), { videoCopy: false })).toEqual(cap);
+  });
+  it('caps a 1440p source too', () => {
+    expect(autoCapFor(big(1440, 2560), { videoCopy: false })).toEqual(cap);
+  });
+  it('leaves direct play and direct stream alone', () => {
+    expect(autoCapFor(big(2160, 3840, { SupportsDirectPlay: true }), { videoCopy: false })).toBeNull();
+    expect(autoCapFor(big(2160, 3840, { SupportsDirectStream: true }), { videoCopy: false })).toBeNull();
+  });
+  it('leaves a source alone when the video may be copied', () => {
+    expect(autoCapFor(big(2160, 3840), { videoCopy: true })).toBeNull();
+  });
+  it('leaves a 1080p source alone', () => {
+    expect(autoCapFor(big(1080, 1920), { videoCopy: false })).toBeNull();
+  });
+  it('leaves a source of unknown size alone', () => {
+    expect(autoCapFor(big(undefined as never, undefined as never), { videoCopy: false })).toBeNull();
   });
 });
