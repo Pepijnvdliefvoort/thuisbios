@@ -19,6 +19,8 @@ export interface StreamParams {
   /** Picture size cap chosen in the player; a transcode URL without MaxHeight/MaxWidth gets them added. */
   maxHeight?: number;
   maxWidth?: number;
+  /** The video may be copied into the HLS stream (no text subtitle of ours is shown). Default false: re-encode. */
+  allowVideoStreamCopy?: boolean;
 }
 
 /** URL for a direct (static) stream of the original file. */
@@ -66,7 +68,10 @@ export function selectPlayMethod(source: MediaSource, params: StreamParams): Pla
 
 function transcodeSelection(url: string, source: MediaSource, audio: number | undefined, sub: number, params: StreamParams): PlaySelection {
   const hls = source.TranscodingSubProtocol === 'hls' || /\.m3u8(\?|$)/i.test(url);
-  const withSub = withMaxSize(withNoVideoStreamCopy(withSubtitleStreamIndex(url, sub)), params.maxHeight, params.maxWidth);
+  const subUrl = withSubtitleStreamIndex(url, sub);
+  // Burned-in subtitles always re-encode; otherwise copy only when allowed.
+  const copyUrl = params.allowVideoStreamCopy === true && sub < 0 ? subUrl : withNoVideoStreamCopy(subUrl);
+  const withSub = withMaxSize(copyUrl, params.maxHeight, params.maxWidth);
   return { method: 'Transcode', url: audio === undefined ? withSub : withAudioStreamIndex(withSub, audio), hls };
 }
 

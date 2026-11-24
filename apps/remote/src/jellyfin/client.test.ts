@@ -165,6 +165,10 @@ describe('client', () => {
     const body = JSON.parse(init.body as string);
     expect(body).toMatchObject({ UserId: 'u1', MediaSourceId: 'i 1', StartTimeTicks: 600000000, EnableTranscoding: true, AllowVideoStreamCopy: false, SubtitleStreamIndex: -1 });
     expect(body.DeviceProfile.Name).toBe(profile.Name);
+    await client.playbackInfo('u1', 'i1', profile, { allowVideoStreamCopy: true });
+    const copyCall = fetchFn.mock.calls[fetchFn.mock.calls.length - 1] as unknown as [string, RequestInit];
+    expect(copyCall[0]).toContain('AllowVideoStreamCopy=true');
+    expect(JSON.parse(copyCall[1].body as string).AllowVideoStreamCopy).toBe(true);
     expect((fetchFn.mock.calls[1] as unknown as [string])[0]).not.toContain('StartTimeTicks');
     expect(JSON.parse((fetchFn.mock.calls[1] as unknown as [string, RequestInit])[1].body as string)).not.toHaveProperty('StartTimeTicks');
   });

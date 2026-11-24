@@ -60,6 +60,8 @@ export interface PlaybackOptions {
   directPlay?: boolean;
   /** False also rules out a remux, so the server has to transcode (offered through TranscodingUrl). */
   directStream?: boolean;
+  /** True lets the server copy the video into HLS (fast start, but segment times drift). Default false: re-encode. */
+  allowVideoStreamCopy?: boolean;
 }
 
 export type MediaType = 'Movie' | 'Series';
@@ -302,6 +304,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
       const subtitleStreamIndex = options.subtitleStreamIndex === undefined ? -1 : options.subtitleStreamIndex;
       const directPlay = options.directPlay !== false;
       const directStream = options.directStream !== false;
+      const videoCopy = options.allowVideoStreamCopy === true;
       const query = [
         `UserId=${enc(userId)}`,
         `MediaSourceId=${enc(mediaSourceId)}`,
@@ -309,8 +312,8 @@ export function createClient(options: ClientOptions): JellyfinClient {
         `EnableDirectPlay=${directPlay}`,
         `EnableDirectStream=${directStream}`,
         'EnableTranscoding=true',
-        // Never remux the video into HLS: copied segments do not line up with the playlist, so our subtitles drift.
-        'AllowVideoStreamCopy=false',
+        // Remuxed HLS segments do not line up with the playlist, so our subtitles drift: copy only without them.
+        `AllowVideoStreamCopy=${videoCopy}`,
         ...(startTicks ? [`StartTimeTicks=${startTicks}`] : []),
         ...(audioStreamIndex !== undefined ? [`AudioStreamIndex=${audioStreamIndex}`] : []),
         ...(subtitleStreamIndex !== null ? [`SubtitleStreamIndex=${subtitleStreamIndex}`] : []),
@@ -322,7 +325,7 @@ export function createClient(options: ClientOptions): JellyfinClient {
         EnableDirectPlay: directPlay,
         EnableDirectStream: directStream,
         EnableTranscoding: true,
-        AllowVideoStreamCopy: false,
+        AllowVideoStreamCopy: videoCopy,
         AutoOpenLiveStream: false,
         ...(startTicks ? { StartTimeTicks: startTicks } : {}),
         ...(audioStreamIndex !== undefined ? { AudioStreamIndex: audioStreamIndex } : {}),
