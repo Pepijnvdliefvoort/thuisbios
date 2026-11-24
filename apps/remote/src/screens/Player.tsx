@@ -21,7 +21,7 @@ import { playingResolution, qualityOptions, requestFor, sourceLevel, type Qualit
 import { nextArmedAt, nextEpisodeCard, planNextEpisode, shouldMarkPlayedOnSkip, type NextEpisodePlan } from '../jellyfin/nextEpisode';
 import { mpegTsShift } from '../jellyfin/hlsTimeline';
 import { activeIntro, type MediaSegment } from '../jellyfin/segments';
-import { createThrottle, resolveStreamUrl, selectPlayMethod, type PlaySelection } from '../jellyfin/playback';
+import { createThrottle, resolveStreamUrl, selectPlayMethod, videoCopyAllowed, type PlaySelection } from '../jellyfin/playback';
 import { activeCueText, listSubtitles, parseVtt, pickInitialSubtitle, subtitleVttUrl, type Cue } from '../jellyfin/subtitles';
 import type { BaseItem, MediaSource, PlaybackReport } from '../jellyfin/types';
 import { COARSE_QUERY, useFinePointer } from '../useDesktop';
@@ -46,6 +46,13 @@ const PROGRESS_MS = 10000;
 /** Pause, play and seek reports go out at once, but never more often than this. */
 const EVENT_REPORT_MS = 1000;
 const HLS_MIME = 'application/vnd.apple.mpegurl';
+
+let nativeHlsCache: boolean | undefined;
+/** True where the browser plays HLS itself (iPhone / Safari); false where hls.js has to. Computed once. */
+function browserPlaysHlsNatively(): boolean {
+  if (nativeHlsCache === undefined) nativeHlsCache = document.createElement('video').canPlayType(HLS_MIME) !== '';
+  return nativeHlsCache;
+}
 /** Controls fade out this long after the last touch while playing. */
 const HIDE_MS = 3000;
 /** Mouse: a second click within this time is a double click (fullscreen) and not a play / pause. */
@@ -104,7 +111,9 @@ interface Loaded {
  * SubtitleStreamIndex=-1, or else Jellyfin burns in the item's default track (it only honours the audio and
  * subtitle index together with MediaSourceId, which the client always sends). An image track (PGS, dvdsub) can only be
  * burned in: choosing one restarts the stream like an audio switch, and so does leaving it for a text track or Off.
- * PlaybackInfo sends AllowVideoStreamCopy=true only while no text subtitle of ours is shown (`copyOk`): then
+ * PlaybackInfo sends AllowVideoStreamCopy=true only while no text subtitle of ours is shown (`copyOk`) and never
+ * where the browser plays HLS itself (iPhone / Safari: its player stutters at every segment boundary of a remuxed
+ * stream, while hls.js copes): then
  * Jellyfin may remux the video into HLS instead of re-encoding it, which starts much faster. Remuxed segments are cut
  * at keyframes and do not line up with the playlist times, so our overlay would drift by seconds; with a text
  * subtitle on the video is re-encoded, which lines them up exactly (the hls.js shift is then 0). The first guess
@@ -210,7 +219,7 @@ export function Player({
   // Never chose a subtitle language: the first request omits SubtitleStreamIndex, so the server reports its own default.
   const [probe, setProbe] = useState(() => loadSubtitleLang() === null);
   // Video copy (remux) allowed: no text subtitle is shown. Guess from the last choice; the first answer settles it.
-  const [copyOk, setCopyOk] = useState(() => loadSubtitleLang() === '');
+  const [copyOk, setCopyOk] = useState(() => videoCopyAllowed({ nativeHls: browserPlaysHlsNatively(), textSubtitleOn: loadSubtitleLang() !== '' }));
   const restartTicks = useRef(startTicks);
   const picked = useRef(false);
   const [qualitySel, setQualitySel] = useState<QualityId>(sessionQuality);
@@ -643,7 +652,7 @@ export function Player({
           const sel = pickInitialSubtitle(subs, loadSubtitleLang(), source.DefaultSubtitleStreamIndex);
           setSubSel(sel);
           const burn = sel >= 0 && subs[sel].burnIn ? subs[sel].index : null;
-          const copyNow = !(sel >= 0 && !subs[sel].burnIn);
+          const copyNow = videoCopyAllowed({ nativeHls: browserPlaysHlsNatively(), textSubtitleOn: sel >= 0 && !subs[sel].burnIn });
           // A wrong copy guess only matters when the file cannot direct play (then the server remuxes or transcodes).
           const copyMatters = copyNow !== copyOk && !source.SupportsDirectPlay;
           if (want !== null || burn !== null || probe || copyMatters) {

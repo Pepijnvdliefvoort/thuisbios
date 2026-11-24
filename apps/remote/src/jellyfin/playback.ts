@@ -23,6 +23,11 @@ export interface StreamParams {
   allowVideoStreamCopy?: boolean;
 }
 
+/** Video copy (remux) is for hls.js only: Safari's own HLS player stutters at every segment of a remuxed stream (cut points do not match the playlist), and our text subtitle overlay drifts on one. */
+export function videoCopyAllowed(opts: { nativeHls: boolean; textSubtitleOn: boolean }): boolean {
+  return !opts.nativeHls && !opts.textSubtitleOn;
+}
+
 /** URL for a direct (static) stream of the original file. */
 export function buildStaticUrl(source: MediaSource, params: StreamParams): string {
   const query = [
