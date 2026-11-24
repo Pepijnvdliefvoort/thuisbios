@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { JellyfinClient } from '../jellyfin/client';
-import { formatClock } from '../jellyfin/format';
+import { chapterImageUrl, parseChapters, type Chapter } from '../jellyfin/chapters';
+import { formatClock, ticksToSeconds } from '../jellyfin/format';
 import { clampTipCenter, pickTrickplay, sheetsNear, sheetUrl, thumbIndex, thumbPlace, thumbStyle, type TrickplaySet } from '../jellyfin/trickplay';
 import type { BaseItem } from '../jellyfin/types';
 
@@ -13,10 +14,12 @@ export interface ScrubSource {
 }
 
 /**
- * The item's scrub preview sheets (Jellyfin trickplay), or null while loading, when the server has none, or when
- * `enabled` is false (offline: the pictures would come from the network). `mediaSourceId` is the source playing, if known.
+ * The item's scrub preview sheets (Jellyfin trickplay) and chapters from one request. `source` is null while loading,
+ * when the server has none, or when `enabled` is false (offline: the pictures would come from the network). `chapters`
+ * is empty then too. `mediaSourceId` is the source playing, if known; `runtimeSec` the length when the caller knows it
+ * (else the item's own).
  */
-export function useScrubSource(
+export function useScrubInfo(
   client: JellyfinClient,
   userId: string,
   token: string,
@@ -24,7 +27,8 @@ export function useScrubSource(
   mediaSourceId: string | null,
   displayWidth: number,
   enabled: boolean,
-): ScrubSource | null {
+  runtimeSec = 0,
+): { source: ScrubSource | null; chapters: Chapter[] } {
   const [item, setItem] = useState<BaseItem | null>(null);
   useEffect(() => {
     let alive = true;
@@ -39,10 +43,31 @@ export function useScrubSource(
       alive = false;
     };
   }, [client, userId, itemId, enabled]);
-  return useMemo(() => {
+  const source = useMemo(() => {
     const set = item ? pickTrickplay(item, mediaSourceId, displayWidth) : null;
     return set ? { set, serverUrl: client.serverUrl, itemId, token } : null;
   }, [item, mediaSourceId, displayWidth, client, itemId, token]);
+  const chapters = useMemo(() => {
+    const list = item ? parseChapters(item.Chapters, runtimeSec > 0 ? runtimeSec : ticksToSeconds(item.RunTimeTicks || 0)) : [];
+    return list.map((c) => {
+      const image = chapterImageUrl(client.serverUrl, itemId, c, 160);
+      return image ? { ...c, image } : c;
+    });
+  }, [item, runtimeSec, client, itemId]);
+  return { source, chapters };
+}
+
+/** Just the scrub preview sheets of `useScrubInfo`. */
+export function useScrubSource(
+  client: JellyfinClient,
+  userId: string,
+  token: string,
+  itemId: string,
+  mediaSourceId: string | null,
+  displayWidth: number,
+  enabled: boolean,
+): ScrubSource | null {
+  return useScrubInfo(client, userId, token, itemId, mediaSourceId, displayWidth, enabled).source;
 }
 
 const preloaded = new Set<string>();
@@ -62,7 +87,7 @@ function preload(src: ScrubSource, seconds: number): void {
 /**
  * The frame and time shown above the scrub bar while scrubbing. `x` is where the tip wants to be and `y` the bottom
  * edge of the tip, in px inside a container `containerWidth` wide; it is kept inside that container. Without `source`
- * only the time shows.
+ * only the time shows, with the chapter `label` above it when given.
  */
 export function ScrubPreview({
   source,
@@ -71,6 +96,7 @@ export function ScrubPreview({
   y,
   containerWidth,
   thumbWidth,
+  label,
 }: {
   source: ScrubSource | null;
   seconds: number;
@@ -78,6 +104,8 @@ export function ScrubPreview({
   y: number;
   containerWidth: number;
   thumbWidth: number;
+  /** The chapter name, shown above the time. */
+  label?: string;
 }) {
   useEffect(() => {
     if (source) preload(source, seconds);
@@ -100,6 +128,7 @@ export function ScrubPreview({
   return (
     <div class="scrub-tip" style={{ left: `${clampTipCenter(x, width, containerWidth)}px`, top: `${y}px` }} aria-hidden="true">
       {frame}
+      {label ? <span class="scrub-label">{label}</span> : null}
       <span class="scrub-time">{formatClock(seconds)}</span>
     </div>
   );
