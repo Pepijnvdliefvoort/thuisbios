@@ -6,6 +6,7 @@ import type { ProgressSync } from './offline/progressSync';
 import type { DownloadsApi } from './offline/useDownloads';
 import type { RequestsState } from './useRequests';
 import type { PrivacyApi } from './usePrivateLibrary';
+import type { SyncPlayApp } from './useSyncPlay';
 import type { TvApi } from './useTv';
 
 export interface AppContext {
@@ -15,6 +16,8 @@ export interface AppContext {
   privacy: PrivacyApi;
   session: Session;
   tv: TvApi;
+  /** Watch together (Jellyfin SyncPlay): the group this device is in and the actions around it. */
+  syncplay: SyncPlayApp;
   /** Title requests (sent from Search) and the admin's open count. */
   requests: RequestsState;
   /** Offline downloads: the queue, live progress and the actions. Phone only in the UI. */
@@ -29,8 +32,8 @@ export interface AppContext {
   /** Opens a person's screen (from the cast row on Details). */
   openPerson(id: string, name: string): void;
   openNowPlaying(): void;
-  /** Plays an item in the app's own player on this device (the phone, or the desktop browser). A finished download of it plays from the device. */
-  playHere(item: BaseItem, startTicks: number): void;
+  /** Plays an item in the app's own player on this device (the phone, or the desktop browser). A finished download of it plays from the device, unless `remote` asks for the server's stream (watch together). */
+  playHere(item: BaseItem, startTicks: number, remote?: boolean): void;
   /** Opens the Connect TV screen (enter the Quick Connect code shown on the TV). */
   openConnectTv(): void;
   /** Opens the owner's list of requests (account menu). */

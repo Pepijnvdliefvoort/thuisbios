@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
+import { TogetherSheet } from '../components/TogetherSheet';
+import { usePlayerSync } from '../syncplay/usePlayerSync';
 import { PlayerControls } from '../components/PlayerControls';
 import { useScrubInfo } from '../components/ScrubPreview';
 import { NextEpisodeCard } from '../components/NextEpisodeCard';
@@ -245,6 +247,19 @@ export function Player({
   const markedRef = useRef(false);
   const autoDelete = useRef(false);
   const planRef = useRef<NextEpisodePlan | null>(null);
+  // Watch together: inside a group the controls ask the group and the group drives the video (see syncplay/usePlayerSync.ts).
+  const [togetherOpen, setTogetherOpen] = useState(false);
+  const sync = usePlayerSync({
+    video,
+    item,
+    enabled: !isLocal && !isTrailer,
+    ownStream,
+    advancing,
+    toMedia,
+    toVideo,
+    switchTo: (episode, markPlayed) => switchTo(episode, markPlayed),
+    stream: loaded,
+  });
 
   // Intro markers (empty without the Intro Skipper plugin).
   useEffect(() => {
@@ -373,6 +388,7 @@ export function Player({
     if (el && el.currentTime > 0) restartTicks.current = secondsToTicks(toMedia(el.currentTime));
     else restartTicks.current = secondsToTicks(lastTime.current);
     setBuffering(true);
+    sync.noteRestart();
   };
   const chooseAudio = (index: number) => {
     prepareRestart();
@@ -417,7 +433,7 @@ export function Player({
   const controlsUp = shown || keepUp;
   const togglePlay = () => {
     const el = video.current;
-    if (!el) return;
+    if (!el || sync.toggle()) return;
     if (el.paused) void el.play().catch(() => undefined);
     else el.pause();
   };
@@ -426,6 +442,11 @@ export function Player({
     if (!el) return;
     const max = duration > 0 ? duration : seconds;
     const to = Math.max(0, Math.min(max, seconds));
+    if (sync.active) {
+      setNow(to);
+      sync.seek(to);
+      return;
+    }
     el.currentTime = toVideo(to);
     setNow(to);
   };
@@ -498,6 +519,7 @@ export function Player({
   const onKey = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement | null;
     if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+    if (togetherOpen) return; // the group sheet has the keyboard (Esc closes it)
     const action = playerKeyAction(e);
     if (!action) return;
     if (action.type === 'exit') {
@@ -765,7 +787,8 @@ export function Player({
     }
     const onMeta = () => {
       seekToStart();
-      void el.play().catch(() => undefined); // blocked autoplay: stays paused, the big play button starts it
+      // In a group the group's Unpause starts everybody together.
+      if (!sync.holdStart()) void el.play().catch(() => undefined); // blocked autoplay: stays paused, the big play button starts it
     };
     // A failure before the first frame is retried once with the safe profile (same start, restartTicks); later ones show the error.
     let started = false;
@@ -813,7 +836,7 @@ export function Player({
           instance.loadSource(loaded.url);
           ownStream.current = true;
           instance.attachMedia(el);
-          el.addEventListener('loadedmetadata', () => void el.play().catch(() => undefined), { once: true });
+          el.addEventListener('loadedmetadata', () => !sync.holdStart() && void el.play().catch(() => undefined), { once: true });
         })
         .catch(() => {
           if (!destroyed) setError(true);
@@ -965,6 +988,12 @@ export function Player({
    */
   const advance = (early: boolean): boolean => {
     if (advancing.current) return true;
+    if (sync.active) {
+      // The group moves everybody on (the server ignores the second request when several devices ask at once).
+      if (!sync.hasNext || cancelled) return false;
+      sync.next(early);
+      return true;
+    }
     if (!next || cancelled) return false;
     switchTo(next, early);
     return true;
@@ -978,10 +1007,10 @@ export function Player({
   const episodeNav =
     item.Type === 'Episode'
       ? {
-          hasPrevious: !!previous,
-          hasNext: !!next,
-          onPrevious: () => previous && switchTo(previous, false),
-          onNext: () => next && switchTo(next, shouldMarkPlayedOnSkip(plan, now)),
+          hasPrevious: sync.active ? sync.hasPrevious : !!previous,
+          hasNext: sync.active ? sync.hasNext : !!next,
+          onPrevious: () => (sync.active ? sync.previous() : previous && switchTo(previous, false)),
+          onNext: () => (sync.active ? sync.next(shouldMarkPlayedOnSkip(plan, now)) : next && switchTo(next, shouldMarkPlayedOnSkip(plan, now))),
         }
       : undefined;
   useMediaSession({
@@ -1019,6 +1048,7 @@ export function Player({
     const el = video.current;
     if (!intro || !el) return;
     const end = ticksToSeconds(intro.endTicks);
+    if (sync.active) return seekTo(end);
     el.currentTime = toVideo(end);
     setNow(end);
   };
@@ -1160,6 +1190,7 @@ export function Player({
             onSelectAudio={chooseAudio}
             onBusy={setBusy}
             episodeNav={episodeNav}
+            together={sync.together ? { count: sync.together.participants.length, onOpen: () => setTogetherOpen(true) } : undefined}
             onInteract={interact}
             scrubSource={scrubSource}
             chapters={chapters}
@@ -1197,6 +1228,17 @@ export function Player({
           )}
         </div>
       )}
+      {togetherOpen && sync.together ? (
+        <TogetherSheet
+          name={sync.together.name}
+          participants={sync.together.participants}
+          onLeave={() => {
+            setTogetherOpen(false);
+            sync.leave();
+          }}
+          onClose={() => setTogetherOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
