@@ -1,8 +1,8 @@
 import type { ComponentChildren } from 'preact';
 
 /**
- * A tile of the phone quick-action row: a round icon button with a short label under it. `on` shows the toggled
- * state (in My list, watched); pass `pressed` to expose it as aria-pressed.
+ * A tile of the phone quick-action row: a flat icon button (no circle) with a short label under it, in a strip
+ * with hairlines above and below. `on` shows the toggled state with a green icon (in My list, watched); pass `pressed` to expose it as aria-pressed.
  */
 export function ActionTile({
   label,

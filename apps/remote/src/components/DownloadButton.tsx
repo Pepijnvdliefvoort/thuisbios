@@ -153,13 +153,13 @@ export function DownloadButton({ item, variant = 'button' }: { item: BaseItem; v
   const entry = downloads.get(item.Id);
   const label = downloadLabel(entry);
   const glyph = !entry ? (
-    <Icon name="download" size={variant === 'button' ? 20 : 22} />
+    <Icon name="download" size={variant === 'button' ? 20 : variant === 'tile' ? 24 : 22} />
   ) : entry.state === 'done' ? (
-    <Icon name="downloadDone" size={variant === 'button' ? 20 : 22} />
+    <Icon name="downloadDone" size={variant === 'button' ? 20 : variant === 'tile' ? 24 : 22} />
   ) : entry.state === 'failed' ? (
-    <Icon name="info" size={variant === 'button' ? 20 : 22} />
+    <Icon name="info" size={variant === 'button' ? 20 : variant === 'tile' ? 24 : 22} />
   ) : (
-    <ProgressRing value={entryProgress(entry)} size={variant === 'icon' ? 24 : 22} />
+    <ProgressRing value={entryProgress(entry)} size={variant === 'button' ? 22 : 24} />
   );
   const sheets = (
     <>
@@ -199,26 +199,39 @@ export function DownloadButton({ item, variant = 'button' }: { item: BaseItem; v
   );
 }
 
+/** Which episodes of a list still need downloading: `todo`, plus `none` (nothing left) and `allDone` (all saved). */
+export function seasonDownloadState(episodes: BaseItem[], get: (id: string) => DownloadEntry | undefined) {
+  const todo = episodes.filter((ep) => isDownloadable(ep) && !get(ep.Id));
+  const none = episodes.length > 0 && todo.length === 0;
+  const allDone = none && episodes.every((ep) => (get(ep.Id) || { state: '' }).state === 'done');
+  return { todo, none, allDone };
+}
+
+/** Label of the season download entry. */
+export function seasonDownloadLabel(none: boolean, allDone: boolean): string {
+  return allDone ? 'Season downloaded' : none ? 'Season in Downloads' : 'Download season';
+}
+
+/** Title of the quality sheet for the episodes still to download. */
+export function seasonQualityTitle(count: number): string {
+  return count === 1 ? 'Download 1 episode' : `Download ${count} episodes`;
+}
+
 /** "Download season": one quality for every episode of the list that is not downloaded yet. */
 export function DownloadSeasonButton({ episodes }: { episodes: BaseItem[] }) {
   const { downloads } = useApp();
   const desktop = useDesktop();
   const [open, setOpen] = useState(false);
   if (desktop || !downloads.supported) return null;
-  const todo = episodes.filter((ep) => {
-    const e = downloads.get(ep.Id);
-    return isDownloadable(ep) && !e;
-  });
-  const none = episodes.length > 0 && todo.length === 0;
-  const allDone = none && episodes.every((ep) => (downloads.get(ep.Id) || { state: '' }).state === 'done');
+  const { todo, none, allDone } = seasonDownloadState(episodes, downloads.get);
   return (
     <>
       <button type="button" class="btn-small" disabled={none} onClick={() => setOpen(true)}>
-        <Icon name={none ? 'check' : 'download'} size={18} /> {allDone ? 'Season downloaded' : none ? 'Season in Downloads' : 'Download season'}
+        <Icon name={none ? 'check' : 'download'} size={18} /> {seasonDownloadLabel(none, allDone)}
       </button>
       {open ? (
         <QualitySheet
-          title={todo.length === 1 ? 'Download 1 episode' : `Download ${todo.length} episodes`}
+          title={seasonQualityTitle(todo.length)}
           items={todo}
           onClose={() => setOpen(false)}
           onConfirm={(q) => {
