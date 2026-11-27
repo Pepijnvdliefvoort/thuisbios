@@ -284,8 +284,9 @@ input:focus { outline: none; border-color: var(--accent); }
 .details-skel-phone .skel-chip { width: 52px; height: 16px; }
 .details-skel-phone .skel-chip.wide { width: 84px; }
 .details-skel-phone .skel-button { width: 100%; height: 48px; border-radius: var(--radius); background: rgba(255, 255, 255, 0.14); }
-.details-skel-phone .skel-tiles { display: flex; justify-content: space-between; padding: 0 6px; }
-.details-skel-phone .skel-circle { width: 48px; height: 48px; border-radius: 50%; }
+.details-skel-phone .skel-play-row { display: flex; gap: 10px; }
+.details-skel-phone .skel-tiles { display: flex; justify-content: space-around; margin-top: 6px; padding: 12px 0; border-top: 1px solid var(--surface-2); border-bottom: 1px solid var(--surface-2); }
+.details-skel-phone .skel-flat { width: 48px; height: 28px; border-radius: 6px; }
 .details-skel-phone .skel-line { width: 100%; height: 14px; }
 .details-skel-phone .skel-line.mid { width: 85%; }
 .details-skel-phone .skel-line.short { width: 55%; }
@@ -328,31 +329,36 @@ input:focus { outline: none; border-color: var(--accent); }
 .next-ep { color: var(--muted); font-size: 14px; }
 .overview { padding: 12px var(--gutter) 0; color: #d6d6de; }
 
-/* Phone details: primary button, resume line, quick-action row, clamped overview */
+/* Phone details: play row, flat quick-action strip, clamped overview */
 .details-actions { display: flex; flex-direction: column; gap: 10px; padding: 16px var(--gutter) 4px; }
-.resume-line { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: -4px; font-size: 13px; color: var(--muted); }
-.resume-bar { flex: 1 1 0; min-width: 24px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
-.resume-bar i { display: block; height: 100%; border-radius: 2px; background: var(--fg); }
-.resume-left { flex: none; white-space: nowrap; }
-.restart-btn {
-  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-left: auto; padding: 0 10px;
-  border-radius: 22px; font-size: 13px; font-weight: 600; color: var(--fg);
+.play-row { display: flex; gap: 10px; }
+.play-main { position: relative; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.btn-sub { min-width: 0; font-weight: 500; opacity: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-label { flex: none; white-space: nowrap; }
+.btn-progress { position: absolute; left: 14px; right: 14px; bottom: 7px; height: 3px; border-radius: 2px; background: rgba(0, 0, 0, 0.15); overflow: hidden; }
+.btn-progress i { display: block; height: 100%; border-radius: 2px; background: #111; }
+@media (max-width: 359px) {
+  .play-row .btn-sub { display: none; }
 }
-.restart-btn:disabled { opacity: 0.5; }
+.restart-btn {
+  flex: none; display: flex; align-items: center; justify-content: center; width: 48px; min-height: 48px;
+  border-radius: var(--radius); background: var(--surface-2); color: var(--fg);
+}
+.restart-btn:disabled { opacity: 0.4; }
 .restart-btn .icon { flex: none; }
-.quick-actions { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
+.quick-actions {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; margin-top: 6px; padding: 6px 0;
+  border-top: 1px solid var(--surface-2); border-bottom: 1px solid var(--surface-2);
+}
 .action-tile {
-  display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; min-height: 44px; padding: 4px 0;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; min-height: 44px; padding: 4px 0;
   color: var(--fg); background: none;
 }
-.tile-circle {
-  display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%;
-  background: var(--surface-2); color: var(--fg);
-}
+.tile-circle { display: flex; align-items: center; justify-content: center; width: auto; height: 28px; color: var(--fg); }
 .tile-circle .icon, .tile-circle .dl-ring { flex: none; }
 .tile-label { max-width: 100%; padding: 0 2px; font-size: 12px; line-height: 1.2; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .action-tile:disabled { opacity: 0.5; }
-.action-tile.on .tile-circle { background: var(--fg); color: #111; }
+.action-tile.on .tile-circle { color: #6fcf8e; }
 .action-tile.on .tile-label { color: var(--fg); }
 .action-tile.dl-tile.failed .tile-circle { color: #ff8a80; }
 .overview-wrap { display: flex; flex-direction: column; align-items: flex-start; }
@@ -368,6 +374,10 @@ input:focus { outline: none; border-color: var(--accent); }
 .genres { padding: 8px var(--gutter) 0; color: var(--muted); font-size: 14px; }
 .episodes { padding: 20px 0 0; }
 .episodes h2 { font-size: 18px; padding: 0 var(--gutter); }
+.episodes-head { display: flex; align-items: center; justify-content: space-between; padding-right: calc(var(--gutter) - 10px); }
+.episodes-head h2 { padding-right: 0; }
+.season-more { flex: none; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; color: var(--fg); background: none; }
+.season-more:active { transform: scale(0.95); }
 .seasons { display: flex; gap: 8px; overflow-x: auto; padding: 10px var(--gutter); scrollbar-width: none; }
 .seasons::-webkit-scrollbar { display: none; }
 .pill { flex: none; min-height: 40px; padding: 0 16px; border-radius: 20px; background: var(--surface); color: var(--muted); font-weight: 600; }
@@ -1529,13 +1539,11 @@ button.rs-row:active { background: var(--surface-2); }
     -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
   }
 
-  /* Details: quick-action tiles and the From start button */
-  html.ios-glass .tile-circle,
+  /* Details: the restart button */
   html.ios-glass .restart-btn {
     background: var(--glass-fill); border: var(--glass-edge); box-shadow: var(--glass-highlight);
     -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
   }
-  html.ios-glass .action-tile.on .tile-circle { background: var(--fg); color: #111; }
 
   /* Details: back button */
   html.ios-glass .back {
