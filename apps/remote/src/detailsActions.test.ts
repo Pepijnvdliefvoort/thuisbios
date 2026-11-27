@@ -7,18 +7,18 @@ describe('splitQuickActions', () => {
     expect(splitQuickActions([])).toEqual({ row: [], more: [] });
   });
 
-  it('keeps four in the row and moves the rest to More', () => {
-    expect(splitQuickActions(['list', 'trailer', 'download', 'together', 'watched'])).toEqual({
-      row: ['list', 'trailer', 'download', 'together'],
-      more: ['watched'],
+  it('keeps three in the row and moves the rest to More', () => {
+    expect(splitQuickActions(['list', 'trailer', 'download', 'watched', 'together'])).toEqual({
+      row: ['list', 'trailer', 'download'],
+      more: ['watched', 'together'],
     });
   });
 
-  it('overflows only together and watched in the usual order', () => {
-    const all: QuickActionId[] = ['list', 'trailer', 'download', 'together', 'watched'];
+  it('overflows only watched and together in the usual order', () => {
+    const all: QuickActionId[] = ['list', 'trailer', 'download', 'watched', 'together'];
     for (let n = 0; n <= all.length; n++) {
       const { more } = splitQuickActions(all.slice(0, n));
-      for (const id of more) expect(['together', 'watched']).toContain(id);
+      for (const id of more) expect(['watched', 'together']).toContain(id);
     }
   });
 

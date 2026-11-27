@@ -1,7 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { CastSection } from '../components/CastSection';
 import { ActionTile } from '../components/ActionTile';
-import { DownloadButton, DownloadSeasonButton } from '../components/DownloadButton';
+import {
+  DownloadButton,
+  DownloadSeasonButton,
+  QualitySheet,
+  seasonDownloadLabel,
+  seasonDownloadState,
+  seasonQualityTitle,
+} from '../components/DownloadButton';
 import { Icon, type IconName } from '../components/Icon';
 import { MenuSheet } from '../components/MenuSheet';
 import { TrailerButton } from '../components/TrailerButton';
@@ -85,12 +92,14 @@ function PhoneDetailsSkeleton() {
           <Skeleton class="skel-chip" />
           <Skeleton class="skel-chip wide" />
         </div>
-        <Skeleton class="skel-button primary" />
+        <div class="skel-play-row">
+          <Skeleton class="skel-button primary" />
+        </div>
         <div class="skel-tiles">
-          <Skeleton class="skel-circle" />
-          <Skeleton class="skel-circle" />
-          <Skeleton class="skel-circle" />
-          <Skeleton class="skel-circle" />
+          <Skeleton class="skel-flat" />
+          <Skeleton class="skel-flat" />
+          <Skeleton class="skel-flat" />
+          <Skeleton class="skel-flat" />
         </div>
         <Skeleton class="skel-line" />
         <Skeleton class="skel-line mid" />
@@ -273,42 +282,44 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
   );
   const overview = item.Overview ? <p class="overview">{item.Overview}</p> : null;
 
-  // Phone: one primary button, a progress line while resuming, a row of icon tiles and a "More" sheet.
+  // Phone: one play row (primary button with the resume progress inside, restart square), a flat row of icon tiles and a "More" sheet.
   const [moreOpen, setMoreOpen] = useState(false);
+  const total = playItem ? playItem.RunTimeTicks || 0 : 0;
+  const left = total > resume ? formatRuntime(total - resume) : '';
+  const resuming = resume > 0 && !!playItem;
   const primary =
-    resume > 0 && playItem ? (
-      <button type="button" class="btn primary" disabled={disabled} onClick={() => start(playItem, resume)}>
-        <Icon name="play" /> {here ? 'Resume' : 'Resume on TV'} ({formatTicksClock(resume)})
+    resuming && playItem ? (
+      <button type="button" class="btn primary play-main" disabled={disabled} onClick={() => start(playItem, resume)}>
+        <Icon name="play" />
+        <span class="btn-label">{here ? 'Resume' : 'Resume on TV'}</span>
+        <span class="btn-sub">{left ? `· ${left} left` : `· from ${formatTicksClock(resume)}`}</span>
+        {total > 0 ? (
+          <span class="btn-progress" aria-hidden="true">
+            <i style={{ width: `${Math.round(Math.min(1, resume / total) * 100)}%` }} />
+          </span>
+        ) : null}
       </button>
     ) : (
-      <button type="button" class="btn primary" disabled={disabled} onClick={() => playItem && start(playItem, 0)}>
+      <button type="button" class="btn primary play-main" disabled={disabled} onClick={() => playItem && start(playItem, 0)}>
         <Icon name="play" /> {(isSeries ? 'Play next episode' : 'Play') + (here ? '' : ' on TV')}
       </button>
     );
-  const total = playItem ? playItem.RunTimeTicks || 0 : 0;
-  const left = total > resume ? formatRuntime(total - resume) : '';
-  const resumeLine =
-    resume > 0 && playItem ? (
-      <div class="resume-line">
-        {total > 0 ? (
-          <>
-            <span class="resume-bar" aria-hidden="true">
-              <i style={{ width: `${Math.round(Math.min(1, resume / total) * 100)}%` }} />
-            </span>
-            {left ? <span class="resume-left">{left} left</span> : null}
-          </>
-        ) : null}
-        <button type="button" class="restart-btn" disabled={disabled} aria-label="Play from start" onClick={() => start(playItem, 0)}>
-          <Icon name="restart" size={16} /> From start
+  const playRow = (
+    <div class="play-row">
+      {primary}
+      {resuming && playItem ? (
+        <button type="button" class="restart-btn" disabled={disabled} aria-label="Play from start" title="Play from start" onClick={() => start(playItem, 0)}>
+          <Icon name="restart" size={22} />
         </button>
-      </div>
-    ) : null;
+      ) : null}
+    </div>
+  );
   const quickIds: QuickActionId[] = [];
   if (canAddToList(item) && !offline) quickIds.push('list');
   if (!isEpisode && !offline && !!trailerSource(item)) quickIds.push('trailer');
   if (!isSeries && downloads.supported && isDownloadable(item)) quickIds.push('download');
-  if (playItem && !offline) quickIds.push('together');
   quickIds.push('watched');
+  if (playItem && !offline) quickIds.push('together');
   const { row, more } = splitQuickActions(quickIds);
   const watchedAria = watched ? 'Watched, tap to mark unwatched' : toggle.label;
   const together = (
@@ -319,7 +330,7 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
       disabled={syncplay.busy || !!syncplay.group}
       onClick={() => void startTogether()}
     >
-      <Icon name="group" size={22} />
+      <Icon name="group" size={24} />
     </ActionTile>
   );
   const tile = (id: QuickActionId) => {
@@ -327,7 +338,7 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
       case 'list':
         return (
           <ActionTile key={id} label={listToggle.label} on={inList} pressed={inList} onClick={() => void toggleList()}>
-            <Icon name={listToggle.icon} size={22} />
+            <Icon name={listToggle.icon} size={24} />
           </ActionTile>
         );
       case 'trailer':
@@ -339,7 +350,7 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
       default:
         return (
           <ActionTile key={id} label="Watched" ariaLabel={watchedAria} on={watched} pressed={watched} onClick={() => void toggleWatched()}>
-            <Icon name={watched ? 'watched' : 'unwatched'} size={22} />
+            <Icon name={watched ? 'watched' : 'unwatched'} size={24} />
           </ActionTile>
         );
     }
@@ -352,13 +363,12 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
           Next episode: {episodeLabel(playItem)} {playItem.Name}
         </p>
       ) : null}
-      {primary}
-      {resumeLine}
+      {playRow}
       <div class="quick-actions">
         {row.map(tile)}
         {hasSheet ? (
           <ActionTile key="more" class="details-more-btn" label="More" ariaLabel="More actions" onClick={() => setMoreOpen(true)}>
-            <Icon name="more" size={22} />
+            <Icon name="more" size={24} />
           </ActionTile>
         ) : null}
       </div>
@@ -367,11 +377,11 @@ function DetailsBody({ item, reloaders, refresh }: { item: BaseItem; reloaders: 
           item={item}
           onClose={() => setMoreOpen(false)}
           entries={[
-            ...(more.includes('together')
-              ? [{ key: 'together', icon: 'group' as const, label: 'Watch together', disabled: syncplay.busy || !!syncplay.group, run: () => void startTogether() }]
-              : []),
             ...(more.includes('watched')
               ? [{ key: 'watched', icon: watched ? ('watched' as const) : ('unwatched' as const), label: toggle.label, disabled: false, run: () => void toggleWatched() }]
+              : []),
+            ...(more.includes('together')
+              ? [{ key: 'together', icon: 'group' as const, label: 'Watch together', disabled: syncplay.busy || !!syncplay.group, run: () => void startTogether() }]
               : []),
             ...(noTv ? [] : [{ key: 'tv', icon: 'eye' as const, label: 'Show on TV', disabled: false, run: () => void send(tv.show(item)) }]),
           ]}
@@ -475,10 +485,15 @@ type MoreEntry = { key: string; icon: IconName; label: string; disabled: boolean
 
 /** The "More" sheet of the phone details page: the actions that did not fit in the row, and Show on TV. */
 function DetailsMoreSheet({ item, entries, onClose }: { item: BaseItem; entries: MoreEntry[]; onClose: () => void }) {
+  return <EntrySheet title={item.Name} entries={entries} onClose={onClose} />;
+}
+
+/** A titled sheet of `btn secondary menu-row` entries; each entry runs and then closes the sheet. */
+function EntrySheet({ title, entries, onClose }: { title: string; entries: MoreEntry[]; onClose: () => void }) {
   useScrollLock();
   return (
-    <MenuSheet label={item.Name} onClose={onClose}>
-      <h2>{item.Name}</h2>
+    <MenuSheet label={title} onClose={onClose}>
+      <h2>{title}</h2>
       {entries.map((e) => (
         <button
           key={e.key}
@@ -554,6 +569,12 @@ function Episodes({
   const list = episodes.data || [];
   const isPlayed = (ep: BaseItem) => (ep.Id in pending ? pending[ep.Id] : isWatched(ep));
   const seasonToggle = watchedToggle('season', allWatched(list, pending));
+  // Phone: the season actions sit behind one button next to the heading; the quality sheet is opened from here so it outlives the menu.
+  const [seasonMenu, setSeasonMenu] = useState(false);
+  const [seasonQuality, setSeasonQuality] = useState(false);
+  const seasonName = (seasons.data || []).find((x) => x.Id === seasonId)?.Name || 'Season';
+  const seasonDl = seasonDownloadState(list, downloads.get);
+  const showSeasonTools = !!seasonId && list.length > 0;
   const change = async (id: string, next: boolean, affected: BaseItem[]) => {
     const marks: Record<string, boolean> = {};
     affected.forEach((ep) => (marks[ep.Id] = next));
@@ -565,7 +586,16 @@ function Episodes({
   useRegisterReload(reloaders, episodes.reload);
   return (
     <section class="episodes">
-      <h2>{onEpisodePage ? 'More episodes' : 'Episodes'}</h2>
+      {!desktop && showSeasonTools ? (
+        <div class="episodes-head">
+          <h2>{onEpisodePage ? 'More episodes' : 'Episodes'}</h2>
+          <button type="button" class="season-more" aria-label="Season actions" onClick={() => setSeasonMenu(true)}>
+            <Icon name="more" size={24} />
+          </button>
+        </div>
+      ) : (
+        <h2>{onEpisodePage ? 'More episodes' : 'Episodes'}</h2>
+      )}
       {seasons.data && seasons.data.length > 0 ? (
         <div class="seasons" role="tablist">
           {seasons.data.map((s) => (
@@ -582,13 +612,50 @@ function Episodes({
           ))}
         </div>
       ) : null}
-      {seasonId && list.length > 0 ? (
+      {desktop && showSeasonTools && seasonId ? (
         <div class="season-tools">
           <button type="button" class="btn-small" onClick={() => void change(seasonId, seasonToggle.next, list)}>
             <Icon name={seasonToggle.next ? 'unwatched' : 'watched'} size={18} /> {seasonToggle.label}
           </button>
           <DownloadSeasonButton episodes={list} />
         </div>
+      ) : null}
+      {seasonMenu && seasonId ? (
+        <EntrySheet
+          title={seasonName}
+          entries={[
+            {
+              key: 'watched',
+              icon: seasonToggle.next ? 'unwatched' : 'watched',
+              label: seasonToggle.label,
+              disabled: false,
+              run: () => void change(seasonId, seasonToggle.next, list),
+            },
+            ...(downloads.supported
+              ? [
+                  {
+                    key: 'download',
+                    icon: seasonDl.none ? ('check' as const) : ('download' as const),
+                    label: seasonDownloadLabel(seasonDl.none, seasonDl.allDone),
+                    disabled: seasonDl.none,
+                    run: () => setSeasonQuality(true),
+                  },
+                ]
+              : []),
+          ]}
+          onClose={() => setSeasonMenu(false)}
+        />
+      ) : null}
+      {seasonQuality ? (
+        <QualitySheet
+          title={seasonQualityTitle(seasonDl.todo.length)}
+          items={seasonDl.todo}
+          onClose={() => setSeasonQuality(false)}
+          onConfirm={(q) => {
+            setSeasonQuality(false);
+            void downloads.enqueue(seasonDl.todo, q);
+          }}
+        />
       ) : null}
       {episodes.loading && !episodes.data ? <p class="hint">Loading...</p> : null}
       <ul class="ep-list">

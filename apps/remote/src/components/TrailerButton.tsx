@@ -40,7 +40,7 @@ export function TrailerButton({ item, variant = 'button' }: { item: BaseItem; va
     <>
       {variant === 'tile' ? (
         <ActionTile label="Trailer" disabled={busy} onClick={() => void open()}>
-          <Icon name="trailer" size={22} />
+          <Icon name="trailer" size={24} />
         </ActionTile>
       ) : (
         <button type="button" class="btn secondary" disabled={busy} onClick={() => void open()}>
