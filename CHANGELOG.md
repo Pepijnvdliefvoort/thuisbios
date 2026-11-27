@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.5.0...v1.6.0) (2026-11-27)
+
+
+### Features
+
+* **remote:** redesign phone details page as one calm layout ([#281](https://github.com/Pepijnvdliefvoort/thuisbios/issues/281)) ([fe65953](https://github.com/Pepijnvdliefvoort/thuisbios/commit/fe65953965319e55941d03f3ed37dee45d31d316))
+
 ## [1.5.0](https://github.com/Pepijnvdliefvoort/thuisbios/compare/v1.4.4...v1.5.0) (2026-11-24)
 
 
